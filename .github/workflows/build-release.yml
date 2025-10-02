@@ -1,0 +1,130 @@
+name: Build Executables
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:  # Allow manual trigger
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+        pip install -r requirements.txt
+
+    - name: Build with PyInstaller
+      run: |
+        cd backend
+        pyinstaller tagger.spec
+
+    - name: Create ZIP archive
+      run: |
+        cd backend/dist
+        powershell Compress-Archive -Path ai-image-tagger -DestinationPath ai-image-tagger-windows.zip
+
+    - name: Upload Windows artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ai-image-tagger-windows
+        path: backend/dist/ai-image-tagger-windows.zip
+
+    - name: Upload to Release
+      if: github.event_name == 'release'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: backend/dist/ai-image-tagger-windows.zip
+        asset_name: ai-image-tagger-windows-${{ github.event.release.tag_name }}.zip
+        asset_content_type: application/zip
+
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+        pip install -r requirements.txt
+
+    - name: Build with PyInstaller
+      run: |
+        cd backend
+        pyinstaller tagger.spec
+
+    - name: Create tar.gz archive
+      run: |
+        cd backend/dist
+        tar -czf ai-image-tagger-linux.tar.gz ai-image-tagger/
+
+    - name: Upload Linux artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ai-image-tagger-linux
+        path: backend/dist/ai-image-tagger-linux.tar.gz
+
+    - name: Upload to Release
+      if: github.event_name == 'release'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: backend/dist/ai-image-tagger-linux.tar.gz
+        asset_name: ai-image-tagger-linux-${{ github.event.release.tag_name }}.tar.gz
+        asset_content_type: application/gzip
+
+  build-frontend:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Create frontend archive
+      run: |
+        zip -r ai-image-tagger-frontend.zip frontend/
+
+    - name: Upload frontend artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ai-image-tagger-frontend
+        path: ai-image-tagger-frontend.zip
+
+    - name: Upload to Release
+      if: github.event_name == 'release'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ai-image-tagger-frontend.zip
+        asset_name: ai-image-tagger-frontend-${{ github.event.release.tag_name }}.zip
+        asset_content_type: application/zip

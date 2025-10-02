@@ -79,6 +79,13 @@ coverage.xml
 
 # Project-specific
 user_config.json
+user_config_backup_*.json
+
+# PyInstaller build artifacts
+backend/build/
+backend/dist/
+backend/*.spec.backup
+*.spec.backup
 
 # Prevent accidentally committing large files
 *.zip
@@ -86,5 +93,9 @@ user_config.json
 *.tgz
 *.rar
 *.7z
+
+# Hugging Face cache (models)
+.cache/
+__pycache__/
 
 # End of file

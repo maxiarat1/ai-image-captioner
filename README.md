@@ -30,16 +30,36 @@ AI-powered batch image captioning tool with BLIP and R-4B models. Generate accur
 
 ## Installation
 
-### Prerequisites
+### Option 1: Download Pre-built Executable (Easiest)
+
+**No Python or conda installation required!** Download the pre-built executable from the [Releases](https://github.com/yourusername/ai-image-captioner/releases) page.
+
+#### Windows
+1. Download `ai-image-tagger-windows-vX.X.X.zip`
+2. Extract the ZIP file
+3. Double-click `ai-image-tagger.exe` to start the server
+4. Open `frontend/index.html` in your browser
+
+#### Linux
+1. Download `ai-image-tagger-linux-vX.X.X.tar.gz`
+2. Extract: `tar -xzf ai-image-tagger-linux-vX.X.X.tar.gz`
+3. Run: `cd ai-image-tagger && ./ai-image-tagger`
+4. Open `frontend/index.html` in your browser
+
+**Note:** AI models (~500MB-2GB) will be downloaded automatically on first use to `~/.cache/huggingface/`
+
+### Option 2: Build from Source
+
+#### Prerequisites
 
 - Python 3.8 or higher
 - CUDA 11.8+ (for GPU acceleration)
 - 8GB+ GPU VRAM recommended for R-4B model
 - Conda (recommended for environment management)
 
-### Setup Script (Recommended)
+#### Setup Script (Recommended)
 
-The easiest way to set up the project:
+The easiest way to set up the project from source:
 
 ```bash
 # Clone the repository
@@ -254,6 +274,38 @@ ai-image-captioner/
 ├── user_config.json           # User preferences (auto-generated)
 └── README.md
 ```
+
+## Building Executables
+
+Want to create your own standalone executables? We provide build scripts for both platforms.
+
+### Build for Your Platform
+
+**Linux/macOS:**
+```bash
+chmod +x build-executable.sh
+./build-executable.sh
+```
+
+**Windows:**
+```batch
+build-executable.bat
+```
+
+The executable will be created in `backend/dist/ai-image-tagger/`
+
+### Automated Builds with GitHub Actions
+
+When you create a new release on GitHub:
+1. Go to your repository → Releases → Create a new release
+2. Tag it with a version (e.g., `v1.0.0`)
+3. GitHub Actions will automatically build executables for Windows and Linux
+4. The built files will be attached to your release
+
+You can also manually trigger builds:
+1. Go to Actions → Build Executables → Run workflow
+2. Enter a version tag
+3. Download artifacts from the workflow run
 
 ## Development
 
