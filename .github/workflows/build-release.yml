@@ -85,15 +85,15 @@ jobs:
         tar -czf ai-image-tagger-linux.tar.gz ai-image-tagger/
         split -b 1500M ai-image-tagger-linux.tar.gz ai-image-tagger-linux.tar.gz.part-
         rm ai-image-tagger-linux.tar.gz
-        cat > extract-linux.sh << 'EXTRACT_EOF'
-#!/bin/bash
-echo "Extracting AI Image Tagger for Linux..."
-cat ai-image-tagger-linux.tar.gz.part-* > ai-image-tagger-linux.tar.gz
-echo "Extracting archive..."
-tar -xzf ai-image-tagger-linux.tar.gz
-echo "Done! Run ./ai-image-tagger/ai-image-tagger to start"
-rm ai-image-tagger-linux.tar.gz
-EXTRACT_EOF
+        cat > extract-linux.sh << 'EOF'
+        #!/bin/bash
+        echo "Extracting AI Image Tagger for Linux..."
+        cat ai-image-tagger-linux.tar.gz.part-* > ai-image-tagger-linux.tar.gz
+        echo "Extracting archive..."
+        tar -xzf ai-image-tagger-linux.tar.gz
+        echo "Done! Run ./ai-image-tagger/ai-image-tagger to start"
+        rm ai-image-tagger-linux.tar.gz
+        EOF
         chmod +x extract-linux.sh
 
     - name: Upload Linux artifact
