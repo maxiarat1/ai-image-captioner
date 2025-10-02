@@ -258,22 +258,21 @@ The application automatically saves your preferences:
 
 ```
 ai-image-captioner/
-├── backend/
-│   ├── app.py                 # Flask API server
-│   ├── models/
-│   │   ├── base_adapter.py    # Abstract model interface
-│   │   ├── blip_adapter.py    # BLIP model adapter
-│   │   └── r4b_adapter.py     # R-4B model adapter
-│   └── utils/
-│       └── image_utils.py     # Image processing utilities
-├── frontend/
-│   ├── index.html             # Main UI
-│   ├── script.js              # Client-side logic
-│   └── styles.css             # Styling (dark/light themes)
-├── setup-tagger-gpu.sh        # Automated setup script
-├── user_config.json           # User preferences (auto-generated)
-└── README.md
+├── backend/                   # Flask API server
+│   ├── app.py
+│   ├── models/                # Model adapters (BLIP, R-4B)
+│   └── utils/                 # Image processing utilities
+├── frontend/                  # Web interface (HTML/CSS/JS)
+├── build-output/              # Build artifacts (gitignored)
+│   └── dist/                  # Final executables
+├── assets/                    # Screenshots and media
+├── build-executable.sh        # Build script (Linux/macOS)
+├── build-executable.bat       # Build script (Windows)
+├── setup-tagger-gpu.sh        # Environment setup script
+└── user_config.json           # User preferences (auto-generated)
 ```
+
+For detailed structure, see [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
 
 ## Building Executables
 
@@ -292,7 +291,7 @@ chmod +x build-executable.sh
 build-executable.bat
 ```
 
-The executable will be created in `backend/dist/ai-image-tagger/`
+The executable will be created in `build-output/dist/ai-image-tagger/`
 
 ### Automated Builds with GitHub Actions
 

@@ -32,7 +32,7 @@ fi
 # Clean previous builds
 echo ""
 echo "🧹 Cleaning previous builds..."
-rm -rf backend/build backend/dist backend/*.spec.backup
+rm -rf build-output backend/*.spec.backup
 
 # Build the executable
 echo ""
@@ -41,29 +41,30 @@ echo "   (This may take 5-15 minutes depending on your system)"
 echo ""
 
 cd backend
-pyinstaller tagger.spec
+pyinstaller tagger.spec --distpath ../build-output/dist --workpath ../build-output/build
+cd ..
 
 # Check if build was successful
-if [ -d "dist/ai-image-tagger" ]; then
+if [ -d "build-output/dist/ai-image-tagger" ]; then
     echo ""
     echo "=========================================="
     echo "✅ Build successful!"
     echo "=========================================="
     echo ""
-    echo "📍 Executable location: backend/dist/ai-image-tagger/"
-    echo "📍 Main executable: backend/dist/ai-image-tagger/ai-image-tagger"
+    echo "📍 Executable location: build-output/dist/ai-image-tagger/"
+    echo "📍 Main executable: build-output/dist/ai-image-tagger/ai-image-tagger"
     echo ""
     echo "To run the application:"
-    echo "  cd backend/dist/ai-image-tagger"
+    echo "  cd build-output/dist/ai-image-tagger"
     echo "  ./ai-image-tagger"
     echo ""
     echo "To create a distributable archive:"
-    echo "  cd backend/dist"
+    echo "  cd build-output/dist"
     echo "  tar -czf ai-image-tagger-linux.tar.gz ai-image-tagger/"
     echo ""
 
     # Calculate size
-    SIZE=$(du -sh dist/ai-image-tagger | cut -f1)
+    SIZE=$(du -sh build-output/dist/ai-image-tagger | cut -f1)
     echo "📦 Package size: $SIZE"
     echo ""
     echo "Note: Models will be downloaded on first run (~500MB-2GB)"

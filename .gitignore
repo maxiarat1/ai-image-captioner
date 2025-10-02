@@ -82,10 +82,13 @@ user_config.json
 user_config_backup_*.json
 
 # PyInstaller build artifacts
-backend/build/
-backend/dist/
+build-output/
 backend/*.spec.backup
 *.spec.backup
+
+# Legacy build directories (can be removed if they exist)
+backend/build/
+backend/dist/
 
 # Prevent accidentally committing large files
 *.zip

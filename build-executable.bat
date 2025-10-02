@@ -38,8 +38,7 @@ if %ERRORLEVEL% NEQ 0 (
 REM Clean previous builds
 echo.
 echo Cleaning previous builds...
-if exist backend\build rmdir /s /q backend\build
-if exist backend\dist rmdir /s /q backend\dist
+if exist build-output rmdir /s /q build-output
 
 REM Build the executable
 echo.
@@ -48,29 +47,30 @@ echo (This may take 5-15 minutes depending on your system)
 echo.
 
 cd backend
-pyinstaller tagger.spec
+pyinstaller tagger.spec --distpath ..\build-output\dist --workpath ..\build-output\build
+cd ..
 
 REM Check if build was successful
-if exist "dist\ai-image-tagger" (
+if exist "build-output\dist\ai-image-tagger" (
     echo.
     echo ==========================================
     echo Build successful!
     echo ==========================================
     echo.
-    echo Executable location: backend\dist\ai-image-tagger\
-    echo Main executable: backend\dist\ai-image-tagger\ai-image-tagger.exe
+    echo Executable location: build-output\dist\ai-image-tagger\
+    echo Main executable: build-output\dist\ai-image-tagger\ai-image-tagger.exe
     echo.
     echo To run the application:
-    echo   cd backend\dist\ai-image-tagger
+    echo   cd build-output\dist\ai-image-tagger
     echo   ai-image-tagger.exe
     echo.
     echo To create a distributable ZIP:
-    echo   cd backend\dist
+    echo   cd build-output\dist
     echo   powershell Compress-Archive -Path ai-image-tagger -DestinationPath ai-image-tagger-windows.zip
     echo.
 
     REM Calculate size (PowerShell command)
-    for /f "tokens=*" %%i in ('powershell -command "(Get-ChildItem -Path 'dist\ai-image-tagger' -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB"') do set SIZE=%%i
+    for /f "tokens=*" %%i in ('powershell -command "(Get-ChildItem -Path 'build-output\dist\ai-image-tagger' -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB"') do set SIZE=%%i
     echo Package size: ~%SIZE% MB
     echo.
     echo Note: Models will be downloaded on first run (~500MB-2GB^)
@@ -82,5 +82,4 @@ if exist "dist\ai-image-tagger" (
     exit /b 1
 )
 
-cd ..
 pause

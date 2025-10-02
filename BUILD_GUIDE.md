@@ -76,9 +76,9 @@ cd /path/to/ai-image-tagger
 # Run the build script
 ./build-executable.sh
 
-# The executable will be in: backend/dist/ai-image-tagger/
+# The executable will be in: build-output/dist/ai-image-tagger/
 # Create distributable archive:
-cd backend/dist
+cd build-output/dist
 tar -czf ai-image-tagger-linux.tar.gz ai-image-tagger/
 ```
 
@@ -90,9 +90,9 @@ cd C:\path\to\ai-image-tagger
 # Run the build script
 build-executable.bat
 
-# The executable will be in: backend\dist\ai-image-tagger\
+# The executable will be in: build-output\dist\ai-image-tagger\
 # Create distributable ZIP:
-cd backend\dist
+cd build-output\dist
 powershell Compress-Archive -Path ai-image-tagger -DestinationPath ai-image-tagger-windows.zip
 ```
 
@@ -116,7 +116,7 @@ powershell Compress-Archive -Path ai-image-tagger -DestinationPath ai-image-tagg
 2. **Test locally:**
    ```bash
    # Navigate to the dist folder
-   cd backend/dist/ai-image-tagger
+   cd build-output/dist/ai-image-tagger
 
    # Run the executable
    ./ai-image-tagger  # Linux

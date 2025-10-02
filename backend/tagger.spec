@@ -11,6 +11,10 @@ This builds a standalone executable that includes:
 Build command:
     pyinstaller backend/tagger.spec
 
+Output directories:
+    - Build artifacts: build-output/build/
+    - Final executable: build-output/dist/ai-image-tagger/
+
 Note: The executable will be large (~3-5GB) due to PyTorch and CUDA libraries.
 Models will be downloaded on first run to ~/.cache/huggingface/
 """
@@ -18,8 +22,14 @@ Models will be downloaded on first run to ~/.cache/huggingface/
 import sys
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 import os
+from pathlib import Path
 
 block_cipher = None
+
+# Define output directories at project root
+project_root = Path(__file__).parent.parent
+build_dir = project_root / 'build-output' / 'build'
+dist_dir = project_root / 'build-output' / 'dist'
 
 # Collect all submodules for critical packages
 hidden_imports = [
@@ -136,6 +146,9 @@ a = Analysis(
     noarchive=False,
 )
 
+# Set custom build directory
+a.SPECPATH = str(build_dir)
+
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
@@ -167,3 +180,8 @@ coll = COLLECT(
     upx_exclude=[],
     name='ai-image-tagger',
 )
+
+# Override default paths
+import PyInstaller.config
+PyInstaller.config.CONF['workpath'] = str(build_dir)
+PyInstaller.config.CONF['distpath'] = str(dist_dir)

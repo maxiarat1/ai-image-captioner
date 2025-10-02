@@ -32,18 +32,18 @@ jobs:
     - name: Build with PyInstaller
       run: |
         cd backend
-        pyinstaller tagger.spec
+        pyinstaller tagger.spec --distpath ../build-output/dist --workpath ../build-output/build
 
     - name: Create ZIP archive
       run: |
-        cd backend/dist
+        cd build-output/dist
         powershell Compress-Archive -Path ai-image-tagger -DestinationPath ai-image-tagger-windows.zip
 
     - name: Upload Windows artifact
       uses: actions/upload-artifact@v4
       with:
         name: ai-image-tagger-windows
-        path: backend/dist/ai-image-tagger-windows.zip
+        path: build-output/dist/ai-image-tagger-windows.zip
 
     - name: Upload to Release
       if: github.event_name == 'release'
@@ -52,7 +52,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ github.event.release.upload_url }}
-        asset_path: backend/dist/ai-image-tagger-windows.zip
+        asset_path: build-output/dist/ai-image-tagger-windows.zip
         asset_name: ai-image-tagger-windows-${{ github.event.release.tag_name }}.zip
         asset_content_type: application/zip
 
@@ -77,18 +77,18 @@ jobs:
     - name: Build with PyInstaller
       run: |
         cd backend
-        pyinstaller tagger.spec
+        pyinstaller tagger.spec --distpath ../build-output/dist --workpath ../build-output/build
 
     - name: Create tar.gz archive
       run: |
-        cd backend/dist
+        cd build-output/dist
         tar -czf ai-image-tagger-linux.tar.gz ai-image-tagger/
 
     - name: Upload Linux artifact
       uses: actions/upload-artifact@v4
       with:
         name: ai-image-tagger-linux
-        path: backend/dist/ai-image-tagger-linux.tar.gz
+        path: build-output/dist/ai-image-tagger-linux.tar.gz
 
     - name: Upload to Release
       if: github.event_name == 'release'
@@ -97,7 +97,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ github.event.release.upload_url }}
-        asset_path: backend/dist/ai-image-tagger-linux.tar.gz
+        asset_path: build-output/dist/ai-image-tagger-linux.tar.gz
         asset_name: ai-image-tagger-linux-${{ github.event.release.tag_name }}.tar.gz
         asset_content_type: application/gzip
 
