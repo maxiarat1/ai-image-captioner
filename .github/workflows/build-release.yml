@@ -38,7 +38,7 @@ jobs:
       run: |
         cd build-output/dist
         powershell Compress-Archive -Path ai-image-tagger -DestinationPath ai-image-tagger-windows.zip
-        powershell -Command "$inputFile = 'ai-image-tagger-windows.zip'; $chunkSize = 1500MB; $stream = [System.IO.File]::OpenRead($inputFile); $buffer = New-Object byte[] $chunkSize; $partNum = 0; while (($bytesRead = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) { $outputFile = \"ai-image-tagger-windows.zip.part-\" + ([string]$partNum).PadLeft(2, '0'); [System.IO.File]::WriteAllBytes($outputFile, $buffer[0..($bytesRead-1)]); $partNum++ }; $stream.Close()"
+        powershell -File ../../../.github/scripts/split-windows.ps1
         del ai-image-tagger-windows.zip
         echo @echo off > extract-windows.bat
         echo echo Extracting AI Image Tagger for Windows... >> extract-windows.bat
