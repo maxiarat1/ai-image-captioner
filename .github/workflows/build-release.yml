@@ -34,27 +34,27 @@ jobs:
         cd backend
         pyinstaller tagger.spec --distpath ../build-output/dist --workpath ../build-output/build
 
-    - name: Create ZIP archive
+    - name: Create ZIP archive and split into chunks
       run: |
         cd build-output/dist
         powershell Compress-Archive -Path ai-image-tagger -DestinationPath ai-image-tagger-windows.zip
+        powershell -Command "$inputFile = 'ai-image-tagger-windows.zip'; $chunkSize = 1500MB; $stream = [System.IO.File]::OpenRead($inputFile); $buffer = New-Object byte[] $chunkSize; $partNum = 0; while (($bytesRead = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) { $outputFile = \"ai-image-tagger-windows.zip.part-\" + ([string]$partNum).PadLeft(2, '0'); [System.IO.File]::WriteAllBytes($outputFile, $buffer[0..($bytesRead-1)]); $partNum++ }; $stream.Close()"
+        del ai-image-tagger-windows.zip
+        echo @echo off > extract-windows.bat
+        echo echo Extracting AI Image Tagger for Windows... >> extract-windows.bat
+        echo copy /b ai-image-tagger-windows.zip.part-* ai-image-tagger-windows.zip >> extract-windows.bat
+        echo echo Extracting archive... >> extract-windows.bat
+        echo powershell Expand-Archive -Path ai-image-tagger-windows.zip -DestinationPath . >> extract-windows.bat
+        echo echo Done! Run ai-image-tagger\ai-image-tagger.exe to start >> extract-windows.bat
+        echo del ai-image-tagger-windows.zip >> extract-windows.bat
 
     - name: Upload Windows artifact
       uses: actions/upload-artifact@v4
       with:
         name: ai-image-tagger-windows
-        path: build-output/dist/ai-image-tagger-windows.zip
-
-    - name: Upload to Release
-      if: github.event_name == 'release'
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: build-output/dist/ai-image-tagger-windows.zip
-        asset_name: ai-image-tagger-windows-${{ github.event.release.tag_name }}.zip
-        asset_content_type: application/zip
+        path: |
+          build-output/dist/ai-image-tagger-windows.zip.part-*
+          build-output/dist/extract-windows.bat
 
   build-linux:
     runs-on: ubuntu-latest
@@ -79,27 +79,30 @@ jobs:
         cd backend
         pyinstaller tagger.spec --distpath ../build-output/dist --workpath ../build-output/build
 
-    - name: Create tar.gz archive
+    - name: Create tar.gz archive and split into chunks
       run: |
         cd build-output/dist
         tar -czf ai-image-tagger-linux.tar.gz ai-image-tagger/
+        split -b 1500M ai-image-tagger-linux.tar.gz ai-image-tagger-linux.tar.gz.part-
+        rm ai-image-tagger-linux.tar.gz
+        cat > extract-linux.sh << 'EXTRACT_EOF'
+#!/bin/bash
+echo "Extracting AI Image Tagger for Linux..."
+cat ai-image-tagger-linux.tar.gz.part-* > ai-image-tagger-linux.tar.gz
+echo "Extracting archive..."
+tar -xzf ai-image-tagger-linux.tar.gz
+echo "Done! Run ./ai-image-tagger/ai-image-tagger to start"
+rm ai-image-tagger-linux.tar.gz
+EXTRACT_EOF
+        chmod +x extract-linux.sh
 
     - name: Upload Linux artifact
       uses: actions/upload-artifact@v4
       with:
         name: ai-image-tagger-linux
-        path: build-output/dist/ai-image-tagger-linux.tar.gz
-
-    - name: Upload to Release
-      if: github.event_name == 'release'
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: build-output/dist/ai-image-tagger-linux.tar.gz
-        asset_name: ai-image-tagger-linux-${{ github.event.release.tag_name }}.tar.gz
-        asset_content_type: application/gzip
+        path: |
+          build-output/dist/ai-image-tagger-linux.tar.gz.part-*
+          build-output/dist/extract-linux.sh
 
   build-frontend:
     runs-on: ubuntu-latest

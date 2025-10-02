@@ -103,16 +103,32 @@ jobs:
           cd backend
           pyinstaller tagger.spec --distpath ../build-output/dist --workpath ../build-output/build
 
-      - name: Create tar.gz archive
+      - name: Create tar.gz archive and split into chunks
         run: |
           cd build-output/dist
           tar -czf ai-image-tagger-linux.tar.gz ai-image-tagger/
+          # Split into 1.5GB chunks (under GitHub's 2GB limit)
+          split -b 1500M ai-image-tagger-linux.tar.gz ai-image-tagger-linux.tar.gz.part-
+          rm ai-image-tagger-linux.tar.gz
+          # Create extraction script
+          cat > extract-linux.sh << 'EXTRACT_EOF'
+#!/bin/bash
+echo "Extracting AI Image Tagger for Linux..."
+cat ai-image-tagger-linux.tar.gz.part-* > ai-image-tagger-linux.tar.gz
+echo "Extracting archive..."
+tar -xzf ai-image-tagger-linux.tar.gz
+echo "Done! Run ./ai-image-tagger/ai-image-tagger to start"
+rm ai-image-tagger-linux.tar.gz
+EXTRACT_EOF
+          chmod +x extract-linux.sh
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
           name: ai-image-tagger-linux
-          path: build-output/dist/ai-image-tagger-linux.tar.gz
+          path: |
+            build-output/dist/ai-image-tagger-linux.tar.gz.part-*
+            build-output/dist/extract-linux.sh
           retention-days: 5
 
   # Job 3: Build Windows Executable
@@ -139,16 +155,29 @@ jobs:
           cd backend
           pyinstaller tagger.spec --distpath ../build-output/dist --workpath ../build-output/build
 
-      - name: Create ZIP archive
+      - name: Create ZIP archive and split into chunks
         run: |
           cd build-output/dist
           powershell Compress-Archive -Path ai-image-tagger -DestinationPath ai-image-tagger-windows.zip
+          # Split into 1.5GB chunks (under GitHub's 2GB limit) using PowerShell
+          powershell -Command "$inputFile = 'ai-image-tagger-windows.zip'; $chunkSize = 1500MB; $stream = [System.IO.File]::OpenRead($inputFile); $buffer = New-Object byte[] $chunkSize; $partNum = 0; while (($bytesRead = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) { $outputFile = \"ai-image-tagger-windows.zip.part-\" + ([string]$partNum).PadLeft(2, '0'); [System.IO.File]::WriteAllBytes($outputFile, $buffer[0..($bytesRead-1)]); $partNum++ }; $stream.Close()"
+          del ai-image-tagger-windows.zip
+          # Create extraction script
+          echo @echo off > extract-windows.bat
+          echo echo Extracting AI Image Tagger for Windows... >> extract-windows.bat
+          echo copy /b ai-image-tagger-windows.zip.part-* ai-image-tagger-windows.zip >> extract-windows.bat
+          echo echo Extracting archive... >> extract-windows.bat
+          echo powershell Expand-Archive -Path ai-image-tagger-windows.zip -DestinationPath . >> extract-windows.bat
+          echo echo Done! Run ai-image-tagger\ai-image-tagger.exe to start >> extract-windows.bat
+          echo del ai-image-tagger-windows.zip >> extract-windows.bat
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: ai-image-tagger-windows
-          path: build-output/dist/ai-image-tagger-windows.zip
+          path: |
+            build-output/dist/ai-image-tagger-windows.zip.part-*
+            build-output/dist/extract-windows.bat
           retention-days: 5
 
   # Job 4: Create GitHub Release
@@ -175,13 +204,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ai-image-tagger-linux
-          path: ./artifacts
+          path: ./artifacts/linux
 
       - name: Download Windows artifact
         uses: actions/download-artifact@v4
         with:
           name: ai-image-tagger-windows
-          path: ./artifacts
+          path: ./artifacts/windows
 
       - name: Generate release notes
         id: notes
@@ -198,20 +227,29 @@ jobs:
           ```
 
           **Executables:**
-          - **Linux:** Download `ai-image-tagger-linux.tar.gz` below
-          - **Windows:** Download `ai-image-tagger-windows.zip` below
+
+          **Linux:**
+          1. Download all `ai-image-tagger-linux.tar.gz.part-*` files and `extract-linux.sh`
+          2. Run: `bash extract-linux.sh`
+          3. Run: `./ai-image-tagger/ai-image-tagger`
+
+          **Windows:**
+          1. Download all `ai-image-tagger-windows.zip.part-*` files and `extract-windows.bat`
+          2. Run: `extract-windows.bat`
+          3. Run: `ai-image-tagger\ai-image-tagger.exe`
 
           ### 🚀 Quick Start
 
-          **Docker:**
+          **Docker (Easiest):**
           ```bash
           docker-compose up -d
           ```
 
           **Executable:**
-          1. Download and extract for your platform
-          2. Run the executable
-          3. Open `frontend/index.html` in your browser
+          1. Download all part files and extraction script for your platform
+          2. Run the extraction script
+          3. Run the executable
+          4. Open `frontend/index.html` in your browser
 
           ### 📋 Requirements
 
@@ -238,8 +276,8 @@ jobs:
           draft: false
           prerelease: ${{ github.event.inputs.release_type == 'prerelease' }}
           files: |
-            artifacts/ai-image-tagger-linux.tar.gz
-            artifacts/ai-image-tagger-windows.zip
+            artifacts/linux/*
+            artifacts/windows/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
