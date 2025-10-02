@@ -24,14 +24,9 @@ AI-powered batch image captioning tool with BLIP and R-4B models. Generate accur
 
 ## Screenshots
 
-### Upload Interface
-Upload images individually or entire folders for batch processing.
+![AI Image Tagger Interface](assets/Image%20Tagger.png)
 
-### Model Configuration
-Choose between BLIP for speed or R-4B for quality, with advanced parameter tuning.
-
-### Results View
-Preview images with generated captions, edit descriptions, and export to ZIP.
+*The application features a clean, tab-based interface for uploading images, configuring models, and viewing results.*
 
 ## Installation
 
