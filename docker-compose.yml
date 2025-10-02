@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  ai-image-tagger:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ai-image-tagger:latest
+    container_name: ai-image-tagger
+
+    # GPU support - requires nvidia-docker
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    # Ports
+    ports:
+      - "5000:5000"
+
+    # Volumes
+    volumes:
+      # Persist user config
+      - ./user_config.json:/app/user_config.json
+      # Cache Hugging Face models (optional - speeds up restarts)
+      - huggingface-cache:/root/.cache/huggingface
+      # Mount frontend for live editing (development only)
+      # - ./frontend:/app/frontend
+
+    # Environment variables
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - DEBUG_MODE=False
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  huggingface-cache:
+    driver: local

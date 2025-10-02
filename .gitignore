@@ -101,4 +101,9 @@ backend/dist/
 .cache/
 __pycache__/
 
+# Docker
+.dockerignore
+*.log
+docker-compose.override.yml
+
 # End of file

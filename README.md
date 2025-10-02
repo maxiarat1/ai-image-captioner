@@ -30,9 +30,32 @@ AI-powered batch image captioning tool with BLIP and R-4B models. Generate accur
 
 ## Installation
 
-### Option 1: Download Pre-built Executable (Easiest)
+### Option 1: Docker (Recommended)
 
-**No Python or conda installation required!** Download the pre-built executable from the [Releases](https://github.com/yourusername/ai-image-captioner/releases) page.
+**Easiest and most reliable method!** Requires Docker and nvidia-docker installed.
+
+```bash
+# Pull the latest image
+docker pull ghcr.io/yourusername/ai-image-tagger:latest
+
+# Run with GPU support
+docker run --gpus all -p 5000:5000 ghcr.io/yourusername/ai-image-tagger:latest
+
+# Or use docker-compose (recommended)
+docker-compose up -d
+```
+
+Open `http://localhost:5000` and load `frontend/index.html` in your browser.
+
+**Advantages:**
+- ✅ No Python/conda installation needed
+- ✅ Consistent environment across all systems
+- ✅ Automatic GPU support
+- ✅ Easy updates
+
+### Option 2: Download Pre-built Executable
+
+**No Python or conda installation required!** Download from the [Releases](https://github.com/yourusername/ai-image-captioner/releases) page.
 
 #### Windows
 1. Download `ai-image-tagger-windows-vX.X.X.zip`
@@ -48,7 +71,7 @@ AI-powered batch image captioning tool with BLIP and R-4B models. Generate accur
 
 **Note:** AI models (~500MB-2GB) will be downloaded automatically on first use to `~/.cache/huggingface/`
 
-### Option 2: Build from Source
+### Option 3: Build from Source
 
 #### Prerequisites
 
