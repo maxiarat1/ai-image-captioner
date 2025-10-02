@@ -1,0 +1,588 @@
+import os
+import io
+import base64
+import json
+from datetime import datetime
+from pathlib import Path
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from PIL import Image
+from models.blip_adapter import BlipAdapter
+from models.r4b_adapter import R4BAdapter
+from utils.image_utils import process_uploaded_image, validate_image_format
+
+# Debug mode - set to True to enable detailed logging
+DEBUG_MODE = True
+
+def debug_log(message, data=None):
+    """Print debug information if DEBUG_MODE is enabled"""
+    if DEBUG_MODE:
+        print(f"DEBUG: {message}")
+        if data is not None:
+            print(f"    Data: {json.dumps(data, indent=2, default=str)}")
+        print("=" * 50)
+
+app = Flask(__name__)
+CORS(app)
+
+# Configuration file path
+CONFIG_FILE = Path(__file__).parent.parent / "user_config.json"
+
+# Global model instances
+models = {
+    'blip': None,
+    'r4b': None
+}
+current_model = 'blip'
+
+def init_models():
+    """Initialize model registry (models will be loaded on-demand)"""
+    global models
+
+    # Note: All models are now loaded on-demand to save memory and startup time
+    print("Model registry initialized. Models will be loaded on-demand when first used.")
+    print("Available models: BLIP (fast), R-4B (advanced reasoning)")
+
+def get_model(model_name, precision_params=None, force_reload=False):
+    """Get or load a specific model with optional precision parameters"""
+    global models
+
+    if model_name not in models:
+        raise ValueError(f"Unknown model: {model_name}")
+
+    # IMPORTANT: Unload other models to free VRAM when switching models
+    for other_model_name in models.keys():
+        if other_model_name != model_name and models[other_model_name] is not None:
+            print(f"Switching from {other_model_name} to {model_name}, unloading {other_model_name}...")
+            models[other_model_name].unload()
+            models[other_model_name] = None
+
+    # Check if we need to reload the model due to precision changes
+    should_reload = force_reload
+    if model_name == 'r4b' and models[model_name] is not None and precision_params:
+        # Check if current model settings differ from requested settings
+        current_adapter = models[model_name]
+        if hasattr(current_adapter, 'current_precision_params'):
+            if current_adapter.current_precision_params != precision_params:
+                print("Model settings changed, reloading R-4B model...")
+                should_reload = True
+        else:
+            # First time with parameters, need to track them
+            should_reload = True
+
+    if models[model_name] is None or should_reload:
+        if model_name == 'blip':
+            try:
+                action = "Reloading" if should_reload else "Loading"
+                print(f"{action} BLIP model on-demand...")
+
+                # Clear existing model if reloading
+                if should_reload and models['blip'] is not None:
+                    models['blip'].unload()  # Properly unload the model
+                    models['blip'] = None
+
+                models['blip'] = BlipAdapter()
+                models['blip'].load_model()
+                print("BLIP model loaded successfully")
+            except Exception as e:
+                print(f"Failed to load BLIP model: {e}")
+                raise
+
+        elif model_name == 'r4b':
+            try:
+                action = "Reloading" if should_reload else "Loading"
+                print(f"{action} R-4B model on-demand...")
+
+                # Clear existing model if reloading
+                if should_reload and models['r4b'] is not None:
+                    models['r4b'].unload()  # Properly unload the model
+                    models['r4b'] = None
+
+                models['r4b'] = R4BAdapter()
+
+                # Extract precision parameters if provided
+                if precision_params:
+                    models['r4b'].load_model(
+                        precision=precision_params.get('precision', 'float32'),
+                        use_flash_attention=precision_params.get('use_flash_attention', False)
+                    )
+                    # Store current parameters for future comparison
+                    models['r4b'].current_precision_params = precision_params.copy()
+                else:
+                    models['r4b'].load_model()
+                    models['r4b'].current_precision_params = {
+                        'precision': 'float32',
+                        'use_flash_attention': False
+                    }
+
+                print("R-4B model loaded successfully")
+            except Exception as e:
+                print(f"Failed to load R-4B model: {e}")
+                raise
+
+    return models[model_name]
+
+def load_user_config():
+    """Load user configuration from file"""
+    try:
+        if CONFIG_FILE.exists():
+            with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        else:
+            # Return default configuration
+            default_config = {
+                "version": "1.0",
+                "savedConfigurations": {},
+                "customPrompts": [
+                    {
+                        "id": "default-detailed",
+                        "name": "Detailed Description",
+                        "text": "Provide a detailed description of this image, including objects, people, colors, setting, and any notable details.",
+                        "createdAt": "2024-01-01T00:00:00.000Z"
+                    },
+                    {
+                        "id": "default-simple",
+                        "name": "Simple Description",
+                        "text": "Describe this image in a few simple sentences.",
+                        "createdAt": "2024-01-01T00:00:00.000Z"
+                    },
+                    {
+                        "id": "default-artistic",
+                        "name": "Artistic Analysis",
+                        "text": "Analyze this image from an artistic perspective, describing composition, lighting, style, and mood.",
+                        "createdAt": "2024-01-01T00:00:00.000Z"
+                    }
+                ],
+                "lastModified": "2024-01-01T00:00:00.000Z"
+            }
+            save_user_config(default_config)
+            return default_config
+    except Exception as e:
+        print(f"Error loading user config: {e}")
+        return {"savedConfigurations": {}, "customPrompts": [], "lastModified": None}
+
+def save_user_config(config_data):
+    """Save user configuration to file"""
+    try:
+        # Ensure parent directory exists
+        CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+        # Add timestamp
+        config_data["lastModified"] = datetime.now().isoformat()
+
+        # Write to file with proper formatting
+        with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+            json.dump(config_data, f, indent=2, ensure_ascii=False)
+
+        print(f"User config saved to: {CONFIG_FILE}")
+        return True
+    except Exception as e:
+        print(f"Error saving user config: {e}")
+        return False
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint"""
+    return jsonify({
+        "status": "ok",
+        "models_available": list(models.keys()),
+        "blip_loaded": models['blip'] is not None and models['blip'].is_loaded(),
+        "r4b_loaded": models['r4b'] is not None and models['r4b'].is_loaded()
+    })
+
+@app.route('/model/info', methods=['GET'])
+def model_info():
+    """Get model information including available parameters"""
+    model_name = request.args.get('model', 'blip')
+
+    try:
+        # Get model adapter (don't need to load the full model just to get parameters)
+        if model_name == 'blip':
+            from models.blip_adapter import BlipAdapter
+            adapter = BlipAdapter()
+        elif model_name == 'r4b':
+            from models.r4b_adapter import R4BAdapter
+            adapter = R4BAdapter()
+        else:
+            return jsonify({"error": f"Unknown model: {model_name}"}), 400
+
+        return jsonify({
+            "name": model_name,
+            "parameters": adapter.get_available_parameters()
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/models', methods=['GET'])
+def list_models():
+    """List available models"""
+    available_models = []
+
+    for model_name, model_instance in models.items():
+        available_models.append({
+            "name": model_name,
+            "loaded": model_instance is not None and model_instance.is_loaded(),
+            "description": {
+                "blip": "Fast, basic image captioning",
+                "r4b": "Advanced reasoning model with configurable parameters"
+            }.get(model_name, "Unknown model")
+        })
+
+    return jsonify({"models": available_models})
+
+@app.route('/model/reload', methods=['POST'])
+def reload_model():
+    """Force reload a model with new settings"""
+    try:
+        data = request.get_json() or {}
+        model_name = data.get('model', 'r4b')
+        precision_params = data.get('precision_params')
+
+        if model_name not in models:
+            return jsonify({"error": f"Unknown model: {model_name}"}), 400
+
+        # Force reload the model
+        model_adapter = get_model(model_name, precision_params, force_reload=True)
+
+        return jsonify({
+            "success": True,
+            "message": f"Model {model_name} reloaded successfully",
+            "loaded": model_adapter.is_loaded()
+        })
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to reload model: {str(e)}"}), 500
+
+@app.route('/model/unload', methods=['POST'])
+def unload_model():
+    """Unload a model to free memory"""
+    try:
+        data = request.get_json() or {}
+        model_name = data.get('model', 'r4b')
+
+        if model_name not in models:
+            return jsonify({"error": f"Unknown model: {model_name}"}), 400
+
+        if models[model_name] is not None:
+            # Use the model's unload method for proper cleanup
+            models[model_name].unload()
+            models[model_name] = None
+            print(f"{model_name} model unloaded successfully")
+
+        return jsonify({
+            "success": True,
+            "message": f"Model {model_name} unloaded successfully"
+        })
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to unload model: {str(e)}"}), 500
+
+@app.route('/config', methods=['GET'])
+def get_user_config():
+    """Get user configuration"""
+    try:
+        config = load_user_config()
+        return jsonify({
+            "success": True,
+            "config": config,
+            "configFile": str(CONFIG_FILE)
+        })
+    except Exception as e:
+        return jsonify({"error": f"Failed to load config: {str(e)}"}), 500
+
+@app.route('/config', methods=['POST'])
+def save_user_config_endpoint():
+    """Save user configuration"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No configuration data provided"}), 400
+
+        # Validate required fields
+        if 'savedConfigurations' not in data or 'customPrompts' not in data:
+            return jsonify({"error": "Invalid configuration format"}), 400
+
+        success = save_user_config(data)
+        if success:
+            return jsonify({
+                "success": True,
+                "message": "Configuration saved successfully",
+                "configFile": str(CONFIG_FILE),
+                "lastModified": data.get("lastModified")
+            })
+        else:
+            return jsonify({"error": "Failed to save configuration"}), 500
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to save config: {str(e)}"}), 500
+
+@app.route('/config/backup', methods=['POST'])
+def backup_user_config():
+    """Create a backup of the current config file"""
+    try:
+        if CONFIG_FILE.exists():
+            backup_name = f"user_config_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            backup_path = CONFIG_FILE.parent / backup_name
+
+            # Copy current config to backup
+            import shutil
+            shutil.copy2(CONFIG_FILE, backup_path)
+
+            return jsonify({
+                "success": True,
+                "message": "Backup created successfully",
+                "backupFile": str(backup_path)
+            })
+        else:
+            return jsonify({"error": "No config file exists to backup"}), 404
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to create backup: {str(e)}"}), 500
+
+@app.route('/generate', methods=['POST'])
+def generate_caption():
+    """Generate caption for uploaded image"""
+    try:
+        debug_log("=== NEW CAPTION GENERATION REQUEST ===")
+
+        # Get image data from request
+        if 'image' not in request.files:
+            return jsonify({"error": "No image file provided"}), 400
+
+        image_file = request.files['image']
+        if image_file.filename == '':
+            return jsonify({"error": "No image file selected"}), 400
+
+        debug_log("Image file received", {
+            "filename": image_file.filename,
+            "size_bytes": len(image_file.read())
+        })
+        image_file.seek(0)  # Reset file pointer after reading size
+
+        # Get model and parameters
+        model_name = request.form.get('model', 'blip')
+        parameters_str = request.form.get('parameters', '{}')
+        prompt = request.form.get('prompt', '')
+
+        debug_log("Raw request data", {
+            "model_name": model_name,
+            "parameters_str": parameters_str,
+            "prompt": prompt,
+            "prompt_length": len(prompt) if prompt else 0
+        })
+
+        try:
+            parameters = json.loads(parameters_str)
+            debug_log("Parsed parameters successfully", parameters)
+        except json.JSONDecodeError as e:
+            debug_log("Failed to parse parameters", {"error": str(e), "raw": parameters_str})
+            parameters = {}
+
+        # Extract precision parameters for R-4B model
+        precision_params = None
+        if model_name == 'r4b' and parameters:
+            precision_params = {
+                'precision': parameters.get('precision', 'float32'),
+                'use_flash_attention': parameters.get('use_flash_attention', False)
+            }
+            debug_log("Extracted precision parameters for R-4B", precision_params)
+
+        # Get model instance
+        debug_log(f"Loading/getting model: {model_name}")
+        try:
+            model_adapter = get_model(model_name, precision_params)
+            debug_log(f"Model {model_name} loaded successfully", {
+                "is_loaded": model_adapter.is_loaded() if model_adapter else False
+            })
+        except Exception as e:
+            debug_log(f"Failed to load model {model_name}", {"error": str(e)})
+            return jsonify({"error": f"Failed to load model {model_name}: {str(e)}"}), 500
+
+        if model_adapter is None or not model_adapter.is_loaded():
+            debug_log(f"Model {model_name} not available or not loaded")
+            return jsonify({"error": f"Model {model_name} not available"}), 500
+
+        # Process image
+        image_data = image_file.read()
+        image = process_uploaded_image(image_data)
+
+        debug_log("Image processed", {
+            "mode": image.mode,
+            "size": image.size,
+            "format": image.format
+        })
+
+        # Validate image format
+        if not validate_image_format(image):
+            debug_log("Image format validation failed")
+            return jsonify({"error": "Unsupported image format"}), 400
+
+        # Generate caption with model-specific parameters
+        debug_log("Starting caption generation", {
+            "model_name": model_name,
+            "prompt": prompt,
+            "prompt_is_empty": not bool(prompt),
+            "parameters_count": len(parameters) if parameters else 0
+        })
+
+        if hasattr(model_adapter, 'generate_caption'):
+            if model_name == 'r4b':
+                # R-4B supports parameters
+                debug_log("Calling R-4B generate_caption", {
+                    "parameters_passed": parameters,
+                    "specific_params_of_interest": {
+                        "thinking_mode": parameters.get('thinking_mode'),
+                        "temperature": parameters.get('temperature'),
+                        "max_new_tokens": parameters.get('max_new_tokens')
+                    }
+                })
+                caption = model_adapter.generate_caption(
+                    image,
+                    prompt if prompt else None,
+                    parameters
+                )
+            else:
+                # BLIP also supports parameters
+                debug_log("Calling BLIP generate_caption", {
+                    "prompt": prompt if prompt else "(no prompt)",
+                    "parameters": parameters
+                })
+                caption = model_adapter.generate_caption(
+                    image,
+                    prompt if prompt else None,
+                    parameters
+                )
+
+            debug_log("Caption generated successfully", {
+                "caption_length": len(caption) if caption else 0,
+                "caption_preview": caption[:100] + "..." if caption and len(caption) > 100 else caption
+            })
+        else:
+            debug_log("Model does not support caption generation")
+            return jsonify({"error": "Model does not support caption generation"}), 500
+
+        # Convert image to base64 for frontend display
+        buffered = io.BytesIO()
+        image.save(buffered, format="JPEG")
+        img_str = base64.b64encode(buffered.getvalue()).decode()
+
+        return jsonify({
+            "caption": caption,
+            "image_preview": f"data:image/jpeg;base64,{img_str}",
+            "model": model_adapter.model_name,
+            "parameters_used": parameters
+        })
+
+    except Exception as e:
+        print(f"Error in generate_caption: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/generate/batch', methods=['POST'])
+def generate_batch():
+    """Generate captions for multiple images in batch"""
+    try:
+        # Get images from request
+        if 'images' not in request.files:
+            return jsonify({"error": "No images provided"}), 400
+
+        files = request.files.getlist('images')
+        if len(files) == 0:
+            return jsonify({"error": "No images selected"}), 400
+
+        # Limit batch size to prevent memory issues
+        MAX_BATCH = 50
+        if len(files) > MAX_BATCH:
+            files = files[:MAX_BATCH]
+
+        # Get model and parameters
+        model_name = request.form.get('model', 'blip')
+        parameters_str = request.form.get('parameters', '{}')
+        prompt = request.form.get('prompt', '')
+
+        try:
+            parameters = json.loads(parameters_str)
+        except:
+            parameters = {}
+
+        # Extract precision parameters for R-4B
+        precision_params = None
+        if model_name == 'r4b' and parameters:
+            precision_params = {
+                'precision': parameters.get('precision', 'float32'),
+                'use_flash_attention': parameters.get('use_flash_attention', False)
+            }
+
+        # Load model once
+        model_adapter = get_model(model_name, precision_params)
+        if not model_adapter or not model_adapter.is_loaded():
+            return jsonify({"error": f"Model {model_name} not available"}), 500
+
+        # Process each image
+        results = []
+        for idx, file in enumerate(files):
+            try:
+                # Process image
+                image_data = file.read()
+                image = process_uploaded_image(image_data)
+
+                if not validate_image_format(image):
+                    results.append({
+                        "filename": file.filename,
+                        "success": False,
+                        "error": "Unsupported format"
+                    })
+                    continue
+
+                # Generate caption
+                caption = model_adapter.generate_caption(
+                    image,
+                    prompt if prompt else None,
+                    parameters
+                )
+
+                # Convert to base64
+                buffered = io.BytesIO()
+                image.save(buffered, format="JPEG")
+                img_str = base64.b64encode(buffered.getvalue()).decode()
+
+                results.append({
+                    "filename": file.filename,
+                    "success": True,
+                    "caption": caption,
+                    "image_preview": f"data:image/jpeg;base64,{img_str}"
+                })
+
+            except Exception as e:
+                results.append({
+                    "filename": file.filename,
+                    "success": False,
+                    "error": str(e)
+                })
+
+        return jsonify({
+            "results": results,
+            "total": len(files),
+            "successful": sum(1 for r in results if r.get('success')),
+            "model": model_name
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.errorhandler(413)
+def too_large(e):
+    return jsonify({"error": "File too large"}), 413
+
+@app.errorhandler(500)
+def internal_error(e):
+    return jsonify({"error": "Internal server error"}), 500
+
+if __name__ == '__main__':
+    # Set max file size to 16MB
+    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+
+    # Initialize models
+    init_models()
+
+    # Run app
+    app.run(debug=True, host='0.0.0.0', port=5000)

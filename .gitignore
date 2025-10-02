@@ -1,0 +1,90 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/*
+*.py[cod]
+*$py.class
+.claude
+CLAUDE*
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+dist/
+eggs/
+*.egg-info/
+pip-wheel-metadata/
+*.egg
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Virtual environments
+env/
+venv/
+.venv/
+ENV/
+
+# Environment variables
+.env
+.env.*
+
+# IDEs / editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.iml
+
+# OS files
+.DS_Store
+*.swp
+*~
+
+# Logs
+*.log
+logs/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Model / checkpoint files (backend)
+backend/models/*.pt
+backend/models/*.pth
+backend/models/*.ckpt
+
+# Frontend build artifacts
+build/
+public/
+
+# Misc
+coverage.xml
+*.cover
+
+# Project-specific
+user_config.json
+
+# Prevent accidentally committing large files
+*.zip
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# End of file

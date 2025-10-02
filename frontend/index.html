@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AI-powered image tagging tool - Generate descriptions for your images automatically">
+    <title>AI Image Tagger</title>
+    <link rel="icon" href="favicon.ico" type="image/gif">
+    <link rel="shortcut icon" href="favicon.ico" type="image/gif">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <!-- JSZip for creating ZIP files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+    <!-- Page Transition Overlay -->
+    <div class="page-transition active" id="pageTransition">
+        <div class="transition-logo">AI</div>
+    </div>
+    <!-- Theme Curtain Transition -->
+    <div class="curtain-overlay" id="curtainOverlay">
+        <div class="curtain curtain-left"><span class="curtain-letter">A</span></div>
+        <div class="curtain curtain-right"><span class="curtain-letter">I</span></div>
+    </div>
+    <!-- Header with Navigation -->
+    <header>
+        <nav aria-label="Main navigation">
+            <div class="logo">
+                <span class="logo-icon">AI</span>
+                <span class="logo-text">Image Tagger</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="#docs">Docs</a></li>
+                <li><a href="#about">About</a></li>
+                <li>
+                    <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <span class="toggle-track">
+                        <span class="toggle-thumb"></span>
+                    </span>
+                    </button>
+                </li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Main Content Wrapper -->
+    <main>
+        <!-- Tool Interface Section -->
+        <section id="tool-interface" class="tool-section">
+            <div class="container">
+                <!-- Tab Navigation -->
+                <div class="tab-navigation">
+                    <button class="tab-btn active" data-tab="upload">
+                        <span class="tab-number">1</span>
+                        <span class="tab-label">Upload</span>
+                    </button>
+                    <button class="tab-btn" data-tab="options">
+                        <span class="tab-number">2</span>
+                        <span class="tab-label">Options</span>
+                    </button>
+                    <button class="tab-btn" data-tab="results">
+                        <span class="tab-number">3</span>
+                        <span class="tab-label">Results</span>
+                    </button>
+                </div>
+
+                <!-- Tab Content -->
+                <div class="tab-content-wrapper">
+                    <!-- Upload Tab -->
+                    <div class="tab-content active" id="upload-content">
+                        <div class="upload-card" id="uploadCard">
+                            <div class="upload-icon-large"></div>
+                            <h3>Upload Your Images</h3>
+                            <p>Drag and drop images here, or click to browse</p>
+                            <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/bmp" multiple style="display: none;">
+                            <input type="file" id="folderInput" webkitdirectory directory multiple style="display: none;">
+                            <div class="upload-buttons">
+                                <button class="btn-primary" id="chooseFilesBtn">Choose Files</button>
+                                <button class="btn-secondary" id="chooseFolderBtn">Choose Folder</button>
+                            </div>
+                            <div class="upload-info">
+                                <p>Supports: JPG, PNG, WebP, BMP · Max 16MB per file</p>
+                            </div>
+                        </div>
+
+                        <!-- Upload Queue Section (shown after files are selected) -->
+                        <div class="upload-queue-container" id="uploadQueueContainer" style="display: none;">
+                            <div class="queue-header">
+                                <h3>Upload Queue</h3>
+                                <div class="queue-controls">
+                                    <button class="btn-secondary" id="clearQueueBtn">Clear Queue</button>
+                                    <button class="btn-primary" id="addMoreBtn">Add More Images</button>
+                                </div>
+                            </div>
+                            <div class="queue-list" id="queueList"></div>
+                            <div class="queue-footer">
+                                <div class="queue-stats">
+                                    <span id="queueStats">0 images ready</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Options Tab -->
+                    <div class="tab-content" id="options-content">
+                        <div class="options-card">
+                            <div class="options-header">
+                                <h3>Configure Settings</h3>
+                                <button class="btn-primary" id="processImagesBtn">Process Images</button>
+                            </div>
+
+                            <div class="option-group">
+                                <label for="modelSelect">AI Model</label>
+                                <select id="modelSelect" class="model-select">
+                                    <option value="blip">BLIP (Fast)</option>
+                                    <option value="r4b">R-4B (Advanced)</option>
+                                </select>
+                                <p class="option-description" id="modelDescription">Fast, basic image captioning</p>
+                            </div>
+
+                            <div class="option-group">
+                                <div class="option-group-header">
+                                    <label for="promptInput">Custom Prompt (Optional)</label>
+                                    <div class="option-actions">
+                                        <button class="btn-load-config btn-load-prompt" id="loadPromptBtn" title="Load saved prompt">
+                                            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+                                                <rect x="9" y="3" width="6" height="4" rx="1"/>
+                                            </svg>
+                                        </button>
+                                        <button class="btn-save-config btn-save-prompt" id="savePromptBtn" title="Save current prompt">
+                                            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                                                <polyline points="17 21 17 13 7 13 7 21"/>
+                                                <polyline points="7 3 7 8 15 8"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                                <textarea id="promptInput" class="prompt-input" placeholder="Enter custom instructions for the AI model..."></textarea>
+                                <p class="option-description">Leave empty to use the model's default behavior</p>
+                            </div>
+
+                            <!-- Advanced Settings (Collapsible) -->
+                            <div class="advanced-settings">
+                                <div class="advanced-header">
+                                    <button class="advanced-toggle" id="advancedToggle" type="button">
+                                        <span class="toggle-icon">▶</span>
+                                        <span class="toggle-label">Advanced Settings (Optional)</span>
+                                    </button>
+                                    <div class="advanced-actions">
+                                        <button class="btn-load-config" id="loadConfigBtn" title="Load saved configuration">
+                                            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                                <polyline points="7 10 12 15 17 10"/>
+                                                <line x1="12" y1="15" x2="12" y2="3"/>
+                                            </svg>
+                                        </button>
+                                        <button class="btn-save-config" id="saveConfigBtn" title="Save current configuration">
+                                            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                                                <polyline points="17 21 17 13 7 13 7 21"/>
+                                                <polyline points="7 3 7 8 15 8"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="advanced-content" id="advancedContent">
+                                    <!-- Parameters will be dynamically loaded here -->
+                                    <div class="model-params" id="dynamicParams">
+                                        <p style="text-align: center; color: var(--text-secondary);">Loading parameters...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Results Tab -->
+                    <div class="tab-content" id="results-content">
+                        <div class="results-card">
+                            <div class="results-header">
+                                <h3>Generated Descriptions</h3>
+                                <div class="results-header-actions">
+                                    <!-- Processing Controls (shown during processing) -->
+                                    <div class="processing-controls" id="processingControls" style="display: none;">
+                                        <button class="btn-control btn-pause" id="pauseBtn" title="Pause processing">
+                                            <span class="control-icon">⏸</span>
+                                        </button>
+                                        <button class="btn-control btn-stop" id="stopBtn" title="Stop processing">
+                                            <span class="control-icon">⏹</span>
+                                        </button>
+                                    </div>
+                                    <button class="btn-download" id="downloadAllBtn" style="display: none;">
+                                        <span class="download-icon">↓</span>
+                                        Download as ZIP
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="results-grid" id="resultsGrid">
+                                <!-- Results will be populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Minimal Footer -->
+    <footer>
+        <div class="footer-minimal">
+            <p>Basic Image Tagger · &copy; 2025 · <a href="#github">GitHub</a></p>
+        </div>
+    </footer>
+
+    <!-- Status Toast Notification -->
+    <div class="copy-toast" id="statusToast"></div>
+
+    <!-- Image Preview Modal -->
+    <div class="image-preview-modal" id="imagePreviewModal">
+        <div class="modal-backdrop" id="modalBackdrop">
+            <div class="modal-content">
+                <img src="" alt="Preview" class="modal-image" id="modalImage">
+                <div class="modal-info" id="modalInfo"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load Configuration Modal -->
+    <div class="config-modal" id="loadConfigModal">
+        <div class="config-modal-backdrop">
+            <div class="config-modal-content">
+                <div class="config-modal-header">
+                    <h3>Load Configuration</h3>
+                    <button class="config-modal-close" id="closeLoadConfig">&times;</button>
+                </div>
+                <div class="config-modal-body">
+                    <div class="config-list" id="configList">
+                        <p style="text-align: center; color: var(--text-secondary);">Loading configurations...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Configuration Modal -->
+    <div class="config-modal" id="saveConfigModal">
+        <div class="config-modal-backdrop">
+            <div class="config-modal-content">
+                <div class="config-modal-header">
+                    <h3>Save Configuration</h3>
+                    <button class="config-modal-close" id="closeSaveConfig">&times;</button>
+                </div>
+                <div class="config-modal-body">
+                    <div class="save-config-form">
+                        <label for="configName">Configuration Name</label>
+                        <input type="text" id="configName" class="config-input" placeholder="Enter a name for this configuration">
+                        <div class="save-config-actions">
+                            <button class="btn-secondary" id="cancelSaveConfig">Cancel</button>
+                            <button class="btn-primary" id="confirmSaveConfig">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load Prompt Modal -->
+    <div class="config-modal" id="loadPromptModal">
+        <div class="config-modal-backdrop">
+            <div class="config-modal-content">
+                <div class="config-modal-header">
+                    <h3>Load Prompt</h3>
+                    <button class="config-modal-close" id="closeLoadPrompt">&times;</button>
+                </div>
+                <div class="config-modal-body">
+                    <div class="config-list" id="promptList">
+                        <p style="text-align: center; color: var(--text-secondary);">Loading prompts...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Prompt Modal -->
+    <div class="config-modal" id="savePromptModal">
+        <div class="config-modal-backdrop">
+            <div class="config-modal-content">
+                <div class="config-modal-header">
+                    <h3>Save Prompt</h3>
+                    <button class="config-modal-close" id="closeSavePrompt">&times;</button>
+                </div>
+                <div class="config-modal-body">
+                    <div class="save-config-form">
+                        <label for="promptName">Prompt Name</label>
+                        <input type="text" id="promptName" class="config-input" placeholder="Enter a name for this prompt">
+                        <div class="save-config-actions">
+                            <button class="btn-secondary" id="cancelSavePrompt">Cancel</button>
+                            <button class="btn-primary" id="confirmSavePrompt">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
