@@ -27,7 +27,7 @@ from pathlib import Path
 block_cipher = None
 
 # Define output directories at project root
-project_root = Path(__file__).parent.parent
+project_root = Path(os.getcwd())
 build_dir = project_root / 'build-output' / 'build'
 dist_dir = project_root / 'build-output' / 'dist'
 
