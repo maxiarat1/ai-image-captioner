@@ -5,7 +5,6 @@ __pycache__/*
 .claude
 CLAUDE*
 RELEASE_SUMMARY.md
-version.json
 
 # C extensions
 *.so

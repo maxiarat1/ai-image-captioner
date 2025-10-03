@@ -1,0 +1,29 @@
+{
+  "build_configs": {
+    "python310-cuda118": {
+      "python": "3.10",
+      "cuda": "cu118",
+      "cuda_version_display": "11.8"
+    },
+    "python310-cuda121": {
+      "python": "3.10",
+      "cuda": "cu121",
+      "cuda_version_display": "12.1"
+    },
+    "python310-cuda124": {
+      "python": "3.10",
+      "cuda": "cu124",
+      "cuda_version_display": "12.4"
+    },
+    "python311-cuda124": {
+      "python": "3.11",
+      "cuda": "cu124",
+      "cuda_version_display": "12.4"
+    },
+    "python312-cuda124": {
+      "python": "3.12",
+      "cuda": "cu124",
+      "cuda_version_display": "12.8"
+    }
+  }
+}
