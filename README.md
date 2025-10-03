@@ -87,7 +87,7 @@ print(response.json()['caption'])
 **Local build:**
 ```bash
 ./build.sh python310-cuda124      # Linux with specific config
-build.bat python310-cuda118       # Windows with specific config
+build.bat python310-cuda121       # Windows with specific config
 ```
 
 **Release (builds ALL configs):**
@@ -96,11 +96,11 @@ build.bat python310-cuda118       # Windows with specific config
 ```
 
 This single command builds ALL Python/CUDA combinations from `version.json`:
-- 5 configs × 2 platforms = 10 executables
-- 5 Docker images
+- 4 configs × 2 platforms = 8 executables
+- 4 Docker images
 - All attached to one GitHub release
 
-Available configs: `python310-cuda118`, `python310-cuda121`, `python310-cuda124`, `python311-cuda124`, `python312-cuda124`
+Available configs: `python310-cuda121`, `python310-cuda124`, `python311-cuda124`, `python312-cuda124`
 
 ## Project Structure
 

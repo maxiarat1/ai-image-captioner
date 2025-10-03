@@ -1,10 +1,5 @@
 {
   "build_configs": {
-    "python310-cuda118": {
-      "python": "3.10",
-      "cuda": "cu118",
-      "cuda_version_display": "11.8"
-    },
     "python310-cuda121": {
       "python": "3.10",
       "cuda": "cu121",

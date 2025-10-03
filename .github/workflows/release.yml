@@ -143,12 +143,8 @@ jobs:
           CUDA_DISPLAY="${{ matrix.config.cuda_display }}"
           # Map CUDA display version to available NVIDIA base image tags
           # See: https://hub.docker.com/r/nvidia/cuda/tags
-          # CUDA 11.8 uses -cudnn8-, CUDA 12.1 uses -cudnn8-, CUDA 12.4+ uses -cudnn- (no version)
+          # CUDA 12.1 uses -cudnn8-, CUDA 12.4+ uses -cudnn- (no version)
           case "$CUDA_DISPLAY" in
-            11.8)
-              echo "version=11.8.0" >> $GITHUB_OUTPUT
-              echo "cudnn_suffix=cudnn8" >> $GITHUB_OUTPUT
-              ;;
             12.1)
               echo "version=12.1.1" >> $GITHUB_OUTPUT
               echo "cudnn_suffix=cudnn8" >> $GITHUB_OUTPUT
@@ -225,14 +221,12 @@ jobs:
           Choose the build that matches your system:
 
           **Windows:**
-          - `ai-image-tagger-windows-python310-cuda118.zip` - CUDA 11.8 (RTX 20/30 series)
           - `ai-image-tagger-windows-python310-cuda121.zip` - CUDA 12.1
           - `ai-image-tagger-windows-python310-cuda124.zip` - CUDA 12.4 (RTX 40/50 series)
           - `ai-image-tagger-windows-python311-cuda124.zip` - Python 3.11, CUDA 12.4
           - `ai-image-tagger-windows-python312-cuda124.zip` - Python 3.12, CUDA 12.8
 
           **Linux:**
-          - `ai-image-tagger-linux-python310-cuda118.tar.gz` - CUDA 11.8 (RTX 20/30 series)
           - `ai-image-tagger-linux-python310-cuda121.tar.gz` - CUDA 12.1
           - `ai-image-tagger-linux-python310-cuda124.tar.gz` - CUDA 12.4 (RTX 40/50 series)
           - `ai-image-tagger-linux-python311-cuda124.tar.gz` - Python 3.11, CUDA 12.4
@@ -243,8 +237,8 @@ jobs:
           # Latest with CUDA 12.4, Python 3.10 (recommended)
           docker pull ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python310-cuda124
 
-          # CUDA 11.8 for older GPUs
-          docker pull ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python310-cuda118
+          # CUDA 12.1 for older GPUs
+          docker pull ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python310-cuda121
 
           # Or use specific tags
           docker pull ghcr.io/${{ github.repository }}:py3.11-cuda12.4
@@ -283,7 +277,6 @@ jobs:
           nvidia-smi  # Look for "CUDA Version" in top right
           ```
 
-          - CUDA 11.x → Use `cuda118` builds
           - CUDA 12.0-12.3 → Use `cuda121` builds
           - CUDA 12.4+ → Use `cuda124` builds
 
