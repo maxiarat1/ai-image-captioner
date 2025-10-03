@@ -1,12 +1,14 @@
 # AI Image Tagger - Production Dockerfile
 # Built on NVIDIA CUDA base image for GPU support
 
-# Build arguments for version control
-ARG CUDA_VERSION=cu124
-ARG PYTHON_VERSION=3.10
+# Build arguments for base image selection
 ARG CUDA_BASE_VERSION=12.4.0
 
 FROM nvidia/cuda:${CUDA_BASE_VERSION}-cudnn8-runtime-ubuntu22.04
+
+# Re-declare build arguments (ARG before FROM are not available after)
+ARG CUDA_VERSION=cu124
+ARG PYTHON_VERSION=3.10
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -41,7 +43,6 @@ COPY version.json .
 COPY requirements.txt .
 
 # Install Python dependencies
-ARG CUDA_VERSION
 RUN pip3 install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/${CUDA_VERSION} && \
     pip3 install --no-cache-dir -r requirements.txt
 
