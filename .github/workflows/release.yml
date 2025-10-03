@@ -143,27 +143,27 @@ jobs:
           CUDA_DISPLAY="${{ matrix.config.cuda_display }}"
           # Map CUDA display version to available NVIDIA base image tags
           # See: https://hub.docker.com/r/nvidia/cuda/tags
-          # CUDA 11.x uses cudnn8, CUDA 12.x uses cudnn9
+          # CUDA 11.8 uses -cudnn8-, CUDA 12.1 uses -cudnn8-, CUDA 12.4+ uses -cudnn- (no version)
           case "$CUDA_DISPLAY" in
             11.8)
               echo "version=11.8.0" >> $GITHUB_OUTPUT
-              echo "cudnn=8" >> $GITHUB_OUTPUT
+              echo "cudnn_suffix=cudnn8" >> $GITHUB_OUTPUT
               ;;
             12.1)
               echo "version=12.1.1" >> $GITHUB_OUTPUT
-              echo "cudnn=9" >> $GITHUB_OUTPUT
+              echo "cudnn_suffix=cudnn8" >> $GITHUB_OUTPUT
               ;;
             12.4)
               echo "version=12.4.1" >> $GITHUB_OUTPUT
-              echo "cudnn=9" >> $GITHUB_OUTPUT
+              echo "cudnn_suffix=cudnn" >> $GITHUB_OUTPUT
               ;;
             12.8)
               echo "version=12.6.2" >> $GITHUB_OUTPUT  # 12.8 not available, use 12.6
-              echo "cudnn=9" >> $GITHUB_OUTPUT
+              echo "cudnn_suffix=cudnn" >> $GITHUB_OUTPUT
               ;;
             *)
               echo "version=12.4.1" >> $GITHUB_OUTPUT
-              echo "cudnn=9" >> $GITHUB_OUTPUT
+              echo "cudnn_suffix=cudnn" >> $GITHUB_OUTPUT
               ;;
           esac
 
@@ -188,7 +188,7 @@ jobs:
             PYTHON_VERSION=${{ matrix.config.python }}
             CUDA_VERSION=${{ matrix.config.cuda }}
             CUDA_BASE_VERSION=${{ steps.cuda_base.outputs.version }}
-            CUDNN_VERSION=${{ steps.cuda_base.outputs.cudnn }}
+            CUDNN_SUFFIX=${{ steps.cuda_base.outputs.cudnn_suffix }}
           cache-from: type=gha,scope=${{ matrix.config.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.config.name }}
           platforms: linux/amd64

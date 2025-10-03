@@ -3,9 +3,9 @@
 
 # Build arguments for base image selection
 ARG CUDA_BASE_VERSION=12.4.1
-ARG CUDNN_VERSION=9
+ARG CUDNN_SUFFIX=cudnn
 
-FROM nvidia/cuda:${CUDA_BASE_VERSION}-cudnn${CUDNN_VERSION}-runtime-ubuntu22.04
+FROM nvidia/cuda:${CUDA_BASE_VERSION}-${CUDNN_SUFFIX}-runtime-ubuntu22.04
 
 # Re-declare build arguments (ARG before FROM are not available after)
 ARG CUDA_VERSION=cu124
