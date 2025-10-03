@@ -11,37 +11,75 @@ on:
         required: true
         type: string
 
-env:
-  CUDA_VERSION: cu124
-  PYTHON_VERSION: '3.10'
-
 jobs:
-  build-and-release:
+  # Read version configuration and prepare matrix
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      release_version: ${{ steps.version.outputs.release_version }}
+      configs: ${{ steps.configs.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get release version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "release_version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "release_version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate build matrix from version.json
+        id: configs
+        run: |
+          # Extract all build configs and create matrix
+          CONFIGS=$(jq -c '[.build_configs | to_entries[] | {
+            name: .key,
+            python: .value.python,
+            cuda: .value.cuda,
+            cuda_display: .value.cuda_version_display
+          }]' version.json)
+          echo "matrix=${CONFIGS}" >> $GITHUB_OUTPUT
+          echo "Building configs:"
+          echo "$CONFIGS" | jq -r '.[] | "  - \(.name): Python \(.python), CUDA \(.cuda_display)"'
+
+  # Build executables for all configs and platforms
+  build-executables:
+    needs: setup
     strategy:
+      fail-fast: false
       matrix:
-        include:
-          - os: windows-latest
-            name: windows
-            artifact: ai-image-tagger-windows.zip
-          - os: ubuntu-latest
-            name: linux
-            artifact: ai-image-tagger-linux.tar.gz
+        os: [ubuntu-latest, windows-latest]
+        config: ${{ fromJson(needs.setup.outputs.configs) }}
 
     runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set platform name
+        id: platform
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
+            echo "name=linux" >> $GITHUB_OUTPUT
+            echo "ext=tar.gz" >> $GITHUB_OUTPUT
+          else
+            echo "name=windows" >> $GITHUB_OUTPUT
+            echo "ext=zip" >> $GITHUB_OUTPUT
+          fi
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ matrix.config.python }}
 
       - name: Install dependencies
         shell: bash
         run: |
           python -m pip install --upgrade pip
-          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/${{ env.CUDA_VERSION }}
+          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/${{ matrix.config.cuda }}
           pip install -r requirements.txt
           pip install pyinstaller
 
@@ -52,51 +90,195 @@ jobs:
           pyinstaller tagger.spec --distpath ../dist --workpath ../build
 
       - name: Package (Windows)
-        if: matrix.name == 'windows'
+        if: steps.platform.outputs.name == 'windows'
         shell: pwsh
         run: |
-          Compress-Archive -Path dist/ai-image-tagger -DestinationPath ${{ matrix.artifact }}
+          $ARTIFACT_NAME = "ai-image-tagger-${{ steps.platform.outputs.name }}-${{ matrix.config.name }}.zip"
+          Compress-Archive -Path dist/ai-image-tagger -DestinationPath $ARTIFACT_NAME
+          echo "ARTIFACT_PATH=$ARTIFACT_NAME" >> $env:GITHUB_ENV
 
       - name: Package (Linux)
-        if: matrix.name == 'linux'
+        if: steps.platform.outputs.name == 'linux'
         run: |
-          tar -czf ${{ matrix.artifact }} -C dist ai-image-tagger
+          ARTIFACT_NAME="ai-image-tagger-${{ steps.platform.outputs.name }}-${{ matrix.config.name }}.tar.gz"
+          tar -czf "$ARTIFACT_NAME" -C dist ai-image-tagger
+          echo "ARTIFACT_PATH=$ARTIFACT_NAME" >> $GITHUB_ENV
 
-      - name: Get version
-        id: version
-        shell: bash
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.platform.outputs.name }}-${{ matrix.config.name }}
+          path: ${{ env.ARTIFACT_PATH }}
+          retention-days: 5
+
+  # Build Docker images for all configs
+  build-docker:
+    needs: setup
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJson(needs.setup.outputs.configs) }}
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine CUDA base version
+        id: cuda_base
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-          else
-            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          fi
+          CUDA_DISPLAY="${{ matrix.config.cuda_display }}"
+          # Map CUDA display version to base image version
+          case "$CUDA_DISPLAY" in
+            11.8) echo "version=11.8.0" >> $GITHUB_OUTPUT ;;
+            12.1) echo "version=12.1.0" >> $GITHUB_OUTPUT ;;
+            12.4) echo "version=12.4.0" >> $GITHUB_OUTPUT ;;
+            12.8) echo "version=12.6.0" >> $GITHUB_OUTPUT ;;  # 12.8 not available, use 12.6
+            *) echo "version=12.4.0" >> $GITHUB_OUTPUT ;;
+          esac
 
-      - name: Upload to release
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=${{ needs.setup.outputs.release_version }}-${{ matrix.config.name }}
+            type=raw,value=py${{ matrix.config.python }}-cuda${{ matrix.config.cuda_display }}
+            type=raw,value=latest-${{ matrix.config.name }},enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            PYTHON_VERSION=${{ matrix.config.python }}
+            CUDA_VERSION=${{ matrix.config.cuda }}
+            CUDA_BASE_VERSION=${{ steps.cuda_base.outputs.version }}
+          cache-from: type=gha,scope=${{ matrix.config.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.config.name }}
+          platforms: linux/amd64
+
+  # Create GitHub release with all artifacts
+  create-release:
+    needs: [setup, build-executables, build-docker]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release artifacts
+        run: |
+          mkdir -p release-files
+          find artifacts -type f \( -name "*.zip" -o -name "*.tar.gz" \) -exec cp {} release-files/ \;
+          ls -lh release-files/
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          cat > release-notes.md << 'EOF'
+          ## 🎉 AI Image Tagger ${{ needs.setup.outputs.release_version }}
+
+          ### 📦 Downloads
+
+          Choose the build that matches your system:
+
+          **Windows:**
+          - `ai-image-tagger-windows-python310-cuda118.zip` - CUDA 11.8 (RTX 20/30 series)
+          - `ai-image-tagger-windows-python310-cuda121.zip` - CUDA 12.1
+          - `ai-image-tagger-windows-python310-cuda124.zip` - CUDA 12.4 (RTX 40/50 series)
+          - `ai-image-tagger-windows-python311-cuda124.zip` - Python 3.11, CUDA 12.4
+          - `ai-image-tagger-windows-python312-cuda124.zip` - Python 3.12, CUDA 12.8
+
+          **Linux:**
+          - `ai-image-tagger-linux-python310-cuda118.tar.gz` - CUDA 11.8 (RTX 20/30 series)
+          - `ai-image-tagger-linux-python310-cuda121.tar.gz` - CUDA 12.1
+          - `ai-image-tagger-linux-python310-cuda124.tar.gz` - CUDA 12.4 (RTX 40/50 series)
+          - `ai-image-tagger-linux-python311-cuda124.tar.gz` - Python 3.11, CUDA 12.4
+          - `ai-image-tagger-linux-python312-cuda124.tar.gz` - Python 3.12, CUDA 12.8
+
+          **Docker:**
+          ```bash
+          # Latest with CUDA 12.4, Python 3.10 (recommended)
+          docker pull ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python310-cuda124
+
+          # CUDA 11.8 for older GPUs
+          docker pull ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python310-cuda118
+
+          # Or use specific tags
+          docker pull ghcr.io/${{ github.repository }}:py3.11-cuda12.4
+          ```
+
+          ### 🚀 Quick Start
+
+          **Windows:**
+          1. Download the appropriate `.zip` file for your CUDA version
+          2. Extract and run `ai-image-tagger/ai-image-tagger.exe`
+          3. Open `http://localhost:5000` in your browser
+
+          **Linux:**
+          1. Download the appropriate `.tar.gz` file for your CUDA version
+          2. Extract: `tar -xzf ai-image-tagger-linux-*.tar.gz`
+          3. Run: `./ai-image-tagger/ai-image-tagger`
+          4. Open `http://localhost:5000` in your browser
+
+          **Docker:**
+          ```bash
+          docker run --gpus all -p 5000:5000 ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python310-cuda124
+          ```
+          Open `http://localhost:5000` in your browser
+
+          ### 📋 Requirements
+
+          - NVIDIA GPU with appropriate CUDA drivers
+          - 4GB+ VRAM (8GB+ recommended for R-4B model)
+
+          Models (~500MB-2GB) download automatically on first use.
+
+          ### 💡 Which Version to Download?
+
+          **Check your CUDA version:**
+          ```bash
+          nvidia-smi  # Look for "CUDA Version" in top right
+          ```
+
+          - CUDA 11.x → Use `cuda118` builds
+          - CUDA 12.0-12.3 → Use `cuda121` builds
+          - CUDA 12.4+ → Use `cuda124` builds
+
+          **Not sure?** Use the latest `python310-cuda124` build - it's backwards compatible with newer drivers.
+          EOF
+
+      - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.VERSION }}
-          files: ${{ matrix.artifact }}
-          body: |
-            ## 🎉 AI Image Tagger ${{ steps.version.outputs.VERSION }}
-
-            ### Download & Run
-
-            **Windows:**
-            1. Download `ai-image-tagger-windows.zip`
-            2. Extract and run `ai-image-tagger/ai-image-tagger.exe`
-            3. Open `http://localhost:5000` in your browser
-
-            **Linux:**
-            1. Download `ai-image-tagger-linux.tar.gz`
-            2. Extract: `tar -xzf ai-image-tagger-linux.tar.gz`
-            3. Run: `./ai-image-tagger/ai-image-tagger`
-            4. Open `http://localhost:5000` in your browser
-
-            ### Requirements
-            - NVIDIA GPU with CUDA 12.4+ drivers
-            - 4GB+ VRAM (8GB+ for R-4B model)
-
-            Models (~500MB-2GB) download automatically on first use.
+          tag_name: ${{ needs.setup.outputs.release_version }}
+          name: Release ${{ needs.setup.outputs.release_version }}
+          body_path: release-notes.md
+          draft: false
+          files: release-files/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
