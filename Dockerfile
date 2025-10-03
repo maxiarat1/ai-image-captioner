@@ -17,14 +17,21 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 # Install Python and system dependencies
 RUN apt-get update && apt-get install -y \
-    python${PYTHON_VERSION} \
-    python3-pip \
-    python3-dev \
+    software-properties-common \
     git \
     wget \
     curl \
     jq \
-    && rm -rf /var/lib/apt/lists/*
+    && add-apt-repository ppa:deadsnakes/ppa -y \
+    && apt-get update \
+    && apt-get install -y \
+    python${PYTHON_VERSION} \
+    python${PYTHON_VERSION}-dev \
+    python${PYTHON_VERSION}-distutils \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python3 \
+    && python3 --version
 
 # Create app directory
 WORKDIR /app
