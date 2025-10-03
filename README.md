@@ -1,399 +1,124 @@
-# AI Image Captioner
+# AI Image Tagger
 
-AI-powered batch image captioning tool with BLIP and R-4B models. Generate accurate descriptions for multiple images with customizable prompts and advanced parameters.
+AI-powered batch image captioning with BLIP and R-4B models. Generate accurate descriptions for multiple images with customizable prompts.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
-![CUDA](https://img.shields.io/badge/CUDA-11.8+-green.svg)
+![Python](https://img.shields.io/badge/python-3.10-blue.svg)
+![CUDA](https://img.shields.io/badge/CUDA-12.4+-green.svg)
 
 ## Features
 
 - 🚀 **Batch Processing** - Process multiple images simultaneously
-- 🤖 **Dual Model Support**
-  - **BLIP** - Fast, efficient image captioning
-  - **R-4B** - Advanced reasoning with detailed descriptions
-- ⚙️ **Highly Configurable**
-  - Custom prompts for guided caption generation
-  - Precision modes (FP32, FP16, BFloat16, 4-bit, 8-bit quantization)
-  - Adjustable generation parameters
-  - Flash Attention 2 support for faster inference
-- 💾 **Smart Memory Management** - Load/unload models on-demand
-- 📦 **Export Options** - Download results as ZIP with captions
-- 🎨 **Modern UI** - Clean, responsive interface with dark/light themes
-- 🔧 **Configuration Presets** - Save and load your favorite settings
-
-## Screenshots
+- 🤖 **Dual AI Models** - BLIP (fast) and R-4B (advanced reasoning)
+- ⚙️ **Configurable** - Custom prompts, precision modes, generation parameters
+- 💾 **Smart Memory** - On-demand model loading
+- 📦 **Export** - Download results as ZIP
+- 🎨 **Modern UI** - Dark/light themes, responsive design
 
 ![AI Image Tagger Interface](assets/Image%20Tagger.png)
 
-*The application features a clean, tab-based interface for uploading images, configuring models, and viewing results.*
+## Quick Start
 
-## Installation
+### Download & Run (Easiest)
 
-### Option 1: Docker (Recommended)
+1. Download the latest release from [Releases](https://github.com/yourusername/ai-image-tagger/releases)
+2. Extract and run:
+   - **Windows:** `ai-image-tagger.exe`
+   - **Linux:** `./ai-image-tagger`
+3. Open `http://localhost:5000` in your browser
 
-**Easiest and most reliable method!** Requires Docker and nvidia-docker installed.
+**Requirements:** NVIDIA GPU with CUDA 12.4+ drivers
 
-```bash
-# Pull the latest image
-docker pull ghcr.io/yourusername/ai-image-tagger:latest
-
-# Run with GPU support
-docker run --gpus all -p 5000:5000 ghcr.io/yourusername/ai-image-tagger:latest
-
-# Or use docker-compose (recommended)
-docker-compose up -d
-```
-
-Open `http://localhost:5000` and load `frontend/index.html` in your browser.
-
-**Advantages:**
-- ✅ No Python/conda installation needed
-- ✅ Consistent environment across all systems
-- ✅ Automatic GPU support
-- ✅ Easy updates
-
-### Option 2: Download Pre-built Executable
-
-**No Python or conda installation required!** Download from the [Releases](https://github.com/yourusername/ai-image-captioner/releases) page.
-
-#### Windows
-1. Download `ai-image-tagger-windows-vX.X.X.zip`
-2. Extract the ZIP file
-3. Double-click `ai-image-tagger.exe` to start the server
-4. Open `frontend/index.html` in your browser
-
-#### Linux
-1. Download `ai-image-tagger-linux-vX.X.X.tar.gz`
-2. Extract: `tar -xzf ai-image-tagger-linux-vX.X.X.tar.gz`
-3. Run: `cd ai-image-tagger && ./ai-image-tagger`
-4. Open `frontend/index.html` in your browser
-
-**Note:** AI models (~500MB-2GB) will be downloaded automatically on first use to `~/.cache/huggingface/`
-
-### Option 3: Build from Source
-
-#### Prerequisites
-
-- Python 3.8 or higher
-- CUDA 11.8+ (for GPU acceleration)
-- 8GB+ GPU VRAM recommended for R-4B model
-- Conda (recommended for environment management)
-
-#### Setup Script (Recommended)
-
-The easiest way to set up the project from source:
+### From Source
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/ai-image-captioner.git
-cd ai-image-captioner
-
-# Run the automated setup script
-chmod +x setup-tagger-gpu.sh
+# Clone and setup
+git clone https://github.com/yourusername/ai-image-tagger.git
+cd ai-image-tagger
 ./setup-tagger-gpu.sh
-```
 
-The setup script will:
-- Create a conda environment named `tagger-gpu`
-- Install PyTorch with CUDA support
-- Install all required dependencies
-- Optionally install Flash Attention 2 for faster inference
-
-### Manual Installation
-
-If you prefer manual setup:
-
-```bash
-# Create conda environment
-conda create -n tagger-gpu python=3.10 -y
+# Run
 conda activate tagger-gpu
-
-# Install PyTorch with CUDA support
-conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia -y
-
-# Install dependencies
-pip install flask flask-cors pillow transformers accelerate bitsandbytes
-
-# Optional: Install Flash Attention 2 (requires compatible GPU)
-pip install flash-attn --no-build-isolation
+cd backend && python app.py
 ```
+
+Open `frontend/index.html` in your browser.
 
 ## Usage
 
-### Starting the Application
+1. **Upload** - Drag & drop images (JPG, PNG, WebP, BMP)
+2. **Configure** - Select model (BLIP/R-4B), add prompts, adjust settings
+3. **Generate** - Process and review captions
+4. **Export** - Download as ZIP
 
-1. **Activate the environment:**
-   ```bash
-   conda activate tagger-gpu
-   ```
+### Models
 
-2. **Start the backend server:**
-   ```bash
-   cd backend
-   python app.py
-   ```
-   The Flask server will start on `http://localhost:5000`
+**BLIP** - Fast captioning (~1-2s per image, ~2GB VRAM)
+**R-4B** - Detailed descriptions (~5-10s per image, 2-16GB VRAM depending on precision)
 
-3. **Open the frontend:**
-   - Simply open `frontend/index.html` in your browser
-   - Or serve it with a local server:
-     ```bash
-     cd frontend
-     python -m http.server 8000
-     ```
-     Then visit `http://localhost:8000`
+| Precision | VRAM | Speed | Quality |
+|-----------|------|-------|---------|
+| float32   | 16GB | Slow  | Best    |
+| float16   | 8GB  | Fast  | Excellent |
+| 8-bit     | 4GB  | Faster | Very Good |
+| 4-bit     | 2GB  | Fastest | Good |
 
-### Workflow
-
-1. **Upload Tab**
-   - Drag & drop images or click to browse
-   - Support for JPG, PNG, WebP, BMP formats
-   - Add individual files or entire folders
-
-2. **Options Tab**
-   - Select AI model (BLIP or R-4B)
-   - Add custom prompts (optional)
-   - Configure advanced parameters:
-     - Precision mode (for R-4B)
-     - Generation settings (temperature, max tokens, etc.)
-     - Thinking mode (auto/short/long)
-   - Save/load configuration presets
-
-3. **Results Tab**
-   - View generated captions
-   - Preview images in modal view
-   - Edit captions if needed
-   - Download all as ZIP file
-
-### API Endpoints
-
-The backend provides a RESTful API:
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/generate` | POST | Generate caption for an image |
-| `/models` | GET | List available models and status |
-| `/model/reload` | POST | Reload model with new settings |
-| `/model/unload` | POST | Unload model to free memory |
-| `/config` | GET | Get saved configurations |
-| `/config` | POST | Save new configuration |
-
-### Example API Usage
+## API
 
 ```python
 import requests
 
-# Generate caption
 with open('image.jpg', 'rb') as f:
     response = requests.post('http://localhost:5000/generate',
         files={'image': f},
-        data={
-            'model': 'r4b',
-            'prompt': 'Describe this image in detail',
-            'parameters': '{"precision": "float16"}'
-        }
+        data={'model': 'blip', 'prompt': 'Describe this image'}
     )
-
-result = response.json()
-print(result['caption'])
+print(response.json()['caption'])
 ```
 
-## Models
+**Endpoints:**
+- `POST /generate` - Generate caption
+- `GET /models` - List models
+- `POST /model/unload` - Free memory
+- `GET/POST /config` - Manage saved configs
 
-### BLIP (Salesforce/blip-image-captioning-base)
-- **Speed:** Fast (~1-2s per image)
-- **Use Case:** Quick captioning, batch processing
-- **Memory:** ~2GB VRAM
-- **Features:** Optional text prompts for guided generation
+## Building
 
-### R-4B (YannQi/R-4B)
-- **Speed:** Slower (~5-10s per image, varies by precision)
-- **Use Case:** Detailed descriptions, reasoning tasks
-- **Memory:** 4GB-16GB VRAM (depends on precision)
-- **Features:**
-  - Multiple precision modes for speed/quality tradeoff
-  - Thinking modes (includes reasoning process)
-  - Flash Attention 2 support
-  - Highly configurable generation parameters
-
-### Precision Modes (R-4B)
-
-| Mode | VRAM Usage | Speed | Quality |
-|------|------------|-------|---------|
-| float32 | ~16GB | Slowest | Best |
-| float16 | ~8GB | Fast | Excellent |
-| bfloat16 | ~8GB | Fast | Excellent |
-| 8-bit | ~4GB | Faster | Very Good |
-| 4-bit | ~2GB | Fastest | Good |
-
-## Configuration
-
-### User Config (`user_config.json`)
-
-The application automatically saves your preferences:
-
-```json
-{
-  "saved_prompts": {
-    "detailed": "Describe this image in detail, including objects, colors, and atmosphere",
-    "simple": "What is in this image?"
-  },
-  "saved_configs": {
-    "fast": {
-      "model": "blip",
-      "parameters": {}
-    },
-    "quality": {
-      "model": "r4b",
-      "parameters": {
-        "precision": "float16",
-        "max_new_tokens": 200
-      }
-    }
-  }
-}
+**Local build:**
+```bash
+./build.sh    # Linux
+build.bat     # Windows
 ```
 
-## Troubleshooting
-
-### CUDA Out of Memory
-- Switch to lower precision (8-bit or 4-bit for R-4B)
-- Reduce `max_new_tokens` parameter
-- Use BLIP model instead of R-4B
-- Unload unused models via `/model/unload` endpoint
-
-### Flash Attention Installation Fails
-- Ensure CUDA toolkit is properly installed
-- Check GPU compatibility (compute capability 7.5+)
-- Flash Attention is optional - the app works without it
-
-### Model Loading Slow
-- Models are downloaded on first use (~500MB-2GB)
-- Subsequent loads are much faster
-- Models load on-demand, not at startup
-
-### CORS Errors
-- Ensure backend is running on `http://localhost:5000`
-- Check that CORS is enabled in `backend/app.py`
+**Release:** Push a tag (`v1.0.0`) to trigger automated builds for both platforms via GitHub Actions.
 
 ## Project Structure
 
 ```
-ai-image-captioner/
-├── backend/                   # Flask API server
-│   ├── app.py
-│   ├── models/                # Model adapters (BLIP, R-4B)
-│   └── utils/                 # Image processing utilities
-├── frontend/                  # Web interface (HTML/CSS/JS)
-├── build-output/              # Build artifacts (gitignored)
-│   └── dist/                  # Final executables
-├── assets/                    # Screenshots and media
-├── build-executable.sh        # Build script (Linux/macOS)
-├── build-executable.bat       # Build script (Windows)
-├── setup-tagger-gpu.sh        # Environment setup script
-└── user_config.json           # User preferences (auto-generated)
+ai-image-tagger/
+├── backend/
+│   ├── app.py              # Flask API
+│   ├── models/             # BLIP & R-4B adapters
+│   └── utils/              # Image processing
+├── frontend/               # HTML/CSS/JS interface
+├── build.sh / build.bat    # Build scripts
+└── .github/workflows/      # Automated releases
 ```
 
-For detailed structure, see [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
+## Troubleshooting
 
-## Building Executables
+**Out of Memory:** Use lower precision (8-bit/4-bit) or BLIP model
 
-Want to create your own standalone executables? We provide build scripts for both platforms.
+**CUDA Error:** Update to CUDA 12.4+ drivers for modern GPUs (RTX 40/50 series)
 
-### Build for Your Platform
-
-**Linux/macOS:**
-```bash
-chmod +x build-executable.sh
-./build-executable.sh
-```
-
-**Windows:**
-```batch
-build-executable.bat
-```
-
-The executable will be created in `build-output/dist/ai-image-tagger/`
-
-### Automated Builds with GitHub Actions
-
-When you create a new release on GitHub:
-1. Go to your repository → Releases → Create a new release
-2. Tag it with a version (e.g., `v1.0.0`)
-3. GitHub Actions will automatically build executables for Windows and Linux
-4. The built files will be attached to your release
-
-You can also manually trigger builds:
-1. Go to Actions → Build Executables → Run workflow
-2. Enter a version tag
-3. Download artifacts from the workflow run
-
-## Development
-
-### Adding a New Model
-
-1. Create a new adapter in `backend/models/`:
-   ```python
-   from models.base_adapter import BaseModelAdapter
-
-   class CustomModelAdapter(BaseModelAdapter):
-       def load_model(self):
-           # Load your model
-           pass
-
-       def generate_caption(self, image_path, prompt=None, **kwargs):
-           # Generate caption
-           pass
-   ```
-
-2. Register in `backend/app.py`:
-   ```python
-   'custom': CustomModelAdapter()
-   ```
-
-### Frontend Customization
-
-The UI uses CSS variables for easy theming:
-- Edit `frontend/styles.css` to modify colors, spacing, etc.
-- Theme switching is built-in (dark/light modes)
-
-## Performance Tips
-
-- **GPU Acceleration:** Ensure CUDA is properly configured
-- **Batch Processing:** Process multiple images in sequence for efficiency
-- **Precision:** Use float16/bfloat16 for best speed/quality balance
-- **Flash Attention:** Install for 2-4x faster inference on compatible GPUs
-- **Model Preloading:** Models load on first request - expect initial delay
+**Models Downloading:** First run downloads ~500MB-2GB to `~/.cache/huggingface/`
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT License - See LICENSE file
 
-## Acknowledgments
+## Credits
 
-- [Salesforce BLIP](https://github.com/salesforce/BLIP) - Image captioning model
-- [YannQi/R-4B](https://huggingface.co/YannQi/R-4B) - Advanced reasoning model
-- [Hugging Face Transformers](https://github.com/huggingface/transformers) - Model framework
-- [Flask](https://flask.palletsprojects.com/) - Backend framework
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## Support
-
-If you encounter any issues or have questions:
-- Open an [issue](https://github.com/yourusername/ai-image-captioner/issues)
-- Check existing issues for solutions
-- Review the troubleshooting section above
-
----
-
-**Note:** This project requires a CUDA-capable GPU for optimal performance. CPU inference is possible but significantly slower.
+- [Salesforce BLIP](https://github.com/salesforce/BLIP)
+- [YannQi/R-4B](https://huggingface.co/YannQi/R-4B)
+- [Hugging Face Transformers](https://github.com/huggingface/transformers)

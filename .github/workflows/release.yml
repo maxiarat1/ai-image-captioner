@@ -1,8 +1,5 @@
-name: Build and Release
+name: Release
 
-# Trigger on:
-# 1. Pushing a tag (v1.0.0, v1.2.3, etc.)
-# 2. Manual trigger with version input
 on:
   push:
     tags:
@@ -10,46 +7,64 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version tag (e.g., v1.0.0)'
+        description: 'Version (e.g., v1.0.0)'
         required: true
         type: string
-      release_type:
-        description: 'Release type'
-        required: true
-        type: choice
-        options:
-          - release
-          - prerelease
-        default: release
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  CUDA_VERSION: cu124
+  PYTHON_VERSION: '3.10'
 
 jobs:
-  # Job 1: Build Docker Image and Push to GitHub Container Registry
-  build-docker:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
+  build-and-release:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            name: windows
+            artifact: ai-image-tagger-windows.zip
+          - os: ubuntu-latest
+            name: linux
+            artifact: ai-image-tagger-linux.tar.gz
+
+    runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Extract version from tag
+      - name: Install dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/${{ env.CUDA_VERSION }}
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build executable
+        shell: bash
+        run: |
+          cd backend
+          pyinstaller tagger.spec --distpath ../dist --workpath ../build
+
+      - name: Package (Windows)
+        if: matrix.name == 'windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist/ai-image-tagger -DestinationPath ${{ matrix.artifact }}
+
+      - name: Package (Linux)
+        if: matrix.name == 'linux'
+        run: |
+          tar -czf ${{ matrix.artifact }} -C dist ai-image-tagger
+
+      - name: Get version
         id: version
+        shell: bash
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
@@ -57,255 +72,31 @@ jobs:
             echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Extract metadata for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=semver,pattern={{version}},value=${{ steps.version.outputs.VERSION }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ steps.version.outputs.VERSION }}
-            type=semver,pattern={{major}},value=${{ steps.version.outputs.VERSION }}
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/amd64
-
-  # Job 2: Build Linux Executable
-  build-linux-executable:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-          pip install -r requirements.txt
-
-      - name: Build with PyInstaller
-        run: |
-          cd backend
-          pyinstaller tagger.spec --distpath ../build-output/dist --workpath ../build-output/build
-
-      - name: Create tar.gz archive and split into chunks
-        run: |
-          cd build-output/dist
-          tar -czf ai-image-tagger-linux.tar.gz ai-image-tagger/
-          # Split into 1.5GB chunks (under GitHub's 2GB limit)
-          split -b 1500M ai-image-tagger-linux.tar.gz ai-image-tagger-linux.tar.gz.part-
-          rm ai-image-tagger-linux.tar.gz
-          # Create extraction script
-          cat > extract-linux.sh << 'EOF'
-          #!/bin/bash
-          echo "Extracting AI Image Tagger for Linux..."
-          cat ai-image-tagger-linux.tar.gz.part-* > ai-image-tagger-linux.tar.gz
-          echo "Extracting archive..."
-          tar -xzf ai-image-tagger-linux.tar.gz
-          echo "Done! Run ./ai-image-tagger/ai-image-tagger to start"
-          rm ai-image-tagger-linux.tar.gz
-          EOF
-          chmod +x extract-linux.sh
-
-      - name: Upload Linux artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ai-image-tagger-linux
-          path: |
-            build-output/dist/ai-image-tagger-linux.tar.gz.part-*
-            build-output/dist/extract-linux.sh
-          retention-days: 5
-
-  # Job 3: Build Windows Executable
-  build-windows-executable:
-    runs-on: windows-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-          pip install -r requirements.txt
-
-      - name: Build with PyInstaller
-        run: |
-          cd backend
-          pyinstaller tagger.spec --distpath ../build-output/dist --workpath ../build-output/build
-
-      - name: Create ZIP archive and split into chunks
-        run: |
-          cd build-output/dist
-          powershell Compress-Archive -Path ai-image-tagger -DestinationPath ai-image-tagger-windows.zip
-          # Split into 1.5GB chunks (under GitHub's 2GB limit) using PowerShell
-          powershell -File ../../.github/scripts/split-windows.ps1
-          del ai-image-tagger-windows.zip
-          # Create extraction script
-          echo @echo off > extract-windows.bat
-          echo echo Extracting AI Image Tagger for Windows... >> extract-windows.bat
-          echo copy /b ai-image-tagger-windows.zip.part-* ai-image-tagger-windows.zip >> extract-windows.bat
-          echo echo Extracting archive... >> extract-windows.bat
-          echo powershell Expand-Archive -Path ai-image-tagger-windows.zip -DestinationPath . >> extract-windows.bat
-          echo echo Done! Run ai-image-tagger\ai-image-tagger.exe to start >> extract-windows.bat
-          echo del ai-image-tagger-windows.zip >> extract-windows.bat
-
-      - name: Upload Windows artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ai-image-tagger-windows
-          path: |
-            build-output/dist/ai-image-tagger-windows.zip.part-*
-            build-output/dist/extract-windows.bat
-          retention-days: 5
-
-  # Job 4: Create GitHub Release
-  create-release:
-    needs: [build-docker, build-linux-executable, build-windows-executable]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Extract version
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-          else
-            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Download Linux artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ai-image-tagger-linux
-          path: ./artifacts/linux
-
-      - name: Download Windows artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ai-image-tagger-windows
-          path: ./artifacts/windows
-
-      - name: Generate release notes
-        id: notes
-        run: |
-          cat > release-notes.md << 'EOF'
-          ## 🎉 AI Image Tagger ${{ steps.version.outputs.VERSION }}
-
-          ### 📦 Downloads
-
-          **Docker (Recommended):**
-          ```bash
-          docker pull ghcr.io/${{ github.repository }}:${{ steps.version.outputs.VERSION }}
-          docker run --gpus all -p 5000:5000 ghcr.io/${{ github.repository }}:${{ steps.version.outputs.VERSION }}
-          ```
-
-          **Executables:**
-
-          **Linux:**
-          1. Download all `ai-image-tagger-linux.tar.gz.part-*` files and `extract-linux.sh`
-          2. Run: `bash extract-linux.sh`
-          3. Run: `./ai-image-tagger/ai-image-tagger`
-
-          **Windows:**
-          1. Download all `ai-image-tagger-windows.zip.part-*` files and `extract-windows.bat`
-          2. Run: `extract-windows.bat`
-          3. Run: `ai-image-tagger\ai-image-tagger.exe`
-
-          ### 🚀 Quick Start
-
-          **Docker (Easiest):**
-          ```bash
-          docker-compose up -d
-          ```
-
-          **Executable:**
-          1. Download all part files and extraction script for your platform
-          2. Run the extraction script
-          3. Run the executable
-          4. Open `frontend/index.html` in your browser
-
-          ### 📋 Requirements
-
-          - NVIDIA GPU with CUDA drivers
-          - 4GB+ VRAM (8GB+ recommended for R-4B model)
-
-          ### 📚 Documentation
-
-          - [Quick Start Guide](QUICKSTART.md)
-          - [Full Documentation](README.md)
-          - [Build Guide](BUILD_GUIDE.md)
-
-          ### 🐛 Found a bug?
-
-          Please report issues at: https://github.com/${{ github.repository }}/issues
-          EOF
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.VERSION }}
-          name: Release ${{ steps.version.outputs.VERSION }}
-          body_path: release-notes.md
-          draft: false
-          prerelease: ${{ github.event.inputs.release_type == 'prerelease' }}
-          files: |
-            artifacts/linux/*
-            artifacts/windows/*
+          files: ${{ matrix.artifact }}
+          body: |
+            ## 🎉 AI Image Tagger ${{ steps.version.outputs.VERSION }}
+
+            ### Download & Run
+
+            **Windows:**
+            1. Download `ai-image-tagger-windows.zip`
+            2. Extract and run `ai-image-tagger/ai-image-tagger.exe`
+            3. Open `http://localhost:5000` in your browser
+
+            **Linux:**
+            1. Download `ai-image-tagger-linux.tar.gz`
+            2. Extract: `tar -xzf ai-image-tagger-linux.tar.gz`
+            3. Run: `./ai-image-tagger/ai-image-tagger`
+            4. Open `http://localhost:5000` in your browser
+
+            ### Requirements
+            - NVIDIA GPU with CUDA 12.4+ drivers
+            - 4GB+ VRAM (8GB+ for R-4B model)
+
+            Models (~500MB-2GB) download automatically on first use.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # Job 5: Notification (optional)
-  notify-completion:
-    needs: [create-release]
-    runs-on: ubuntu-latest
-    if: always()
-
-    steps:
-      - name: Extract version
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-          else
-            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Summary
-        run: |
-          echo "## 🎉 Release ${{ steps.version.outputs.VERSION }} Complete!" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📦 Artifacts Created:" >> $GITHUB_STEP_SUMMARY
-          echo "- 🐳 Docker image: \`ghcr.io/${{ github.repository }}:${{ steps.version.outputs.VERSION }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- 🐧 Linux executable: \`ai-image-tagger-linux.tar.gz\`" >> $GITHUB_STEP_SUMMARY
-          echo "- 🪟 Windows executable: \`ai-image-tagger-windows.zip\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔗 Links:" >> $GITHUB_STEP_SUMMARY
-          echo "- [Release Page](https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.VERSION }})" >> $GITHUB_STEP_SUMMARY
-          echo "- [Docker Image](https://github.com/${{ github.repository }}/pkgs/container/$(basename ${{ github.repository }}))" >> $GITHUB_STEP_SUMMARY
