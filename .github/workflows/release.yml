@@ -141,13 +141,14 @@ jobs:
         id: cuda_base
         run: |
           CUDA_DISPLAY="${{ matrix.config.cuda_display }}"
-          # Map CUDA display version to base image version
+          # Map CUDA display version to available NVIDIA base image tags
+          # See: https://hub.docker.com/r/nvidia/cuda/tags
           case "$CUDA_DISPLAY" in
             11.8) echo "version=11.8.0" >> $GITHUB_OUTPUT ;;
-            12.1) echo "version=12.1.0" >> $GITHUB_OUTPUT ;;
-            12.4) echo "version=12.4.0" >> $GITHUB_OUTPUT ;;
-            12.8) echo "version=12.6.0" >> $GITHUB_OUTPUT ;;  # 12.8 not available, use 12.6
-            *) echo "version=12.4.0" >> $GITHUB_OUTPUT ;;
+            12.1) echo "version=12.1.1" >> $GITHUB_OUTPUT ;;
+            12.4) echo "version=12.4.1" >> $GITHUB_OUTPUT ;;
+            12.8) echo "version=12.6.2" >> $GITHUB_OUTPUT ;;  # 12.8 not available, use 12.6
+            *) echo "version=12.4.1" >> $GITHUB_OUTPUT ;;
           esac
 
       - name: Extract metadata for Docker
