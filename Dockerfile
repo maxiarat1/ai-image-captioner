@@ -30,8 +30,8 @@ RUN apt-get update && apt-get install -y \
     && apt-get install -y \
     python${PYTHON_VERSION} \
     python${PYTHON_VERSION}-dev \
-    python${PYTHON_VERSION}-distutils \
     python3-pip \
+    && (apt-get install -y python${PYTHON_VERSION}-distutils || true) \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python3 \
     && python3 --version
