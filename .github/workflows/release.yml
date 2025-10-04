@@ -91,11 +91,11 @@ jobs:
 
       - name: Package (Windows)
         if: steps.platform.outputs.name == 'windows'
-        shell: pwsh
+        shell: bash
         run: |
-          $ARTIFACT_NAME = "ai-image-tagger-${{ steps.platform.outputs.name }}-${{ matrix.config.name }}.zip"
-          Compress-Archive -Path dist/ai-image-tagger -DestinationPath $ARTIFACT_NAME
-          echo "ARTIFACT_PATH=$ARTIFACT_NAME" >> $env:GITHUB_ENV
+          ARTIFACT_NAME="ai-image-tagger-${{ steps.platform.outputs.name }}-${{ matrix.config.name }}.zip"
+          7z a -tzip "$ARTIFACT_NAME" ./dist/ai-image-tagger
+          echo "ARTIFACT_PATH=$ARTIFACT_NAME" >> $GITHUB_ENV
 
       - name: Package (Linux)
         if: steps.platform.outputs.name == 'linux'
