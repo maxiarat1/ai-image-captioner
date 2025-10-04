@@ -94,39 +94,31 @@ jobs:
         shell: bash
         run: |
           BASE_NAME="ai-image-tagger-${{ steps.platform.outputs.name }}-${{ matrix.config.name }}"
+          mkdir -p artifacts
           # Create split archives if size > 2GB, otherwise single archive
           7z a -tzip -v2000m "${BASE_NAME}.zip" ./dist/ai-image-tagger
-          # Check if split (multiple .zip.001, .zip.002 files exist)
-          if ls ${BASE_NAME}.zip.001 2>/dev/null; then
-            echo "ARTIFACT_PATH=${BASE_NAME}.zip.*" >> $GITHUB_ENV
-            echo "SPLIT_ARCHIVE=true" >> $GITHUB_ENV
-          else
-            echo "ARTIFACT_PATH=${BASE_NAME}.zip" >> $GITHUB_ENV
-            echo "SPLIT_ARCHIVE=false" >> $GITHUB_ENV
-          fi
+          # Move all parts to artifacts folder
+          mv ${BASE_NAME}.zip* artifacts/
 
       - name: Package (Linux)
         if: steps.platform.outputs.name == 'linux'
         run: |
           BASE_NAME="ai-image-tagger-${{ steps.platform.outputs.name }}-${{ matrix.config.name }}"
+          mkdir -p artifacts
           # Check size first
           SIZE=$(du -sb dist/ai-image-tagger | cut -f1)
           if [ $SIZE -gt 2000000000 ]; then
             # Split if > 2GB
-            tar -czf - -C dist ai-image-tagger | split -b 2000m - "${BASE_NAME}.tar.gz.part"
-            echo "ARTIFACT_PATH=${BASE_NAME}.tar.gz.part*" >> $GITHUB_ENV
-            echo "SPLIT_ARCHIVE=true" >> $GITHUB_ENV
+            tar -czf - -C dist ai-image-tagger | split -b 2000m - "artifacts/${BASE_NAME}.tar.gz.part"
           else
-            tar -czf "${BASE_NAME}.tar.gz" -C dist ai-image-tagger
-            echo "ARTIFACT_PATH=${BASE_NAME}.tar.gz" >> $GITHUB_ENV
-            echo "SPLIT_ARCHIVE=false" >> $GITHUB_ENV
+            tar -czf "artifacts/${BASE_NAME}.tar.gz" -C dist ai-image-tagger
           fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.platform.outputs.name }}-${{ matrix.config.name }}
-          path: ${{ env.ARTIFACT_PATH }}
+          path: artifacts/
           retention-days: 5
 
   # Build Docker images for all configs
@@ -221,7 +213,9 @@ jobs:
       - name: Prepare release artifacts
         run: |
           mkdir -p release-files
-          find artifacts -type f \( -name "*.zip" -o -name "*.tar.gz" \) -exec cp {} release-files/ \;
+          # Copy all archive files (including split parts: .zip, .zip.001, .tar.gz, .partaa, etc.)
+          find artifacts -type f \( -name "*.zip*" -o -name "*.tar.gz*" -o -name "*.part*" \) -exec cp {} release-files/ \;
+          echo "Release files:"
           ls -lh release-files/
 
       - name: Generate release notes
