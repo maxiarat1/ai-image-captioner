@@ -45,7 +45,7 @@ COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip3 install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/${CUDA_VERSION} && \
-    pip3 install --no-cache-dir -r requirements.txt
+    pip3 install --no-cache-dir --ignore-installed -r requirements.txt
 
 # Copy application code
 COPY backend/ ./backend/
