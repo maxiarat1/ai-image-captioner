@@ -251,19 +251,37 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Free up disk space
+        run: |
+          echo "Disk space before cleanup:"
+          df -h
+          # Remove unnecessary tools to free up space for 12GB of artifacts
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/share/swift
+          sudo rm -rf /opt/hostedtoolcache
+          sudo docker system prune -af || true
+          echo "Disk space after cleanup:"
+          df -h
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-          merge-multiple: true
 
       - name: Prepare release artifacts
         run: |
           mkdir -p release-files
           # Copy all archive files (including split parts: .zip, .zip.001, .tar.gz, .partaa, etc.)
           find artifacts -type f \( -name "*.zip*" -o -name "*.tar.gz*" -o -name "*.part*" \) -exec cp {} release-files/ \;
+          # Remove artifacts folder to save space
+          rm -rf artifacts/
           echo "Release files:"
           ls -lh release-files/
+          echo "Disk space after prep:"
+          df -h
 
       - name: Generate release notes
         id: notes
