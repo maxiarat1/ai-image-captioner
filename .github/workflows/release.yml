@@ -58,7 +58,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Free up disk space
+      - name: Free up disk space (Linux)
+        if: runner.os == 'Linux'
         run: |
           echo "Disk space before cleanup:"
           df -h
@@ -69,6 +70,18 @@ jobs:
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           echo "Disk space after cleanup:"
           df -h
+
+      - name: Free up disk space (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          echo "Disk space before cleanup:"
+          Get-PSDrive
+          # Remove unnecessary tools to free up space
+          Remove-Item -Path "C:\hostedtoolcache" -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "C:\Program Files\dotnet" -Recurse -Force -ErrorAction SilentlyContinue
+          echo "Disk space after cleanup:"
+          Get-PSDrive
 
       - name: Set platform name
         id: platform
