@@ -1,10 +1,11 @@
 import os
+import sys
 import io
 import base64
 import json
 from datetime import datetime
 from pathlib import Path
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from PIL import Image
 from models.blip_adapter import BlipAdapter
@@ -576,6 +577,29 @@ def too_large(e):
 @app.errorhandler(500)
 def internal_error(e):
     return jsonify({"error": "Internal server error"}), 500
+
+# Serve frontend files
+@app.route('/')
+def index():
+    """Serve the main frontend page"""
+    frontend_dir = _get_frontend_dir()
+    return send_from_directory(frontend_dir, 'index.html')
+
+@app.route('/<path:path>')
+def serve_static(path):
+    """Serve static frontend files (CSS, JS, images)"""
+    frontend_dir = _get_frontend_dir()
+    return send_from_directory(frontend_dir, path)
+
+def _get_frontend_dir():
+    """Get the frontend directory path, handling both dev and PyInstaller contexts"""
+    if getattr(sys, 'frozen', False):
+        # Running as PyInstaller bundle
+        base_path = Path(sys._MEIPASS)
+        return base_path / 'frontend'
+    else:
+        # Running in development
+        return Path(__file__).parent.parent / 'frontend'
 
 if __name__ == '__main__':
     # Set max file size to 16MB

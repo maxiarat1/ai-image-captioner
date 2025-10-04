@@ -287,11 +287,9 @@ jobs:
         id: notes
         run: |
           cat > release-notes.md << 'EOF'
-          ## 🎉 AI Image Tagger ${{ needs.setup.outputs.release_version }}
+          ## AI Image Tagger ${{ needs.setup.outputs.release_version }}
 
-          ### 📦 Downloads
-
-          Choose the build that matches your system:
+          ### Downloads
 
           **Windows:**
           - `ai-image-tagger-windows-python310-cuda121.zip` - RTX 20/30/40 series (CUDA 12.1+)
@@ -303,68 +301,53 @@ jobs:
 
           **Docker:**
           ```bash
-          # RTX 20/30/40 series (most users)
+          # RTX 20/30/40 series
           docker pull ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python310-cuda121
 
           # RTX 50 series
           docker pull ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python312-cuda128
-
-          # Or use short tags
-          docker pull ghcr.io/${{ github.repository }}:py3.10-cuda12.1
-          docker pull ghcr.io/${{ github.repository }}:py3.12-cuda12.8
           ```
 
-          ### 🚀 Quick Start
+          ### Installation
 
           **Windows:**
-          1. Download the appropriate `.zip` file for your CUDA version
-             - If split archives (`.zip.001`, `.zip.002`): Download ALL parts to same folder
-          2. Extract:
-             - Single file: Right-click → Extract All
-             - Split archives: Right-click `.zip.001` → Extract All (7-Zip auto-detects parts)
+          1. Download appropriate `.zip` (all parts if split: `.zip.001`, `.zip.002`)
+          2. Extract with 7-Zip (right-click first part if split)
           3. Run `ai-image-tagger/ai-image-tagger.exe`
-          4. Open `http://localhost:5000` in your browser
+          4. Navigate to `http://localhost:5000`
 
           **Linux:**
-          1. Download the appropriate `.tar.gz` file for your CUDA version
-             - If split archives (`.partaa`, `.partab`): Download ALL parts to same folder
-          2. Extract:
-             - Single file: `tar -xzf ai-image-tagger-linux-*.tar.gz`
-             - Split archives: `cat ai-image-tagger-linux-*.part* | tar -xzf -`
-          3. Run: `./ai-image-tagger/ai-image-tagger`
-          4. Open `http://localhost:5000` in your browser
+          ```bash
+          # Single archive
+          tar -xzf ai-image-tagger-linux-*.tar.gz
+
+          # Split archive
+          cat ai-image-tagger-linux-*.part* | tar -xzf -
+
+          # Run
+          ./ai-image-tagger/ai-image-tagger
+          ```
+          Navigate to `http://localhost:5000`
 
           **Docker:**
           ```bash
-          # RTX 20/30/40 series
           docker run --gpus all -p 5000:5000 ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python310-cuda121
-
-          # RTX 50 series
-          docker run --gpus all -p 5000:5000 ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python312-cuda128
           ```
-          Open `http://localhost:5000` in your browser
+          Navigate to `http://localhost:5000`
 
-          ### 📋 Requirements
+          ### Requirements
 
-          - NVIDIA GPU with appropriate CUDA drivers
-          - 4GB+ VRAM (8GB+ recommended for R-4B model)
+          - NVIDIA GPU (4GB+ VRAM, 8GB+ for R-4B model)
+          - CUDA drivers: 12.1+ for RTX 20/30/40, 12.8+ for RTX 50
 
-          Models (~500MB-2GB) download automatically on first use.
+          Models (500MB-2GB) download on first use.
 
-          ### 💡 Which Version to Download?
+          ### Version Selection
 
-          **Check your GPU model:**
-          ```bash
-          nvidia-smi  # Look at GPU name
-          ```
+          Check GPU: `nvidia-smi`
 
-          **GPU Series Guide:**
-          - RTX 2060/2070/2080, RTX 3060/3070/3080/3090, RTX 4060/4070/4080/4090 → Use `cuda121` builds
-          - RTX 5060/5070/5080/5090 (50 series) → Use `cuda128` builds
-
-          **By CUDA Driver Version:**
-          - CUDA 12.1-12.7 drivers → Use `cuda121` builds (compatible with RTX 20/30/40)
-          - CUDA 12.8+ drivers → Use `cuda128` builds (required for RTX 50)
+          - RTX 20/30/40 series → `cuda121` builds
+          - RTX 50 series → `cuda128` builds
           EOF
 
       - name: Create Release

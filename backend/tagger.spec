@@ -108,7 +108,7 @@ datas += collect_data_files('torchvision', include_py_files=True)
 
 # Add the frontend directory (optional - include if you want a single package)
 # Uncomment the line below to bundle frontend with backend
-# datas += [('../frontend', 'frontend')]
+datas += [('../frontend', 'frontend')]
 
 # Binary files and libraries
 binaries = []

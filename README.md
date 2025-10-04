@@ -1,6 +1,6 @@
 # AI Image Tagger
 
-AI-powered batch image captioning with BLIP and R-4B models. Generate accurate descriptions for multiple images with customizable prompts.
+Batch image captioning using BLIP and R-4B models. Generate descriptions for multiple images with customizable prompts.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.10%20%7C%203.12-blue.svg)
@@ -8,55 +8,51 @@ AI-powered batch image captioning with BLIP and R-4B models. Generate accurate d
 
 ## Features
 
-- 🚀 **Batch Processing** - Process multiple images simultaneously
-- 🤖 **Dual AI Models** - BLIP (fast) and R-4B (advanced reasoning)
-- ⚙️ **Configurable** - Custom prompts, precision modes, generation parameters
-- 💾 **Smart Memory** - On-demand model loading
-- 📦 **Export** - Download results as ZIP
-- 🎨 **Modern UI** - Dark/light themes, responsive design
+- Batch image processing
+- Dual AI models: BLIP (fast) and R-4B (advanced reasoning)
+- Custom prompts, precision modes, generation parameters
+- On-demand model loading
+- ZIP export
+- Dark/light themes
 
 ![AI Image Tagger Interface](assets/Image%20Tagger.png)
 
 ## Quick Start
 
-### Download & Run (Easiest)
+### Download & Run
 
-1. Download the latest release from [Releases](https://github.com/yourusername/ai-image-tagger/releases)
+1. Download from [Releases](https://github.com/yourusername/ai-image-tagger/releases)
 2. Extract and run:
-   - **Windows:** `ai-image-tagger.exe`
-   - **Linux:** `./ai-image-tagger`
-3. Open `http://localhost:5000` in your browser
+   - Windows: `ai-image-tagger.exe`
+   - Linux: `./ai-image-tagger`
+3. Navigate to `http://localhost:5000`
 
-**Requirements:**
-- RTX 20/30/40 series: CUDA 12.1+ drivers
-- RTX 50 series: CUDA 12.8+ drivers
+Requirements: CUDA 12.1+ (RTX 20/30/40) or CUDA 12.8+ (RTX 50)
 
 ### From Source
 
 ```bash
-# Clone and setup
 git clone https://github.com/yourusername/ai-image-tagger.git
 cd ai-image-tagger
 ./setup-tagger-gpu.sh
-
-# Run
 conda activate tagger-gpu
 cd backend && python app.py
 ```
 
-Open `frontend/index.html` in your browser.
+Navigate to `http://localhost:5000`
 
 ## Usage
 
-1. **Upload** - Drag & drop images (JPG, PNG, WebP, BMP)
-2. **Configure** - Select model (BLIP/R-4B), add prompts, adjust settings
-3. **Generate** - Process and review captions
-4. **Export** - Download as ZIP
+1. Upload images (JPG, PNG, WebP, BMP)
+2. Select model (BLIP/R-4B), configure prompts and settings
+3. Generate and review captions
+4. Export as ZIP
 
 ### Models
 
-**BLIP** - Fast captioning (~1-2s per image, ~2GB VRAM)
-**R-4B** - Detailed descriptions (~5-10s per image, 2-16GB VRAM depending on precision)
+**BLIP:** Fast captioning (1-2s/image, 2GB VRAM)
+
+**R-4B:** Detailed descriptions (5-10s/image, VRAM varies by precision)
 
 | Precision | VRAM | Speed | Quality |
 |-----------|------|-------|---------|
@@ -78,15 +74,15 @@ with open('image.jpg', 'rb') as f:
 print(response.json()['caption'])
 ```
 
-**Endpoints:**
+Endpoints:
 - `POST /generate` - Generate caption
 - `GET /models` - List models
 - `POST /model/unload` - Free memory
-- `GET/POST /config` - Manage saved configs
+- `GET/POST /config` - Manage configs
 
 ## Building
 
-**Local build:**
+Local build:
 ```bash
 ./build.sh python310-cuda121      # Linux - RTX 20/30/40
 ./build.sh python312-cuda128      # Linux - RTX 50
@@ -94,19 +90,19 @@ build.bat python310-cuda121       # Windows - RTX 20/30/40
 build.bat python312-cuda128       # Windows - RTX 50
 ```
 
-**Release (builds ALL configs):**
+Release all configs:
 ```bash
 ./release.sh -v 1.0.2
 ```
 
-This single command builds ALL Python/CUDA combinations from `version.json`:
+Builds all Python/CUDA combinations from `version.json`:
 - 2 configs × 2 platforms = 4 executables
 - 2 Docker images
-- All attached to one GitHub release
+- GitHub release with all artifacts
 
-Available configs:
-- `python310-cuda121` - RTX 20/30/40 series (PyTorch with CUDA 12.1)
-- `python312-cuda128` - RTX 50 series (PyTorch 2.7+ with CUDA 12.8, sm_120 support)
+Configs:
+- `python310-cuda121` - RTX 20/30/40 (CUDA 12.1)
+- `python312-cuda128` - RTX 50 (CUDA 12.8, sm_120)
 
 ## Project Structure
 
@@ -123,15 +119,15 @@ ai-image-tagger/
 
 ## Troubleshooting
 
-**Out of Memory:** Use lower precision (8-bit/4-bit) or BLIP model
+**Out of Memory:** Use lower precision (8-bit/4-bit) or BLIP
 
 **CUDA Error:**
-- RTX 20/30/40: Update to CUDA 12.1+ drivers, use `cuda121` build
-- RTX 50: Requires CUDA 12.8+ drivers, use `cuda128` build
+- RTX 20/30/40: CUDA 12.1+ drivers, `cuda121` build
+- RTX 50: CUDA 12.8+ drivers, `cuda128` build
 
-**Models Downloading:** First run downloads ~500MB-2GB to `~/.cache/huggingface/`
+**Models Downloading:** First run downloads 500MB-2GB to `~/.cache/huggingface/`
 
-**Wrong GPU Architecture:** If you see "sm_120 not supported" with RTX 50, use the `python312-cuda128` build
+**Wrong GPU Architecture:** RTX 50 "sm_120 not supported" error requires `python312-cuda128` build
 
 ## License
 
