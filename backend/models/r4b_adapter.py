@@ -66,7 +66,7 @@ class R4BAdapter(BaseModelAdapter):
             self.quantization_config = self._create_quantization_config(precision)
 
             # Load processor
-            self.processor = AutoProcessor.from_pretrained("YannQi/R-4B", trust_remote_code=True)
+            self.processor = AutoProcessor.from_pretrained("YannQi/R-4B", trust_remote_code=True, use_fast=True)
 
             # Prepare model loading arguments
             model_kwargs = {

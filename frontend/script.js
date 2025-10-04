@@ -9,15 +9,11 @@ const AppState = {
     selectedModel: 'blip',
     customPrompt: '',
     availableModels: [],
-    resultsAutoFollow: true, // Track if we should auto-scroll to newest results
     processedResults: [], // Store processed results for downloading: {filename: string, caption: string}
     userConfig: null, // User configuration loaded from backend
-    allResults: [], // All result items for virtual scrolling
-    virtualScroll: {
-        itemHeight: 200,
-        buffer: 5,
-        scrollTop: 0
-    }
+    allResults: [], // All result items for pagination: {queueItem, data}
+    currentPage: 1,
+    itemsPerPage: 30
 };
 
 // ============================================================================
@@ -518,58 +514,44 @@ function getModelParameters() {
 }
 
 // ============================================================================
-// Upload Queue Processor
+// Process Images - Simple & Clean
 // ============================================================================
-class UploadQueue {
-    constructor(maxConcurrent = 3, batchSize = 10) {
-        this.maxConcurrent = maxConcurrent;
-        this.batchSize = batchSize;
-        this.active = 0;
-        this.processed = 0;
-        this.total = 0;
-    }
+async function processImages() {
+    const resultsGrid = document.getElementById('resultsGrid');
+    const downloadBtn = document.getElementById('downloadAllBtn');
+    const processingControls = document.getElementById('processingControls');
+    const paginationControls = document.getElementById('paginationControls');
 
-    async processAll(files, onProgress) {
-        this.processed = 0;
-        this.total = files.length;
+    // Reset state
+    resultsGrid.innerHTML = '';
+    paginationControls.style.display = 'none';
+    downloadBtn.style.display = 'none';
+    processingControls.style.display = 'flex';
+    AppState.processedResults = [];
+    AppState.allResults = [];
+    AppState.currentPage = 1;
+    isProcessing = true;
 
-        // Split into batches
-        const batches = [];
-        for (let i = 0; i < files.length; i += this.batchSize) {
-            batches.push(files.slice(i, i + this.batchSize));
-        }
+    const totalImages = AppState.uploadQueue.length;
+    let processedCount = 0;
 
-        // Process batches with concurrency limit
-        const promises = [];
-        for (let i = 0; i < batches.length; i++) {
-            // Wait if we've hit concurrency limit
-            while (this.active >= this.maxConcurrent) {
-                await new Promise(r => setTimeout(r, 100));
-            }
+    // Get parameters once
+    const parameters = getModelParameters();
 
-            this.active++;
-            const promise = this.processBatch(batches[i], onProgress)
-                .finally(() => this.active--);
-            promises.push(promise);
-        }
-
-        await Promise.all(promises);
-    }
-
-    async processBatch(batch, onProgress) {
+    // Process each image one by one
+    for (const queueItem of AppState.uploadQueue) {
+        // Build request
         const formData = new FormData();
-        const parameters = getModelParameters();
-
-        batch.forEach(item => formData.append('images', item.file));
+        formData.append('image', queueItem.file);
         formData.append('model', AppState.selectedModel);
         formData.append('parameters', JSON.stringify(parameters));
-
         if (AppState.customPrompt) {
             formData.append('prompt', AppState.customPrompt);
         }
 
         try {
-            const response = await fetch(`${AppState.apiBaseUrl}/generate/batch`, {
+            // Send to backend
+            const response = await fetch(`${AppState.apiBaseUrl}/generate`, {
                 method: 'POST',
                 body: formData
             });
@@ -580,201 +562,170 @@ class UploadQueue {
 
             const data = await response.json();
 
-            // Process results
-            for (let i = 0; i < data.results.length; i++) {
-                const result = data.results[i];
-                const item = batch[i];
+            // Store result
+            AppState.allResults.push({ queueItem, data });
 
-                if (result.success) {
-                    onProgress({
-                        item,
-                        result: {
-                            caption: result.caption,
-                            image_preview: result.image_preview
-                        }
-                    });
-                } else {
-                    onProgress({
-                        item,
-                        error: result.error
-                    });
-                }
-            }
-        } catch (error) {
-            // Handle batch error
-            batch.forEach(item => {
-                onProgress({ item, error: error.message });
-            });
-        }
-    }
-}
-
-async function processImages() {
-    const resultsGrid = document.getElementById('resultsGrid');
-    const downloadBtn = document.getElementById('downloadAllBtn');
-    const processingControls = document.getElementById('processingControls');
-    const pauseBtn = document.getElementById('pauseBtn');
-
-    // Create progress bar
-    const progressBar = document.createElement('div');
-    progressBar.style.cssText = 'width: 100%; background: var(--surface-color); border-radius: 8px; overflow: hidden; margin-bottom: 20px;';
-    progressBar.innerHTML = '<div id="progressFill" style="height: 8px; width: 0%; background: linear-gradient(90deg, var(--primary-color), var(--accent-color)); transition: width 0.3s;"></div>';
-
-    resultsGrid.innerHTML = '';
-    resultsGrid.appendChild(progressBar);
-
-    const progressMsg = document.createElement('p');
-    progressMsg.style.cssText = 'text-align: center; color: var(--text-secondary); margin-top: 10px;';
-    progressMsg.textContent = 'Processing images...';
-    resultsGrid.appendChild(progressMsg);
-
-    downloadBtn.style.display = 'none';
-    processingControls.style.display = 'flex';
-
-    if (pauseBtn) {
-        pauseBtn.classList.remove('paused');
-        pauseBtn.title = 'Pause processing';
-    }
-
-    AppState.resultsAutoFollow = true;
-    AppState.processedResults = [];
-    AppState.allResults = [];
-
-    isProcessing = true;
-    isPaused = false;
-    shouldStop = false;
-    let processedCount = 0;
-    const totalImages = AppState.uploadQueue.length;
-
-    const queue = new UploadQueue(3, 10);
-    let firstResult = true;
-
-    await queue.processAll(AppState.uploadQueue, (data) => {
-        if (firstResult) {
-            resultsGrid.innerHTML = '';
-            firstResult = false;
-        }
-
-        if (data.error) {
-            console.error(`Error: ${data.item.file.name}:`, data.error);
-        } else {
-            addResultToGrid(data.item, data.result);
+            // Store for download
             AppState.processedResults.push({
-                filename: data.item.file.name,
-                caption: data.result.caption
+                filename: queueItem.file.name,
+                caption: data.caption
             });
+
+            // Only add new item if it's on the current page (don't re-render everything)
+            addResultItemToCurrentPage(queueItem, data);
+
+        } catch (error) {
+            console.error(`Error processing ${queueItem.file.name}:`, error);
         }
 
+        // Update progress
         processedCount++;
-        const progressFill = document.getElementById('progressFill');
-        if (progressFill) {
-            progressFill.style.width = `${(processedCount / totalImages) * 100}%`;
-        }
-        showToast(`Processed ${processedCount}/${totalImages} (${Math.round(processedCount/totalImages*100)}%)`, true);
-    });
+        showToast(`Processed ${processedCount}/${totalImages}`, true);
+    }
 
+    // Finished
     isProcessing = false;
-    isPaused = false;
-    shouldStop = false;
     processingControls.style.display = 'none';
 
     if (AppState.processedResults.length > 0) {
         downloadBtn.style.display = 'inline-flex';
-    }
-
-    if (processedCount === totalImages) {
-        showToast('All images processed successfully!');
+        showToast('All images processed!');
     }
 }
 
-function addResultToGrid(item, result) {
-    AppState.allResults.push({ item, result });
-
-    // Only render if we have less than 100 items (use virtual scroll after)
-    if (AppState.allResults.length < 100) {
-        renderResultItem(item, result);
-    } else {
-        renderVirtualResults();
-    }
-}
-
-function renderResultItem(item, result) {
+// ============================================================================
+// Pagination Functions
+// ============================================================================
+function addResultItemToCurrentPage(queueItem, data) {
     const resultsGrid = document.getElementById('resultsGrid');
+    const paginationControls = document.getElementById('paginationControls');
 
-    const resultItem = document.createElement('div');
-    resultItem.className = 'result-item';
+    // Calculate which page this item belongs to
+    const itemIndex = AppState.allResults.length - 1; // Just added, so it's the last item
+    const itemPage = Math.ceil((itemIndex + 1) / AppState.itemsPerPage);
 
-    resultItem.innerHTML = `
+    // Only add to DOM if it's on the current page
+    if (itemPage === AppState.currentPage) {
+        const currentPageItemCount = resultsGrid.children.length;
+
+        // Only add if we haven't exceeded the page limit
+        if (currentPageItemCount < AppState.itemsPerPage) {
+            const resultDiv = createResultElement(queueItem, data);
+
+            // Add staggered animation delay based on position
+            const delayMs = currentPageItemCount * 80; // 80ms delay between each item
+            resultDiv.style.animationDelay = `${delayMs}ms`;
+
+            resultsGrid.appendChild(resultDiv);
+        }
+    }
+
+    // Update pagination controls
+    updatePaginationControls();
+}
+
+function createResultElement(queueItem, data) {
+    const resultDiv = document.createElement('div');
+    resultDiv.className = 'result-item';
+    resultDiv.innerHTML = `
         <div class="result-image">
-            <img src="${item.preview}" alt="${item.file.name}">
+            <img src="${queueItem.preview}" alt="${queueItem.file.name}">
         </div>
         <div class="result-text">
-            <p>${result.caption}</p>
+            <p>${data.caption}</p>
         </div>
     `;
 
-    const resultImage = resultItem.querySelector('.result-image');
-    resultImage.addEventListener('click', (e) => {
-        if (e.target === resultImage || e.target.tagName === 'IMG') {
-            openImagePreview(item.preview, result.caption, item.file.name);
+    const img = resultDiv.querySelector('.result-image img');
+    const textElement = resultDiv.querySelector('.result-text');
+
+    // Check image aspect ratio and add class for stretched images
+    img.addEventListener('load', () => {
+        const aspectRatio = img.naturalWidth / img.naturalHeight;
+
+        // If image is very wide (aspect ratio > 2.5), it's stretched
+        if (aspectRatio > 2.5) {
+            resultDiv.classList.add('stretched-image');
         }
     });
 
-    const resultText = resultItem.querySelector('.result-text');
-    resultText.addEventListener('click', (e) => {
-        e.stopPropagation();
-        navigator.clipboard.writeText(result.caption)
-            .then(() => showToast('Caption copied to clipboard!'))
-            .catch(() => showToast('Failed to copy caption'));
+    // Add click handler with Ctrl modifier support
+    resultDiv.querySelector('.result-image').addEventListener('click', (e) => {
+        // Ctrl+Click (or Cmd+Click on Mac) = Copy caption
+        if (e.ctrlKey || e.metaKey) {
+            navigator.clipboard.writeText(data.caption)
+                .then(() => showToast('Caption copied!'))
+                .catch(() => showToast('Copy failed'));
+        } else {
+            // Normal click = Preview
+            openImagePreview(queueItem.preview, data.caption, queueItem.file.name);
+        }
     });
 
-    resultsGrid.appendChild(resultItem);
+    return resultDiv;
 }
 
-function renderVirtualResults() {
-    const resultsGrid = document.getElementById('resultsGrid');
-    const viewportHeight = window.innerHeight;
-    const scrollTop = AppState.virtualScroll.scrollTop;
-    const itemHeight = AppState.virtualScroll.itemHeight;
-    const buffer = AppState.virtualScroll.buffer;
+function updatePaginationControls() {
+    const paginationControls = document.getElementById('paginationControls');
+    const paginationInfo = document.getElementById('paginationInfo');
+    const prevBtn = document.getElementById('prevPageBtn');
+    const nextBtn = document.getElementById('nextPageBtn');
 
-    const start = Math.max(0, Math.floor(scrollTop / itemHeight) - buffer);
-    const end = Math.min(AppState.allResults.length, Math.ceil((scrollTop + viewportHeight) / itemHeight) + buffer);
+    const totalItems = AppState.allResults.length;
+    const totalPages = Math.ceil(totalItems / AppState.itemsPerPage);
 
-    // Clear and render only visible items
-    resultsGrid.innerHTML = '';
-    resultsGrid.style.paddingTop = `${start * itemHeight}px`;
-    resultsGrid.style.paddingBottom = `${(AppState.allResults.length - end) * itemHeight}px`;
-
-    for (let i = start; i < end; i++) {
-        const { item, result } = AppState.allResults[i];
-        renderResultItem(item, result);
+    if (totalPages > 1) {
+        paginationControls.style.display = 'flex';
+        paginationInfo.textContent = `Page ${AppState.currentPage} of ${totalPages}`;
+        prevBtn.disabled = AppState.currentPage === 1;
+        nextBtn.disabled = AppState.currentPage === totalPages;
+    } else {
+        paginationControls.style.display = 'none';
     }
 }
 
-function initVirtualScroll() {
-    const resultsTab = document.getElementById('results-content');
-    let ticking = false;
+function renderCurrentPage() {
+    const resultsGrid = document.getElementById('resultsGrid');
 
-    resultsTab?.addEventListener('scroll', () => {
-        AppState.virtualScroll.scrollTop = resultsTab.scrollTop;
+    // Calculate pagination
+    const start = (AppState.currentPage - 1) * AppState.itemsPerPage;
+    const end = start + AppState.itemsPerPage;
+    const pageItems = AppState.allResults.slice(start, end);
 
-        if (!ticking && AppState.allResults.length >= 100) {
-            window.requestAnimationFrame(() => {
-                renderVirtualResults();
-                ticking = false;
-            });
-            ticking = true;
-        }
+    // Clear and render items for current page
+    resultsGrid.innerHTML = '';
+    pageItems.forEach(({ queueItem, data }) => {
+        const resultDiv = createResultElement(queueItem, data);
+        resultsGrid.appendChild(resultDiv);
     });
+
+    // Update pagination controls
+    updatePaginationControls();
 }
 
-// ============================================================================
-// Results Grid Auto-Follow Behavior
-// ============================================================================
-
-function initResultsAutoFollow() {
+function nextPage() {
+    const totalPages = Math.ceil(AppState.allResults.length / AppState.itemsPerPage);
+    if (AppState.currentPage < totalPages) {
+        AppState.currentPage++;
+        renderCurrentPage();
+    }
 }
+
+function prevPage() {
+    if (AppState.currentPage > 1) {
+        AppState.currentPage--;
+        renderCurrentPage();
+    }
+}
+
+function goToPage(pageNumber) {
+    const totalPages = Math.ceil(AppState.allResults.length / AppState.itemsPerPage);
+    if (pageNumber >= 1 && pageNumber <= totalPages) {
+        AppState.currentPage = pageNumber;
+        renderCurrentPage();
+    }
+}
+
 
 // ============================================================================
 // Download Functionality
@@ -1331,6 +1282,19 @@ function initProcessingControls() {
     }
 }
 
+function initPaginationControls() {
+    const prevBtn = document.getElementById('prevPageBtn');
+    const nextBtn = document.getElementById('nextPageBtn');
+
+    if (prevBtn) {
+        prevBtn.addEventListener('click', prevPage);
+    }
+
+    if (nextBtn) {
+        nextBtn.addEventListener('click', nextPage);
+    }
+}
+
 // ============================================================================
 // Main Initialization
 // ============================================================================
@@ -1342,11 +1306,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     initOptionsHandlers();
     initCopyFunctionality();
     initModalHandlers();
-    initResultsAutoFollow();
     initDownloadButton();
     initProcessingControls();
+    initPaginationControls();
     initConfigModals();
-    initVirtualScroll();
 
     // Fetch available models from backend
     await fetchAvailableModels();

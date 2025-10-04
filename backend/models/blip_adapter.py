@@ -14,7 +14,7 @@ class BlipAdapter(BaseModelAdapter):
         """Load BLIP model and processor"""
         try:
             print(f"Loading BLIP model on {self.device}...")
-            self.processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+            self.processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base", use_fast=True)
             self.model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
             self.model.to(self.device)
             self.model.eval()
