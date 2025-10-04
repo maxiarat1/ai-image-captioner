@@ -3,8 +3,8 @@
 AI-powered batch image captioning with BLIP and R-4B models. Generate accurate descriptions for multiple images with customizable prompts.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Python](https://img.shields.io/badge/python-3.10-blue.svg)
-![CUDA](https://img.shields.io/badge/CUDA-12.4+-green.svg)
+![Python](https://img.shields.io/badge/python-3.10%20%7C%203.12-blue.svg)
+![CUDA](https://img.shields.io/badge/CUDA-12.1%20%7C%2012.8-green.svg)
 
 ## Features
 
@@ -27,7 +27,9 @@ AI-powered batch image captioning with BLIP and R-4B models. Generate accurate d
    - **Linux:** `./ai-image-tagger`
 3. Open `http://localhost:5000` in your browser
 
-**Requirements:** NVIDIA GPU with CUDA 12.4+ drivers
+**Requirements:**
+- RTX 20/30/40 series: CUDA 12.1+ drivers
+- RTX 50 series: CUDA 12.8+ drivers
 
 ### From Source
 
@@ -86,8 +88,10 @@ print(response.json()['caption'])
 
 **Local build:**
 ```bash
-./build.sh python310-cuda124      # Linux with specific config
-build.bat python310-cuda121       # Windows with specific config
+./build.sh python310-cuda121      # Linux - RTX 20/30/40
+./build.sh python312-cuda128      # Linux - RTX 50
+build.bat python310-cuda121       # Windows - RTX 20/30/40
+build.bat python312-cuda128       # Windows - RTX 50
 ```
 
 **Release (builds ALL configs):**
@@ -96,11 +100,13 @@ build.bat python310-cuda121       # Windows with specific config
 ```
 
 This single command builds ALL Python/CUDA combinations from `version.json`:
-- 4 configs × 2 platforms = 8 executables
-- 4 Docker images
+- 2 configs × 2 platforms = 4 executables
+- 2 Docker images
 - All attached to one GitHub release
 
-Available configs: `python310-cuda121`, `python310-cuda124`, `python311-cuda124`, `python312-cuda124`
+Available configs:
+- `python310-cuda121` - RTX 20/30/40 series (PyTorch with CUDA 12.1)
+- `python312-cuda128` - RTX 50 series (PyTorch 2.7+ with CUDA 12.8, sm_120 support)
 
 ## Project Structure
 
@@ -119,9 +125,13 @@ ai-image-tagger/
 
 **Out of Memory:** Use lower precision (8-bit/4-bit) or BLIP model
 
-**CUDA Error:** Update to CUDA 12.4+ drivers for modern GPUs (RTX 40/50 series)
+**CUDA Error:**
+- RTX 20/30/40: Update to CUDA 12.1+ drivers, use `cuda121` build
+- RTX 50: Requires CUDA 12.8+ drivers, use `cuda128` build
 
 **Models Downloading:** First run downloads ~500MB-2GB to `~/.cache/huggingface/`
+
+**Wrong GPU Architecture:** If you see "sm_120 not supported" with RTX 50, use the `python312-cuda128` build
 
 ## License
 

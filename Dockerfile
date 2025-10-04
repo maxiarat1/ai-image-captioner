@@ -2,13 +2,13 @@
 # Built on NVIDIA CUDA base image for GPU support
 
 # Build arguments for base image selection
-ARG CUDA_BASE_VERSION=12.4.1
-ARG CUDNN_SUFFIX=cudnn
+ARG CUDA_BASE_VERSION=12.1.1
+ARG CUDNN_SUFFIX=cudnn8
 
 FROM nvidia/cuda:${CUDA_BASE_VERSION}-${CUDNN_SUFFIX}-runtime-ubuntu22.04
 
 # Re-declare build arguments (ARG before FROM are not available after)
-ARG CUDA_VERSION=cu124
+ARG CUDA_VERSION=cu121
 ARG PYTHON_VERSION=3.10
 
 # Set environment variables

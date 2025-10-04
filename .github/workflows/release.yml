@@ -143,23 +143,19 @@ jobs:
           CUDA_DISPLAY="${{ matrix.config.cuda_display }}"
           # Map CUDA display version to available NVIDIA base image tags
           # See: https://hub.docker.com/r/nvidia/cuda/tags
-          # CUDA 12.1 uses -cudnn8-, CUDA 12.4+ uses -cudnn- (no version)
+          # CUDA 12.1 uses -cudnn8-, CUDA 12.8 uses -cudnn-
           case "$CUDA_DISPLAY" in
             12.1)
               echo "version=12.1.1" >> $GITHUB_OUTPUT
               echo "cudnn_suffix=cudnn8" >> $GITHUB_OUTPUT
               ;;
-            12.4)
-              echo "version=12.4.1" >> $GITHUB_OUTPUT
-              echo "cudnn_suffix=cudnn" >> $GITHUB_OUTPUT
-              ;;
             12.8)
-              echo "version=12.6.2" >> $GITHUB_OUTPUT  # 12.8 not available, use 12.6
+              echo "version=12.6.2" >> $GITHUB_OUTPUT
               echo "cudnn_suffix=cudnn" >> $GITHUB_OUTPUT
               ;;
             *)
-              echo "version=12.4.1" >> $GITHUB_OUTPUT
-              echo "cudnn_suffix=cudnn" >> $GITHUB_OUTPUT
+              echo "version=12.1.1" >> $GITHUB_OUTPUT
+              echo "cudnn_suffix=cudnn8" >> $GITHUB_OUTPUT
               ;;
           esac
 
@@ -221,27 +217,24 @@ jobs:
           Choose the build that matches your system:
 
           **Windows:**
-          - `ai-image-tagger-windows-python310-cuda121.zip` - CUDA 12.1
-          - `ai-image-tagger-windows-python310-cuda124.zip` - CUDA 12.4 (RTX 40/50 series)
-          - `ai-image-tagger-windows-python311-cuda124.zip` - Python 3.11, CUDA 12.4
-          - `ai-image-tagger-windows-python312-cuda124.zip` - Python 3.12, CUDA 12.8
+          - `ai-image-tagger-windows-python310-cuda121.zip` - RTX 20/30/40 series (CUDA 12.1+)
+          - `ai-image-tagger-windows-python312-cuda128.zip` - RTX 50 series (CUDA 12.8+)
 
           **Linux:**
-          - `ai-image-tagger-linux-python310-cuda121.tar.gz` - CUDA 12.1
-          - `ai-image-tagger-linux-python310-cuda124.tar.gz` - CUDA 12.4 (RTX 40/50 series)
-          - `ai-image-tagger-linux-python311-cuda124.tar.gz` - Python 3.11, CUDA 12.4
-          - `ai-image-tagger-linux-python312-cuda124.tar.gz` - Python 3.12, CUDA 12.8
+          - `ai-image-tagger-linux-python310-cuda121.tar.gz` - RTX 20/30/40 series (CUDA 12.1+)
+          - `ai-image-tagger-linux-python312-cuda128.tar.gz` - RTX 50 series (CUDA 12.8+)
 
           **Docker:**
           ```bash
-          # Latest with CUDA 12.4, Python 3.10 (recommended)
-          docker pull ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python310-cuda124
-
-          # CUDA 12.1 for older GPUs
+          # RTX 20/30/40 series (most users)
           docker pull ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python310-cuda121
 
-          # Or use specific tags
-          docker pull ghcr.io/${{ github.repository }}:py3.11-cuda12.4
+          # RTX 50 series
+          docker pull ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python312-cuda128
+
+          # Or use short tags
+          docker pull ghcr.io/${{ github.repository }}:py3.10-cuda12.1
+          docker pull ghcr.io/${{ github.repository }}:py3.12-cuda12.8
           ```
 
           ### 🚀 Quick Start
@@ -259,7 +252,11 @@ jobs:
 
           **Docker:**
           ```bash
-          docker run --gpus all -p 5000:5000 ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python310-cuda124
+          # RTX 20/30/40 series
+          docker run --gpus all -p 5000:5000 ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python310-cuda121
+
+          # RTX 50 series
+          docker run --gpus all -p 5000:5000 ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python312-cuda128
           ```
           Open `http://localhost:5000` in your browser
 
@@ -272,15 +269,18 @@ jobs:
 
           ### 💡 Which Version to Download?
 
-          **Check your CUDA version:**
+          **Check your GPU model:**
           ```bash
-          nvidia-smi  # Look for "CUDA Version" in top right
+          nvidia-smi  # Look at GPU name
           ```
 
-          - CUDA 12.0-12.3 → Use `cuda121` builds
-          - CUDA 12.4+ → Use `cuda124` builds
+          **GPU Series Guide:**
+          - RTX 2060/2070/2080, RTX 3060/3070/3080/3090, RTX 4060/4070/4080/4090 → Use `cuda121` builds
+          - RTX 5060/5070/5080/5090 (50 series) → Use `cuda128` builds
 
-          **Not sure?** Use the latest `python310-cuda124` build - it's backwards compatible with newer drivers.
+          **By CUDA Driver Version:**
+          - CUDA 12.1-12.7 drivers → Use `cuda121` builds (compatible with RTX 20/30/40)
+          - CUDA 12.8+ drivers → Use `cuda128` builds (required for RTX 50)
           EOF
 
       - name: Create Release
