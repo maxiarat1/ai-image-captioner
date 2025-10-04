@@ -93,16 +93,34 @@ jobs:
         if: steps.platform.outputs.name == 'windows'
         shell: bash
         run: |
-          ARTIFACT_NAME="ai-image-tagger-${{ steps.platform.outputs.name }}-${{ matrix.config.name }}.zip"
-          7z a -tzip "$ARTIFACT_NAME" ./dist/ai-image-tagger
-          echo "ARTIFACT_PATH=$ARTIFACT_NAME" >> $GITHUB_ENV
+          BASE_NAME="ai-image-tagger-${{ steps.platform.outputs.name }}-${{ matrix.config.name }}"
+          # Create split archives if size > 2GB, otherwise single archive
+          7z a -tzip -v2000m "${BASE_NAME}.zip" ./dist/ai-image-tagger
+          # Check if split (multiple .zip.001, .zip.002 files exist)
+          if ls ${BASE_NAME}.zip.001 2>/dev/null; then
+            echo "ARTIFACT_PATH=${BASE_NAME}.zip.*" >> $GITHUB_ENV
+            echo "SPLIT_ARCHIVE=true" >> $GITHUB_ENV
+          else
+            echo "ARTIFACT_PATH=${BASE_NAME}.zip" >> $GITHUB_ENV
+            echo "SPLIT_ARCHIVE=false" >> $GITHUB_ENV
+          fi
 
       - name: Package (Linux)
         if: steps.platform.outputs.name == 'linux'
         run: |
-          ARTIFACT_NAME="ai-image-tagger-${{ steps.platform.outputs.name }}-${{ matrix.config.name }}.tar.gz"
-          tar -czf "$ARTIFACT_NAME" -C dist ai-image-tagger
-          echo "ARTIFACT_PATH=$ARTIFACT_NAME" >> $GITHUB_ENV
+          BASE_NAME="ai-image-tagger-${{ steps.platform.outputs.name }}-${{ matrix.config.name }}"
+          # Check size first
+          SIZE=$(du -sb dist/ai-image-tagger | cut -f1)
+          if [ $SIZE -gt 2000000000 ]; then
+            # Split if > 2GB
+            tar -czf - -C dist ai-image-tagger | split -b 2000m - "${BASE_NAME}.tar.gz.part"
+            echo "ARTIFACT_PATH=${BASE_NAME}.tar.gz.part*" >> $GITHUB_ENV
+            echo "SPLIT_ARCHIVE=true" >> $GITHUB_ENV
+          else
+            tar -czf "${BASE_NAME}.tar.gz" -C dist ai-image-tagger
+            echo "ARTIFACT_PATH=${BASE_NAME}.tar.gz" >> $GITHUB_ENV
+            echo "SPLIT_ARCHIVE=false" >> $GITHUB_ENV
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -241,12 +259,19 @@ jobs:
 
           **Windows:**
           1. Download the appropriate `.zip` file for your CUDA version
-          2. Extract and run `ai-image-tagger/ai-image-tagger.exe`
-          3. Open `http://localhost:5000` in your browser
+             - If split archives (`.zip.001`, `.zip.002`): Download ALL parts to same folder
+          2. Extract:
+             - Single file: Right-click → Extract All
+             - Split archives: Right-click `.zip.001` → Extract All (7-Zip auto-detects parts)
+          3. Run `ai-image-tagger/ai-image-tagger.exe`
+          4. Open `http://localhost:5000` in your browser
 
           **Linux:**
           1. Download the appropriate `.tar.gz` file for your CUDA version
-          2. Extract: `tar -xzf ai-image-tagger-linux-*.tar.gz`
+             - If split archives (`.partaa`, `.partab`): Download ALL parts to same folder
+          2. Extract:
+             - Single file: `tar -xzf ai-image-tagger-linux-*.tar.gz`
+             - Split archives: `cat ai-image-tagger-linux-*.part* | tar -xzf -`
           3. Run: `./ai-image-tagger/ai-image-tagger`
           4. Open `http://localhost:5000` in your browser
 
