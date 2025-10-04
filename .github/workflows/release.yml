@@ -58,6 +58,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Free up disk space
+        run: |
+          echo "Disk space before cleanup:"
+          df -h
+          # Remove unnecessary tools to free up space
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          echo "Disk space after cleanup:"
+          df -h
+
       - name: Set platform name
         id: platform
         shell: bash
@@ -88,6 +100,13 @@ jobs:
         run: |
           cd backend
           pyinstaller tagger.spec --distpath ../dist --workpath ../build
+
+      - name: Clean up build artifacts
+        run: |
+          # Remove build cache to save space
+          rm -rf build/
+          # Clean pip cache
+          pip cache purge || true
 
       - name: Package (Windows)
         if: steps.platform.outputs.name == 'windows'
