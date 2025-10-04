@@ -49,6 +49,7 @@ jobs:
     needs: setup
     strategy:
       fail-fast: false
+      max-parallel: 2  # Limit parallel builds to avoid disk space issues
       matrix:
         os: [ubuntu-latest, windows-latest]
         config: ${{ fromJson(needs.setup.outputs.configs) }}
@@ -63,11 +64,15 @@ jobs:
         run: |
           echo "Disk space before cleanup:"
           df -h
-          # Remove unnecessary tools to free up space
+          # Remove unnecessary tools to free up space (~30GB)
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /opt/ghc
           sudo rm -rf /usr/local/share/boost
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/share/swift
+          sudo rm -rf /opt/hostedtoolcache
+          sudo docker system prune -af || true
           echo "Disk space after cleanup:"
           df -h
 
@@ -146,6 +151,14 @@ jobs:
           else
             tar -czf "artifacts/${BASE_NAME}.tar.gz" -C dist ai-image-tagger
           fi
+
+      - name: Final cleanup before upload
+        shell: bash
+        run: |
+          # Remove dist folder after packaging to save space
+          rm -rf dist/
+          echo "Disk space before upload:"
+          df -h || Get-PSDrive
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
