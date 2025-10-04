@@ -125,9 +125,23 @@ function removeFromQueue(id) {
 }
 
 function clearQueue() {
-    AppState.uploadQueue = [];
-    updateQueueUI();
-    showToast('Queue cleared');
+    const queueContainer = document.getElementById('uploadQueueContainer');
+
+    // Add fade-out animation
+    queueContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+    queueContainer.style.opacity = '0';
+    queueContainer.style.transform = 'scale(0.95)';
+
+    // Wait for animation to complete before clearing
+    setTimeout(() => {
+        AppState.uploadQueue = [];
+        updateQueueUI();
+        showToast('Queue cleared');
+
+        // Reset styles for next time
+        queueContainer.style.opacity = '';
+        queueContainer.style.transform = '';
+    }, 300);
 }
 
 function updateQueueUI() {
