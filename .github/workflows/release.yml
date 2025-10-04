@@ -115,6 +115,7 @@ jobs:
           pyinstaller tagger.spec --distpath ../dist --workpath ../build
 
       - name: Clean up build artifacts
+        shell: bash
         run: |
           # Remove build cache to save space
           rm -rf build/
