@@ -34,7 +34,8 @@ RUN apt-get update && apt-get install -y \
     && (apt-get install -y python${PYTHON_VERSION}-distutils || true) \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python3 \
-    && python3 --version
+    && python3 --version \
+    && python3 -m pip install --upgrade pip setuptools wheel
 
 # Create app directory
 WORKDIR /app
