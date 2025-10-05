@@ -21,7 +21,7 @@ Batch image captioning using BLIP and R-4B models. Generate descriptions for mul
 
 ### Download & Run
 
-1. Download from [Releases](https://github.com/yourusername/ai-image-tagger/releases)
+1. Download from [Releases](https://github.com/maxiarat1/ai-image-captioner/releases)
 2. Extract and run:
    - Windows: `ai-image-tagger.exe`
    - Linux: `./ai-image-tagger`
@@ -32,8 +32,8 @@ Requirements: CUDA 12.1+ (RTX 20/30/40) or CUDA 12.8+ (RTX 50)
 ### From Source
 
 ```bash
-git clone https://github.com/yourusername/ai-image-tagger.git
-cd ai-image-tagger
+git clone https://github.com/maxiarat1/ai-image-captioner.git
+cd ai-image-captioner
 ./setup-tagger-gpu.sh
 conda activate tagger-gpu
 cd backend && python app.py
