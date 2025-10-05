@@ -163,6 +163,10 @@ ai-image-tagger/
 **Wrong GPU Architecture:** RTX 50 "sm_120 not supported" error requires `python312-cuda128` build
 
 **Docker GPU Error** (`could not select device driver "" with capabilities: [[gpu]]`):
+
+Linux users: Use Docker Engine (not Docker Desktop). Desktop runs in a VM without GPU access.
+
+Install nvidia-container-toolkit:
 ```bash
 # Install nvidia-container-toolkit (one-time setup)
 curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
