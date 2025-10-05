@@ -21,16 +21,23 @@ Batch image captioning using BLIP and R-4B models. Generate descriptions for mul
 
 ### Download & Run
 
+**Backend (API Server):**
+
 1. Download from [Releases](https://github.com/maxiarat1/ai-image-captioner/releases)
 2. Extract and run:
    - Windows: `ai-image-tagger.exe`
    - Linux: `./ai-image-tagger`
-3. Navigate to `http://localhost:5000`
+3. API available at `http://localhost:5000`
+
+**Frontend:**
+
+Serve the `frontend/` directory with any web server or open `index.html` directly. Configure API endpoint to point to `http://localhost:5000`.
 
 Requirements: CUDA 12.1+ (RTX 20/30/40) or CUDA 12.8+ (RTX 50)
 
 ### From Source
 
+**Backend:**
 ```bash
 git clone https://github.com/maxiarat1/ai-image-captioner.git
 cd ai-image-captioner
@@ -39,7 +46,15 @@ conda activate tagger-gpu
 cd backend && python app.py
 ```
 
-Navigate to `http://localhost:5000`
+API available at `http://localhost:5000`
+
+**Frontend:**
+```bash
+# Any web server, e.g.:
+cd frontend
+python -m http.server 8080
+# Or open index.html directly in browser
+```
 
 ## Usage
 
@@ -63,6 +78,8 @@ Navigate to `http://localhost:5000`
 
 ## API
 
+The backend exposes a REST API at `http://localhost:5000`:
+
 ```python
 import requests
 
@@ -74,11 +91,14 @@ with open('image.jpg', 'rb') as f:
 print(response.json()['caption'])
 ```
 
-Endpoints:
+**Endpoints:**
 - `POST /generate` - Generate caption
+- `POST /generate/batch` - Batch process images
 - `GET /models` - List models
+- `POST /model/reload` - Reload with new settings
 - `POST /model/unload` - Free memory
 - `GET/POST /config` - Manage configs
+- `GET /health` - Health check
 
 ## Building
 

@@ -291,6 +291,8 @@ jobs:
 
           ### Downloads
 
+          **Backend (API Server):**
+
           **Windows:**
           - `ai-image-tagger-windows-python310-cuda121.zip` - RTX 20/30/40 series (CUDA 12.1+)
           - `ai-image-tagger-windows-python312-cuda128.zip` - RTX 50 series (CUDA 12.8+)
@@ -310,11 +312,13 @@ jobs:
 
           ### Installation
 
+          **Backend (API Server):**
+
           **Windows:**
           1. Download appropriate `.zip` (all parts if split: `.zip.001`, `.zip.002`)
           2. Extract with 7-Zip (right-click first part if split)
           3. Run `ai-image-tagger/ai-image-tagger.exe`
-          4. Navigate to `http://localhost:5000`
+          4. API available at `http://localhost:5000`
 
           **Linux:**
           ```bash
@@ -327,13 +331,17 @@ jobs:
           # Run
           ./ai-image-tagger/ai-image-tagger
           ```
-          Navigate to `http://localhost:5000`
+          API available at `http://localhost:5000`
 
           **Docker:**
           ```bash
           docker run --gpus all -p 5000:5000 ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python310-cuda121
           ```
-          Navigate to `http://localhost:5000`
+          API available at `http://localhost:5000`
+
+          **Frontend:**
+
+          Serve the `frontend/` directory from the repository with any web server or open `index.html` directly. Configure API endpoint in the frontend to point to `http://localhost:5000`.
 
           ### Requirements
 
