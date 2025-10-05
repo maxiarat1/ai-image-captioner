@@ -25,8 +25,9 @@ Batch image captioning using BLIP and R-4B models. Generate descriptions for mul
 
 1. Download from [Releases](https://github.com/maxiarat1/ai-image-captioner/releases)
 2. Extract and run:
-   - Windows: `ai-image-tagger.exe`
-   - Linux: `./ai-image-tagger`
+   - **Windows:** `ai-image-tagger.exe`
+   - **Linux:** `./ai-image-tagger`
+   - **Docker:** `docker run --gpus all -p 5000:5000 ghcr.io/maxiarat1/ai-image-captioner:latest-python310-cuda121`
 3. API available at `http://localhost:5000`
 
 **Frontend:**

@@ -302,13 +302,8 @@ jobs:
           - `ai-image-tagger-linux-python312-cuda128.tar.gz` - RTX 50 series (CUDA 12.8+)
 
           **Docker:**
-          ```bash
-          # RTX 20/30/40 series
-          docker pull ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python310-cuda121
-
-          # RTX 50 series
-          docker pull ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python312-cuda128
-          ```
+          - `ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python310-cuda121` - RTX 20/30/40 series
+          - `ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python312-cuda128` - RTX 50 series
 
           ### Installation
 
@@ -335,9 +330,13 @@ jobs:
 
           **Docker:**
           ```bash
+          # RTX 20/30/40 series
           docker run --gpus all -p 5000:5000 ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python310-cuda121
+
+          # RTX 50 series
+          docker run --gpus all -p 5000:5000 ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python312-cuda128
           ```
-          API available at `http://localhost:5000`
+          API available at `http://localhost:5000` (port 5000 mapped to host)
 
           **Frontend:**
 
