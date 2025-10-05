@@ -34,10 +34,10 @@ Choose one method:
 **Docker:**
 ```bash
 # RTX 20/30/40 series
-docker run --gpus all -p 5000:5000 ghcr.io/maxiarat1/ai-image-captioner:v1.0.4-python310-cuda121
+docker run --gpus all -p 5000:5000 ghcr.io/maxiarat1/ai-image-captioner:latest-python310-cuda121
 
 # RTX 50 series
-docker run --gpus all -p 5000:5000 ghcr.io/maxiarat1/ai-image-captioner:v1.0.4-python312-cuda128
+docker run --gpus all -p 5000:5000 ghcr.io/maxiarat1/ai-image-captioner:latest-python312-cuda128
 ```
 
 API runs at `http://localhost:5000`
