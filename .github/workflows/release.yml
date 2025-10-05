@@ -289,46 +289,26 @@ jobs:
           cat > release-notes.md << 'EOF'
           ## AI Image Tagger ${{ needs.setup.outputs.release_version }}
 
-          ### Downloads
+          Batch image captioning with BLIP and R-4B models.
 
-          **Backend (API Server):**
+          ### Quick Start
 
-          **Windows:**
-          - `ai-image-tagger-windows-python310-cuda121.zip` - RTX 20/30/40 series (CUDA 12.1+)
-          - `ai-image-tagger-windows-python312-cuda128.zip` - RTX 50 series (CUDA 12.8+)
+          **Option 1: Executable (Recommended)**
 
-          **Linux:**
-          - `ai-image-tagger-linux-python310-cuda121.tar.gz` - RTX 20/30/40 series (CUDA 12.1+)
-          - `ai-image-tagger-linux-python312-cuda128.tar.gz` - RTX 50 series (CUDA 12.8+)
+          1. Download the appropriate file for your GPU:
+             - **Windows RTX 20/30/40:** `ai-image-tagger-windows-python310-cuda121.zip`
+             - **Windows RTX 50:** `ai-image-tagger-windows-python312-cuda128.zip`
+             - **Linux RTX 20/30/40:** `ai-image-tagger-linux-python310-cuda121.tar.gz`
+             - **Linux RTX 50:** `ai-image-tagger-linux-python312-cuda128.tar.gz`
 
-          **Docker:**
-          - `ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python310-cuda121` - RTX 20/30/40 series
-          - `ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python312-cuda128` - RTX 50 series
+          2. Extract and run:
+             - **Windows:** Double-click `ai-image-tagger.exe` (extract with 7-Zip if split)
+             - **Linux:** `tar -xzf ai-image-tagger-linux-*.tar.gz && ./ai-image-tagger/ai-image-tagger`
 
-          ### Installation
+          3. API runs at `http://localhost:5000`
 
-          **Backend (API Server):**
+          **Option 2: Docker**
 
-          **Windows:**
-          1. Download appropriate `.zip` (all parts if split: `.zip.001`, `.zip.002`)
-          2. Extract with 7-Zip (right-click first part if split)
-          3. Run `ai-image-tagger/ai-image-tagger.exe`
-          4. API available at `http://localhost:5000`
-
-          **Linux:**
-          ```bash
-          # Single archive
-          tar -xzf ai-image-tagger-linux-*.tar.gz
-
-          # Split archive
-          cat ai-image-tagger-linux-*.part* | tar -xzf -
-
-          # Run
-          ./ai-image-tagger/ai-image-tagger
-          ```
-          API available at `http://localhost:5000`
-
-          **Docker:**
           ```bash
           # RTX 20/30/40 series
           docker run --gpus all -p 5000:5000 ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python310-cuda121
@@ -336,27 +316,20 @@ jobs:
           # RTX 50 series
           docker run --gpus all -p 5000:5000 ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python312-cuda128
           ```
-          API available at `http://localhost:5000`
 
-          *Note: If you get a GPU error, install nvidia-container-toolkit first (see README troubleshooting)*
+          API runs at `http://localhost:5000`
 
-          **Frontend:**
+          **Frontend UI:**
 
-          Serve the `frontend/` directory from the repository with any web server or open `index.html` directly. Configure API endpoint in the frontend to point to `http://localhost:5000`.
+          Clone the repository and serve the `frontend/` directory, or open `frontend/index.html` directly. Point it to `http://localhost:5000`.
 
           ### Requirements
 
-          - NVIDIA GPU (4GB+ VRAM, 8GB+ for R-4B model)
-          - CUDA drivers: 12.1+ for RTX 20/30/40, 12.8+ for RTX 50
+          - NVIDIA GPU with 4GB+ VRAM (8GB+ for R-4B)
+          - CUDA 12.1+ drivers (RTX 20/30/40) or CUDA 12.8+ (RTX 50)
+          - Docker users: `nvidia-container-toolkit` (see README if you get GPU errors)
 
-          Models (500MB-2GB) download on first use.
-
-          ### Version Selection
-
-          Check GPU: `nvidia-smi`
-
-          - RTX 20/30/40 series → `cuda121` builds
-          - RTX 50 series → `cuda128` builds
+          Models (500MB-2GB) download automatically on first use.
           EOF
 
       - name: Create Release
