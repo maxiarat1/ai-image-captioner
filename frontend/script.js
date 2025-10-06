@@ -2,18 +2,19 @@
 // Application State
 // ============================================================================
 const AppState = {
-    uploadQueue: [], // Array of {file: File, preview: string, id: string}
+    uploadQueue: [], // Array of {id, filename, size, path, file, thumbnail: null}
     apiBaseUrl: 'http://localhost:5000',
-    maxFileSize: 16 * 1024 * 1024, // 16MB
-    supportedFormats: ['image/jpeg', 'image/png', 'image/webp', 'image/bmp'],
     selectedModel: 'blip',
     customPrompt: '',
     availableModels: [],
-    processedResults: [], // Store processed results for downloading: {filename: string, caption: string}
-    userConfig: null, // User configuration loaded from backend
+    processedResults: [], // Store processed results: {filename, caption, path}
+    userConfig: null,
     allResults: [], // All result items for pagination: {queueItem, data}
     currentPage: 1,
-    itemsPerPage: 30
+    itemsPerPage: 30,
+    thumbnailCache: new Map(), // Cache loaded thumbnails with LRU
+    thumbnailCacheMaxSize: 300, // Max 300 thumbnails total (~45MB) - shared between tabs
+    uploadCurrentPage: 1 // Separate pagination for upload grid
 };
 
 // ============================================================================
@@ -32,195 +33,303 @@ function formatFileSize(bytes) {
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 }
 
-function isValidImageFile(file) {
-    // Check file type
-    if (!AppState.supportedFormats.includes(file.type)) {
-        return { valid: false, error: 'Unsupported file format' };
-    }
-
-    // Check file size
-    if (file.size > AppState.maxFileSize) {
-        return { valid: false, error: 'File too large (max 16MB)' };
-    }
-
-    return { valid: true };
-}
-
-function createImagePreview(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-}
-
 // ============================================================================
-// Upload Queue Management
+// Folder Scanning
 // ============================================================================
 
-async function addFilesToQueue(files) {
-    const fileArray = Array.from(files);
-    let addedCount = 0;
-    let errorCount = 0;
-    const total = fileArray.length;
+async function scanFolder() {
+    const folderPath = document.getElementById('folderPathInput').value.trim();
 
-    // Show progress for large uploads
-    if (total > 20) {
-        showToast(`Loading ${total} images...`, true);
+    if (!folderPath) {
+        showToast('Please enter a folder path');
+        return;
     }
 
-    for (let i = 0; i < fileArray.length; i++) {
-        const file = fileArray[i];
-        const validation = isValidImageFile(file);
+    showToast('Scanning folder...', true);
 
-        if (!validation.valid) {
-            console.warn(`Skipping ${file.name}: ${validation.error}`);
-            errorCount++;
-            continue;
+    try {
+        const response = await fetch(`${AppState.apiBaseUrl}/scan-folder`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ folder_path: folderPath })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to scan folder');
         }
 
-        // Check for duplicates
-        const isDuplicate = AppState.uploadQueue.some(item =>
-            item.file.name === file.name && item.file.size === file.size
-        );
+        const data = await response.json();
 
-        if (isDuplicate) {
-            console.warn(`Skipping duplicate: ${file.name}`);
-            continue;
-        }
+        // Clear existing queue
+        AppState.uploadQueue = [];
+        AppState.thumbnailCache.clear();
 
-        try {
-            const preview = await createImagePreview(file);
+        // Add images to queue
+        data.images.forEach(img => {
             AppState.uploadQueue.push({
                 id: generateId(),
-                file: file,
-                preview: preview
+                filename: img.filename,
+                size: img.size,
+                path: img.path,
+                thumbnail: null
             });
-            addedCount++;
+        });
 
-            // Update progress for large uploads
-            if (total > 20 && (i + 1) % 10 === 0) {
-                showToast(`Loading ${i + 1}/${total} images...`, true);
-            }
-        } catch (error) {
-            console.error(`Failed to create preview for ${file.name}:`, error);
-            errorCount++;
-        }
+        updateUploadGrid();
+        showToast(`Found ${data.count} images`);
+
+    } catch (error) {
+        console.error('Error scanning folder:', error);
+        showToast(error.message || 'Failed to scan folder');
+    }
+}
+
+async function loadThumbnail(path) {
+    // Check cache first (Map maintains insertion order for LRU)
+    if (AppState.thumbnailCache.has(path)) {
+        // Move to end (most recently used)
+        const thumbnail = AppState.thumbnailCache.get(path);
+        AppState.thumbnailCache.delete(path);
+        AppState.thumbnailCache.set(path, thumbnail);
+        return thumbnail;
     }
 
-    updateQueueUI();
+    try {
+        const response = await fetch(`${AppState.apiBaseUrl}/image/thumbnail?path=${encodeURIComponent(path)}`);
+        if (!response.ok) throw new Error('Failed to load thumbnail');
 
-    if (errorCount > 0) {
-        showToast(`Added ${addedCount} images, ${errorCount} skipped`);
-    } else if (addedCount > 0) {
-        showToast(`Added ${addedCount} image${addedCount > 1 ? 's' : ''} to queue`);
+        const data = await response.json();
+
+        // Add to cache with LRU eviction
+        if (AppState.thumbnailCache.size >= AppState.thumbnailCacheMaxSize) {
+            // Remove oldest (first) entry
+            const firstKey = AppState.thumbnailCache.keys().next().value;
+            AppState.thumbnailCache.delete(firstKey);
+        }
+
+        AppState.thumbnailCache.set(path, data.thumbnail);
+        return data.thumbnail;
+    } catch (error) {
+        console.error('Error loading thumbnail:', error);
+        return null;
     }
 }
 
 function removeFromQueue(id) {
     AppState.uploadQueue = AppState.uploadQueue.filter(item => item.id !== id);
-    updateQueueUI();
+    updateUploadGrid();
     showToast('Image removed from queue');
 }
 
 function clearQueue() {
-    const queueContainer = document.getElementById('uploadQueueContainer');
+    const gridContainer = document.getElementById('uploadGridContainer');
+    const folderBrowser = document.getElementById('folderBrowser');
 
     // Add fade-out animation
-    queueContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-    queueContainer.style.opacity = '0';
-    queueContainer.style.transform = 'scale(0.95)';
+    gridContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+    gridContainer.style.opacity = '0';
+    gridContainer.style.transform = 'scale(0.95)';
 
     // Wait for animation to complete before clearing
     setTimeout(() => {
         AppState.uploadQueue = [];
-        updateQueueUI();
+        updateUploadGrid();
         showToast('Queue cleared');
 
+        // Reset file input so same folder can be selected again
+        folderBrowser.value = '';
+
         // Reset styles for next time
-        queueContainer.style.opacity = '';
-        queueContainer.style.transform = '';
+        gridContainer.style.opacity = '';
+        gridContainer.style.transform = '';
     }, 300);
 }
 
-function updateQueueUI() {
-    const uploadCard = document.getElementById('uploadCard');
-    const queueContainer = document.getElementById('uploadQueueContainer');
-    const queueList = document.getElementById('queueList');
-    const queueStats = document.getElementById('queueStats');
+// ============================================================================
+// Upload Grid Management (unified with Results grid)
+// ============================================================================
 
+function updateUploadGrid() {
+    const uploadCard = document.getElementById('uploadCard');
+    const gridContainer = document.getElementById('uploadGridContainer');
+    const uploadGrid = document.getElementById('uploadGrid');
+    const uploadStats = document.getElementById('uploadStats');
     const queueSize = AppState.uploadQueue.length;
 
     if (queueSize === 0) {
+        // Show upload card, hide grid
         uploadCard.style.display = 'block';
-        queueContainer.style.display = 'none';
-        queueList.innerHTML = '';
+        gridContainer.style.display = 'none';
+        uploadGrid.innerHTML = '';
         return;
     }
 
-    // Show queue, hide upload card
+    // Show grid, hide upload card
     uploadCard.style.display = 'none';
-    queueContainer.style.display = 'block';
+    gridContainer.style.display = 'block';
 
     // Update stats
-    const totalSize = AppState.uploadQueue.reduce((sum, item) => sum + item.file.size, 0);
-    queueStats.textContent = `${queueSize} image${queueSize > 1 ? 's' : ''} ready (${formatFileSize(totalSize)})`;
+    const totalSize = AppState.uploadQueue.reduce((sum, item) => sum + item.size, 0);
+    uploadStats.textContent = `${queueSize} image${queueSize > 1 ? 's' : ''} (${formatFileSize(totalSize)})`;
 
-    // Render queue items
-    queueList.innerHTML = AppState.uploadQueue.map(item => `
-        <div class="queue-item" data-id="${item.id}">
-            <img src="${item.preview}" alt="${item.file.name}" class="queue-item-preview">
-            <div class="queue-item-info">
-                <div class="queue-item-name">${item.file.name}</div>
-                <div class="queue-item-size">${formatFileSize(item.file.size)}</div>
+    // Render current page
+    renderUploadGridPage();
+}
+
+function renderUploadGridPage() {
+    const uploadGrid = document.getElementById('uploadGrid');
+
+    // Calculate pagination
+    const start = (AppState.uploadCurrentPage - 1) * AppState.itemsPerPage;
+    const end = start + AppState.itemsPerPage;
+    const pageItems = AppState.uploadQueue.slice(start, end);
+
+    // Clear and render grid items
+    uploadGrid.innerHTML = '';
+    pageItems.forEach(item => {
+        const gridItem = createUploadGridItem(item);
+        uploadGrid.appendChild(gridItem);
+    });
+
+    // Update pagination controls
+    updateUploadPaginationControls();
+
+    // Setup lazy loading for this page
+    setupLazyLoadingForGrid('uploadGrid');
+}
+
+function createUploadGridItem(item) {
+    const gridItem = document.createElement('div');
+    gridItem.className = 'result-item upload-grid-item';
+    gridItem.dataset.itemId = item.id;
+
+    gridItem.innerHTML = `
+        <div class="result-image">
+            <div class="upload-thumbnail-container" data-item-id="${item.id}">
+                <div class="thumbnail-placeholder">📷</div>
             </div>
-            <button class="queue-item-remove" data-id="${item.id}" title="Remove">×</button>
+            <button class="upload-remove-btn" data-id="${item.id}" title="Remove">×</button>
         </div>
-    `).join('');
+        <div class="result-text upload-item-info">
+            <div class="upload-item-name">${item.filename}</div>
+            <div class="upload-item-size">${formatFileSize(item.size)}</div>
+        </div>
+    `;
 
-    // Add event listeners to remove buttons
-    queueList.querySelectorAll('.queue-item-remove').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            removeFromQueue(btn.dataset.id);
-        });
+    // Add remove button handler
+    const removeBtn = gridItem.querySelector('.upload-remove-btn');
+    removeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeFromQueue(item.id);
     });
 
-    // Add 3D tilt effect and click handlers to preview images
-    queueList.querySelectorAll('.queue-item-preview').forEach(img => {
-        const item = AppState.uploadQueue.find(i => {
-            const queueItem = img.closest('.queue-item');
-            return queueItem && i.id === queueItem.dataset.id;
+    return gridItem;
+}
+
+function updateUploadPaginationControls() {
+    const paginationControls = document.getElementById('uploadPaginationControls');
+    const paginationInfo = document.getElementById('uploadPaginationInfo');
+    const prevBtn = document.getElementById('uploadPrevPageBtn');
+    const nextBtn = document.getElementById('uploadNextPageBtn');
+
+    const totalItems = AppState.uploadQueue.length;
+    const totalPages = Math.ceil(totalItems / AppState.itemsPerPage);
+
+    if (totalPages > 1) {
+        paginationControls.style.display = 'flex';
+        paginationInfo.textContent = `Page ${AppState.uploadCurrentPage} of ${totalPages}`;
+        prevBtn.disabled = AppState.uploadCurrentPage === 1;
+        nextBtn.disabled = AppState.uploadCurrentPage === totalPages;
+    } else {
+        paginationControls.style.display = 'none';
+    }
+}
+
+async function loadThumbnailFromFile(file) {
+    // Check cache first by file name
+    const cacheKey = `file:${file.name}:${file.size}`;
+    if (AppState.thumbnailCache.has(cacheKey)) {
+        const thumbnail = AppState.thumbnailCache.get(cacheKey);
+        AppState.thumbnailCache.delete(cacheKey);
+        AppState.thumbnailCache.set(cacheKey, thumbnail);
+        return thumbnail;
+    }
+
+    try {
+        // Create thumbnail from File object
+        const reader = new FileReader();
+        const thumbnail = await new Promise((resolve, reject) => {
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
         });
 
-        // 3D tilt effect on hover
-        img.addEventListener('mousemove', (e) => {
-            const rect = img.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
+        // Add to cache with LRU eviction
+        if (AppState.thumbnailCache.size >= AppState.thumbnailCacheMaxSize) {
+            const firstKey = AppState.thumbnailCache.keys().next().value;
+            AppState.thumbnailCache.delete(firstKey);
+        }
 
-            const centerX = rect.width / 2;
-            const centerY = rect.height / 2;
+        AppState.thumbnailCache.set(cacheKey, thumbnail);
+        return thumbnail;
+    } catch (error) {
+        console.error('Error loading thumbnail from file:', error);
+        return null;
+    }
+}
 
-            const rotateX = (y - centerY) / centerY * 15; // Max 15 degrees
-            const rotateY = (centerX - x) / centerX * 15;
+// Unified lazy loading for both upload and results grids
+function setupLazyLoadingForGrid(gridId) {
+    const grid = document.getElementById(gridId);
+    const containers = grid.querySelectorAll('.upload-thumbnail-container[data-item-id]');
 
-            img.style.transform = `scale(1.15) perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
-        });
+    if (containers.length === 0) {
+        return;
+    }
 
-        img.addEventListener('mouseleave', () => {
-            img.style.transform = '';
-        });
+    const observer = new IntersectionObserver(async (entries) => {
+        for (const entry of entries) {
+            const container = entry.target;
+            const itemId = container.dataset.itemId;
 
-        // Click to open preview modal
-        img.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (item) {
-                openImagePreview(item.preview, item.file.name, formatFileSize(item.file.size));
+            if (!itemId) continue;
+
+            const item = AppState.uploadQueue.find(i => i.id === itemId);
+            if (!item) continue;
+
+            if (entry.isIntersecting) {
+                // LOAD: Element is visible, load thumbnail
+                let thumbnail;
+
+                if (item.file) {
+                    // Load from File object
+                    thumbnail = await loadThumbnailFromFile(item.file);
+                } else if (item.path) {
+                    // Load from filesystem path
+                    thumbnail = await loadThumbnail(item.path);
+                }
+
+                if (thumbnail) {
+                    container.innerHTML = `<img src="${thumbnail}" alt="Thumbnail" style="width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-md);">`;
+
+                    // Add click handler for preview
+                    const img = container.querySelector('img');
+                    if (img) {
+                        img.addEventListener('click', () => {
+                            openImagePreview(thumbnail, item.filename, formatFileSize(item.size));
+                        });
+                    }
+                }
             }
-        });
+            // Note: No auto-unload - LRU cache handles memory management
+        }
+    }, {
+        rootMargin: '500px', // Load well before visible for smoother scrolling
+        threshold: 0
     });
+
+    containers.forEach(container => observer.observe(container));
 }
 
 // ============================================================================
@@ -288,14 +397,26 @@ let isProcessing = false;
 let isPaused = false;
 let shouldStop = false;
 
-function showToast(message, keepVisible = false) {
+function showToast(message, keepVisible = false, progress = null) {
     const statusToast = document.getElementById('statusToast');
 
     if (toastTimeout) {
         clearTimeout(toastTimeout);
     }
 
-    statusToast.textContent = message;
+    // If progress is provided, show progress bar
+    if (progress !== null && progress !== undefined) {
+        const percentage = Math.round(progress * 100);
+        statusToast.innerHTML = `
+            <div class="toast-message">${message}</div>
+            <div class="toast-progress-bar">
+                <div class="toast-progress-fill" style="width: ${percentage}%"></div>
+            </div>
+        `;
+    } else {
+        statusToast.innerHTML = `<div class="toast-message">${message}</div>`;
+    }
+
     statusToast.classList.add('show');
 
     if (!keepVisible && !isProcessing) {
@@ -303,6 +424,31 @@ function showToast(message, keepVisible = false) {
             statusToast.classList.remove('show');
         }, 2000);
     }
+}
+
+// Initialize toast hover behavior
+function initToastHoverBehavior() {
+    const statusToast = document.getElementById('statusToast');
+
+    document.addEventListener('mousemove', (e) => {
+        if (!statusToast.classList.contains('show')) return;
+
+        // Get toast position and dimensions
+        const rect = statusToast.getBoundingClientRect();
+
+        // Calculate distance from cursor to toast (with 100px buffer zone)
+        const bufferZone = 100;
+        const distanceX = Math.max(0, Math.max(rect.left - e.clientX, e.clientX - rect.right));
+        const distanceY = Math.max(0, Math.max(rect.top - e.clientY, e.clientY - rect.bottom));
+        const distance = Math.sqrt(distanceX * distanceX + distanceY * distanceY);
+
+        // Hide toast if cursor is within buffer zone
+        if (distance < bufferZone) {
+            statusToast.classList.add('toast-hidden');
+        } else {
+            statusToast.classList.remove('toast-hidden');
+        }
+    });
 }
 
 // ============================================================================
@@ -554,9 +700,29 @@ async function processImages() {
 
     // Process each image one by one
     for (const queueItem of AppState.uploadQueue) {
+        // Check if should stop
+        if (shouldStop) {
+            showToast('Processing stopped');
+            break;
+        }
+
+        // Wait while paused
+        while (isPaused && !shouldStop) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
         // Build request
         const formData = new FormData();
-        formData.append('image', queueItem.file);
+
+        // Check if we have a file object (from file browser) or path (from backend scan)
+        if (queueItem.file) {
+            // Use uploaded file
+            formData.append('image', queueItem.file);
+        } else if (queueItem.path) {
+            // Use file path
+            formData.append('image_path', queueItem.path);
+        }
+
         formData.append('model', AppState.selectedModel);
         formData.append('parameters', JSON.stringify(parameters));
         if (AppState.customPrompt) {
@@ -581,21 +747,27 @@ async function processImages() {
 
             // Store for download
             AppState.processedResults.push({
-                filename: queueItem.file.name,
-                caption: data.caption
+                filename: queueItem.filename,
+                caption: data.caption,
+                path: queueItem.path || queueItem.filename
             });
 
             // Only add new item if it's on the current page (don't re-render everything)
-            addResultItemToCurrentPage(queueItem, data);
+            await addResultItemToCurrentPage(queueItem, data);
 
         } catch (error) {
-            console.error(`Error processing ${queueItem.file.name}:`, error);
+            console.error(`Error processing ${queueItem.filename}:`, error);
         }
 
         // Update progress
         processedCount++;
-        showToast(`Processed ${processedCount}/${totalImages}`, true);
+        const progress = processedCount / totalImages;
+        showToast(`Processed ${processedCount}/${totalImages}`, true, progress);
     }
+
+    // Reset stop/pause flags
+    shouldStop = false;
+    isPaused = false;
 
     // Finished
     isProcessing = false;
@@ -610,12 +782,12 @@ async function processImages() {
 // ============================================================================
 // Pagination Functions
 // ============================================================================
-function addResultItemToCurrentPage(queueItem, data) {
+async function addResultItemToCurrentPage(queueItem, data) {
     const resultsGrid = document.getElementById('resultsGrid');
     const paginationControls = document.getElementById('paginationControls');
 
     // Calculate which page this item belongs to
-    const itemIndex = AppState.allResults.length - 1; // Just added, so it's the last item
+    const itemIndex = AppState.allResults.length - 1;
     const itemPage = Math.ceil((itemIndex + 1) / AppState.itemsPerPage);
 
     // Only add to DOM if it's on the current page
@@ -624,10 +796,10 @@ function addResultItemToCurrentPage(queueItem, data) {
 
         // Only add if we haven't exceeded the page limit
         if (currentPageItemCount < AppState.itemsPerPage) {
-            const resultDiv = createResultElement(queueItem, data);
+            const resultDiv = await createResultElement(queueItem, data);
 
-            // Add staggered animation delay based on position
-            const delayMs = currentPageItemCount * 80; // 80ms delay between each item
+            // Add staggered animation delay
+            const delayMs = currentPageItemCount * 80;
             resultDiv.style.animationDelay = `${delayMs}ms`;
 
             resultsGrid.appendChild(resultDiv);
@@ -638,12 +810,26 @@ function addResultItemToCurrentPage(queueItem, data) {
     updatePaginationControls();
 }
 
-function createResultElement(queueItem, data) {
+async function createResultElement(queueItem, data) {
     const resultDiv = document.createElement('div');
     resultDiv.className = 'result-item';
+
+    // Get thumbnail
+    let thumbnail;
+    if (queueItem.file) {
+        // Load from File object
+        thumbnail = await loadThumbnailFromFile(queueItem.file);
+    } else if (queueItem.path) {
+        // Load from filesystem path
+        thumbnail = await loadThumbnail(queueItem.path);
+    } else {
+        // Fallback: use data.image_preview from backend response
+        thumbnail = data.image_preview || '';
+    }
+
     resultDiv.innerHTML = `
         <div class="result-image">
-            <img src="${queueItem.preview}" alt="${queueItem.file.name}">
+            <img src="${thumbnail}" alt="${queueItem.filename}">
         </div>
         <div class="result-text">
             <p>${data.caption}</p>
@@ -651,28 +837,28 @@ function createResultElement(queueItem, data) {
     `;
 
     const img = resultDiv.querySelector('.result-image img');
-    const textElement = resultDiv.querySelector('.result-text');
 
     // Check image aspect ratio and add class for stretched images
-    img.addEventListener('load', () => {
-        const aspectRatio = img.naturalWidth / img.naturalHeight;
-
-        // If image is very wide (aspect ratio > 2.5), it's stretched
-        if (aspectRatio > 2.5) {
-            resultDiv.classList.add('stretched-image');
-        }
-    });
+    if (thumbnail) {
+        img.addEventListener('load', () => {
+            const aspectRatio = img.naturalWidth / img.naturalHeight;
+            if (aspectRatio > 2.5) {
+                resultDiv.classList.add('stretched-image');
+            }
+        });
+    }
 
     // Add click handler with Ctrl modifier support
-    resultDiv.querySelector('.result-image').addEventListener('click', (e) => {
-        // Ctrl+Click (or Cmd+Click on Mac) = Copy caption
+    const resultImage = resultDiv.querySelector('.result-image');
+    resultImage.addEventListener('click', (e) => {
         if (e.ctrlKey || e.metaKey) {
             navigator.clipboard.writeText(data.caption)
                 .then(() => showToast('Caption copied!'))
                 .catch(() => showToast('Copy failed'));
         } else {
-            // Normal click = Preview
-            openImagePreview(queueItem.preview, data.caption, queueItem.file.name);
+            // Use the current thumbnail for preview
+            const currentThumbnail = thumbnail || img.src;
+            openImagePreview(currentThumbnail, data.caption, queueItem.filename);
         }
     });
 
@@ -698,7 +884,7 @@ function updatePaginationControls() {
     }
 }
 
-function renderCurrentPage() {
+async function renderCurrentPage() {
     const resultsGrid = document.getElementById('resultsGrid');
 
     // Calculate pagination
@@ -708,10 +894,10 @@ function renderCurrentPage() {
 
     // Clear and render items for current page
     resultsGrid.innerHTML = '';
-    pageItems.forEach(({ queueItem, data }) => {
-        const resultDiv = createResultElement(queueItem, data);
+    for (const { queueItem, data } of pageItems) {
+        const resultDiv = await createResultElement(queueItem, data);
         resultsGrid.appendChild(resultDiv);
-    });
+    }
 
     // Update pagination controls
     updatePaginationControls();
@@ -792,31 +978,55 @@ async function exportAsCsv() {
 async function exportWithExif() {
     showToast('Preparing images for EXIF embedding...', true);
 
-    const formData = new FormData();
-
-    // Add images and captions
-    for (const result of AppState.processedResults) {
-        const queueItem = AppState.uploadQueue.find(item => item.file.name === result.filename);
-        if (queueItem) {
-            formData.append('images', queueItem.file);
-            formData.append('captions', result.caption);
-        }
-    }
-
     try {
-        const response = await fetch(`${AppState.apiBaseUrl}/export/metadata`, {
-            method: 'POST',
-            body: formData
-        });
+        // Check if we have file objects or paths
+        const hasFiles = AppState.uploadQueue.some(item => item.file);
 
-        if (!response.ok) {
-            throw new Error('Failed to embed metadata');
+        if (hasFiles) {
+            // Use old method with file uploads
+            const formData = new FormData();
+
+            for (const result of AppState.processedResults) {
+                const queueItem = AppState.uploadQueue.find(item => item.filename === result.filename);
+                if (queueItem && queueItem.file) {
+                    formData.append('images', queueItem.file);
+                    formData.append('captions', result.caption);
+                }
+            }
+
+            const response = await fetch(`${AppState.apiBaseUrl}/export/metadata`, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to embed metadata');
+            }
+
+            const blob = await response.blob();
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            downloadBlob(blob, `images_with_metadata_${timestamp}.zip`);
+            showToast('Exported images with EXIF metadata');
+        } else {
+            // Use new method with paths
+            const image_paths = AppState.processedResults.map(r => r.path);
+            const captions = AppState.processedResults.map(r => r.caption);
+
+            const response = await fetch(`${AppState.apiBaseUrl}/export/metadata`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image_paths, captions })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to embed metadata');
+            }
+
+            const blob = await response.blob();
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            downloadBlob(blob, `images_with_metadata_${timestamp}.zip`);
+            showToast('Exported images with EXIF metadata');
         }
-
-        const blob = await response.blob();
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-        downloadBlob(blob, `images_with_metadata_${timestamp}.zip`);
-        showToast('Exported images with EXIF metadata');
     } catch (error) {
         console.error('Error exporting with EXIF:', error);
         showToast('Failed to embed EXIF metadata');
@@ -1371,6 +1581,7 @@ function initProcessingControls() {
 }
 
 function initPaginationControls() {
+    // Results pagination
     const prevBtn = document.getElementById('prevPageBtn');
     const nextBtn = document.getElementById('nextPageBtn');
 
@@ -1380,6 +1591,29 @@ function initPaginationControls() {
 
     if (nextBtn) {
         nextBtn.addEventListener('click', nextPage);
+    }
+
+    // Upload pagination
+    const uploadPrevBtn = document.getElementById('uploadPrevPageBtn');
+    const uploadNextBtn = document.getElementById('uploadNextPageBtn');
+
+    if (uploadPrevBtn) {
+        uploadPrevBtn.addEventListener('click', () => {
+            if (AppState.uploadCurrentPage > 1) {
+                AppState.uploadCurrentPage--;
+                renderUploadGridPage();
+            }
+        });
+    }
+
+    if (uploadNextBtn) {
+        uploadNextBtn.addEventListener('click', () => {
+            const totalPages = Math.ceil(AppState.uploadQueue.length / AppState.itemsPerPage);
+            if (AppState.uploadCurrentPage < totalPages) {
+                AppState.uploadCurrentPage++;
+                renderUploadGridPage();
+            }
+        });
     }
 }
 
@@ -1399,6 +1633,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initPaginationControls();
     initConfigModals();
     initExportModal();
+    initToastHoverBehavior();
 
     // Fetch available models from backend
     await fetchAvailableModels();
@@ -1481,80 +1716,94 @@ function initThemeToggle() {
 // ============================================================================
 
 function initUploadHandlers() {
-    const uploadCard = document.getElementById('uploadCard');
-    const queueContainer = document.getElementById('uploadQueueContainer');
-    const fileInput = document.getElementById('fileInput');
-    const folderInput = document.getElementById('folderInput');
-    const chooseFilesBtn = document.getElementById('chooseFilesBtn');
-    const chooseFolderBtn = document.getElementById('chooseFolderBtn');
+    const folderBrowser = document.getElementById('folderBrowser');
+    const folderPathInput = document.getElementById('folderPathInput');
+    const browseFolderBtn = document.getElementById('browseFolderBtn');
+    const scanFolderBtn = document.getElementById('scanFolderBtn');
     const clearQueueBtn = document.getElementById('clearQueueBtn');
-    const addMoreBtn = document.getElementById('addMoreBtn');
 
-    function preventDefaults(e) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-
-    // Setup drag-and-drop for upload card (initial upload)
-    setupDragAndDrop(uploadCard);
-
-    // Setup drag-and-drop for queue container (add more to existing queue)
-    setupDragAndDrop(queueContainer);
-
-    function setupDragAndDrop(element) {
-        // Prevent default drag behaviors
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            element.addEventListener(eventName, preventDefaults, false);
-        });
-
-        // Highlight on drag over
-        ['dragenter', 'dragover'].forEach(eventName => {
-            element.addEventListener(eventName, () => {
-                element.classList.add('drag-over');
-            }, false);
-        });
-
-        ['dragleave', 'drop'].forEach(eventName => {
-            element.addEventListener(eventName, () => {
-                element.classList.remove('drag-over');
-            }, false);
-        });
-
-        // Handle dropped files
-        element.addEventListener('drop', (e) => {
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                addFilesToQueue(files);
-            }
-        }, false);
-    }
-
-    // Prevent default drag on body to avoid browser opening files
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        document.body.addEventListener(eventName, preventDefaults, false);
+    // Browse folder button - opens file picker
+    browseFolderBtn.addEventListener('click', () => {
+        folderBrowser.click();
     });
 
-    // File input handlers
-    chooseFilesBtn.addEventListener('click', () => fileInput.click());
-    chooseFolderBtn.addEventListener('click', () => folderInput.click());
-
-    fileInput.addEventListener('change', (e) => {
+    // Handle folder selection
+    folderBrowser.addEventListener('change', (e) => {
         if (e.target.files.length > 0) {
-            addFilesToQueue(e.target.files);
-            e.target.value = ''; // Reset input
+            // Get the folder path from the first file
+            const firstFile = e.target.files[0];
+            // Extract folder path by removing the filename
+            const fullPath = firstFile.webkitRelativePath || firstFile.name;
+            const folderPath = fullPath.substring(0, fullPath.lastIndexOf('/'));
+
+            // Since webkitRelativePath gives relative path, we need to get the actual path
+            // Unfortunately, browsers don't expose the full filesystem path for security
+            // So we'll scan using the FileList directly
+            scanFolderFromFileList(e.target.files);
         }
     });
 
-    folderInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-            addFilesToQueue(e.target.files);
-            e.target.value = ''; // Reset input
-        }
-    });
+    // Scan folder button (if user manually enters path)
+    if (scanFolderBtn) {
+        scanFolderBtn.addEventListener('click', scanFolder);
+    }
 
-    // Queue management buttons
+    // Clear queue button
     clearQueueBtn.addEventListener('click', clearQueue);
-    addMoreBtn.addEventListener('click', () => fileInput.click());
+}
+
+async function scanFolderFromFileList(files) {
+    showToast('Scanning folder...', true, 0);
+
+    try {
+        // Clear existing queue
+        AppState.uploadQueue = [];
+        AppState.thumbnailCache.clear();
+
+        let imageCount = 0;
+        const fileArray = Array.from(files);
+        const totalFiles = fileArray.length;
+
+        // Filter and add images WITHOUT loading previews (lazy loading)
+        for (let i = 0; i < fileArray.length; i++) {
+            const file = fileArray[i];
+
+            // Update progress (faster without loading images)
+            if (i % 10 === 0 || i === totalFiles - 1) {
+                const progress = (i + 1) / totalFiles;
+                showToast(`Scanning files... ${i + 1}/${totalFiles}`, true, progress);
+            }
+
+            // Check if it's a supported image
+            if (file.type && file.type.startsWith('image/')) {
+                const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+                if (['.jpg', '.jpeg', '.png', '.webp', '.bmp'].includes(ext)) {
+                    // DON'T load preview yet - just store file reference
+                    AppState.uploadQueue.push({
+                        id: generateId(),
+                        filename: file.name,
+                        size: file.size,
+                        file: file, // Store the file object for lazy loading later
+                        thumbnail: null // Will be loaded on-demand
+                    });
+                    imageCount++;
+                }
+            }
+        }
+
+        // Get folder name from first file
+        if (files.length > 0 && files[0].webkitRelativePath) {
+            const folderName = files[0].webkitRelativePath.split('/')[0];
+            document.getElementById('folderPathInput').value = folderName;
+        }
+
+        updateUploadGrid();
+        showToast(`Found ${imageCount} images`);
+
+    } catch (error) {
+        console.error('Error loading images:', error);
+        showToast('Failed to load images');
+    }
 }
 
 // ============================================================================

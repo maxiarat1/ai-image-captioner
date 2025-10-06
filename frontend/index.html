@@ -72,33 +72,35 @@
                     <div class="tab-content active" id="upload-content">
                         <div class="upload-card" id="uploadCard">
                             <div class="upload-icon-large"></div>
-                            <h3>Upload Your Images</h3>
-                            <p>Drag and drop images here, or click to browse</p>
-                            <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/bmp" multiple style="display: none;">
-                            <input type="file" id="folderInput" webkitdirectory directory multiple style="display: none;">
-                            <div class="upload-buttons">
-                                <button class="btn-primary" id="chooseFilesBtn">Choose Files</button>
-                                <button class="btn-secondary" id="chooseFolderBtn">Choose Folder</button>
+                            <h3>Select Image Folder</h3>
+                            <p>Choose a folder containing images to process</p>
+                            <input type="file" id="folderBrowser" webkitdirectory directory style="display: none;">
+                            <div class="folder-input-group">
+                                <input type="text" id="folderPathInput" class="folder-path-input" placeholder="Click 'Browse' to select folder..." readonly>
+                                <button class="btn-primary" id="browseFolderBtn">Browse</button>
+                                <button class="btn-secondary" id="scanFolderBtn" style="display: none;">Scan Folder</button>
                             </div>
                             <div class="upload-info">
-                                <p>Supports: JPG, PNG, WebP, BMP · Max 16MB per file</p>
+                                <p>Supports: JPG, PNG, WebP, BMP</p>
                             </div>
                         </div>
 
-                        <!-- Upload Queue Section (shown after files are selected) -->
-                        <div class="upload-queue-container" id="uploadQueueContainer" style="display: none;">
-                            <div class="queue-header">
-                                <h3>Upload Queue</h3>
-                                <div class="queue-controls">
-                                    <button class="btn-secondary" id="clearQueueBtn">Clear Queue</button>
-                                    <button class="btn-primary" id="addMoreBtn">Add More Images</button>
+                        <!-- Upload Grid Section (shown after folder is scanned) -->
+                        <div class="results-card" id="uploadGridContainer" style="display: none;">
+                            <div class="results-header">
+                                <h3>Image Queue</h3>
+                                <div class="results-header-actions">
+                                    <span id="uploadStats" style="color: var(--text-secondary); margin-right: 1rem;">0 images ready</span>
+                                    <button class="btn-secondary" id="clearQueueBtn">Clear</button>
                                 </div>
                             </div>
-                            <div class="queue-list" id="queueList"></div>
-                            <div class="queue-footer">
-                                <div class="queue-stats">
-                                    <span id="queueStats">0 images ready</span>
-                                </div>
+                            <div class="results-grid" id="uploadGrid">
+                                <!-- Grid items will be populated dynamically -->
+                            </div>
+                            <div class="pagination-controls" id="uploadPaginationControls" style="display: none;">
+                                <button class="pagination-btn" id="uploadPrevPageBtn">◀ Previous</button>
+                                <span class="pagination-info" id="uploadPaginationInfo">Page 1 of 1</span>
+                                <button class="pagination-btn" id="uploadNextPageBtn">Next ▶</button>
                             </div>
                         </div>
                     </div>

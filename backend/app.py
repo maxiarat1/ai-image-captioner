@@ -337,25 +337,129 @@ def backup_user_config():
     except Exception as e:
         return jsonify({"error": f"Failed to create backup: {str(e)}"}), 500
 
+@app.route('/scan-folder', methods=['POST'])
+def scan_folder():
+    """Scan a folder and return image metadata"""
+    try:
+        data = request.get_json()
+        folder_path = data.get('folder_path', '')
+
+        if not folder_path:
+            return jsonify({"error": "No folder path provided"}), 400
+
+        folder = Path(folder_path)
+
+        # Security: Validate path exists and is a directory
+        if not folder.exists():
+            return jsonify({"error": "Folder does not exist"}), 404
+
+        if not folder.is_dir():
+            return jsonify({"error": "Path is not a directory"}), 400
+
+        # Security: Resolve to absolute path to prevent traversal
+        folder = folder.resolve()
+
+        # Scan for supported images
+        supported_exts = {'.jpg', '.jpeg', '.png', '.webp', '.bmp'}
+        images = []
+
+        for file_path in folder.iterdir():
+            if file_path.is_file() and file_path.suffix.lower() in supported_exts:
+                images.append({
+                    'filename': file_path.name,
+                    'path': str(file_path),
+                    'size': file_path.stat().st_size
+                })
+
+        # Sort by filename
+        images.sort(key=lambda x: x['filename'])
+
+        return jsonify({
+            "success": True,
+            "folder": str(folder),
+            "images": images,
+            "count": len(images)
+        })
+
+    except Exception as e:
+        print(f"Error scanning folder: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/image/thumbnail', methods=['GET'])
+def get_thumbnail():
+    """Generate thumbnail for an image"""
+    try:
+        image_path = request.args.get('path', '')
+
+        if not image_path:
+            return jsonify({"error": "No image path provided"}), 400
+
+        img_file = Path(image_path)
+
+        # Security: Validate path
+        if not img_file.exists() or not img_file.is_file():
+            return jsonify({"error": "Image not found"}), 404
+
+        # Read and create thumbnail
+        image = Image.open(img_file)
+
+        # Create thumbnail (150x150 max, maintain aspect ratio)
+        image.thumbnail((150, 150), Image.Resampling.LANCZOS)
+
+        # Convert to base64
+        buffered = io.BytesIO()
+        image.save(buffered, format="JPEG", quality=85)
+        img_str = base64.b64encode(buffered.getvalue()).decode()
+
+        return jsonify({
+            "success": True,
+            "thumbnail": f"data:image/jpeg;base64,{img_str}"
+        })
+
+    except Exception as e:
+        print(f"Error generating thumbnail: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/generate', methods=['POST'])
 def generate_caption():
-    """Generate caption for uploaded image"""
+    """Generate caption for uploaded image or image path"""
     try:
         debug_log("=== NEW CAPTION GENERATION REQUEST ===")
 
-        # Get image data from request
-        if 'image' not in request.files:
-            return jsonify({"error": "No image file provided"}), 400
+        # Check if image_path is provided (new method)
+        image_path = request.form.get('image_path', '')
 
-        image_file = request.files['image']
-        if image_file.filename == '':
-            return jsonify({"error": "No image file selected"}), 400
+        if image_path:
+            # Read image from filesystem
+            img_file = Path(image_path)
+            if not img_file.exists() or not img_file.is_file():
+                return jsonify({"error": "Image not found"}), 404
 
-        debug_log("Image file received", {
-            "filename": image_file.filename,
-            "size_bytes": len(image_file.read())
-        })
-        image_file.seek(0)  # Reset file pointer after reading size
+            with open(img_file, 'rb') as f:
+                image_data = f.read()
+
+            filename = img_file.name
+            debug_log("Image loaded from path", {
+                "filename": filename,
+                "path": image_path,
+                "size_bytes": len(image_data)
+            })
+        else:
+            # Old method: uploaded file
+            if 'image' not in request.files:
+                return jsonify({"error": "No image file or path provided"}), 400
+
+            image_file = request.files['image']
+            if image_file.filename == '':
+                return jsonify({"error": "No image file selected"}), 400
+
+            debug_log("Image file received", {
+                "filename": image_file.filename,
+                "size_bytes": len(image_file.read())
+            })
+            image_file.seek(0)
+            image_data = image_file.read()
+            filename = image_file.filename
 
         # Get model and parameters
         model_name = request.form.get('model', 'blip')
@@ -401,7 +505,6 @@ def generate_caption():
             return jsonify({"error": f"Model {model_name} not available"}), 500
 
         # Process image
-        image_data = image_file.read()
         image = process_uploaded_image(image_data)
 
         debug_log("Image processed", {
@@ -571,46 +674,87 @@ def generate_batch():
 def export_with_metadata():
     """Export images with embedded EXIF metadata"""
     try:
-        if 'images' not in request.files or 'captions' not in request.form:
+        data = request.get_json()
+
+        # Support both old (uploaded files) and new (paths) methods
+        if 'image_paths' in data and 'captions' in data:
+            # New method: use paths
+            image_paths = data['image_paths']
+            captions = data['captions']
+
+            if len(image_paths) != len(captions):
+                return jsonify({"error": "Images and captions count mismatch"}), 400
+
+            # Create ZIP file in memory
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                for img_path, caption in zip(image_paths, captions):
+                    # Read image from filesystem
+                    img_file_path = Path(img_path)
+                    if not img_file_path.exists():
+                        continue
+
+                    with open(img_file_path, 'rb') as f:
+                        img_data = f.read()
+
+                    image = process_uploaded_image(img_data)
+
+                    # Embed caption in EXIF
+                    output = io.BytesIO()
+
+                    if image.format == 'JPEG' or img_file_path.suffix.lower() in ('.jpg', '.jpeg'):
+                        exif = image.getexif()
+                        exif[0x010E] = caption
+                        image.save(output, format='JPEG', exif=exif, quality=95)
+                    elif image.format == 'PNG' or img_file_path.suffix.lower() == '.png':
+                        metadata = PngInfo()
+                        metadata.add_text("Description", caption)
+                        image.save(output, format='PNG', pnginfo=metadata)
+                    else:
+                        if image.mode in ('RGBA', 'LA', 'P'):
+                            image = image.convert('RGB')
+                        exif = Image.Exif()
+                        exif[0x010E] = caption
+                        image.save(output, format='JPEG', exif=exif, quality=95)
+
+                    # Add to ZIP
+                    zip_file.writestr(img_file_path.name, output.getvalue())
+
+        elif 'images' in request.files and 'captions' in request.form:
+            # Old method: uploaded files (backward compatibility)
+            images = request.files.getlist('images')
+            captions = request.form.getlist('captions')
+
+            if len(images) != len(captions):
+                return jsonify({"error": "Images and captions count mismatch"}), 400
+
+            # Create ZIP file in memory
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                for img_file, caption in zip(images, captions):
+                    img_data = img_file.read()
+                    image = process_uploaded_image(img_data)
+
+                    output = io.BytesIO()
+
+                    if image.format == 'JPEG' or img_file.filename.lower().endswith(('.jpg', '.jpeg')):
+                        exif = image.getexif()
+                        exif[0x010E] = caption
+                        image.save(output, format='JPEG', exif=exif, quality=95)
+                    elif image.format == 'PNG' or img_file.filename.lower().endswith('.png'):
+                        metadata = PngInfo()
+                        metadata.add_text("Description", caption)
+                        image.save(output, format='PNG', pnginfo=metadata)
+                    else:
+                        if image.mode in ('RGBA', 'LA', 'P'):
+                            image = image.convert('RGB')
+                        exif = Image.Exif()
+                        exif[0x010E] = caption
+                        image.save(output, format='JPEG', exif=exif, quality=95)
+
+                    zip_file.writestr(img_file.filename, output.getvalue())
+        else:
             return jsonify({"error": "Missing images or captions"}), 400
-
-        images = request.files.getlist('images')
-        captions = request.form.getlist('captions')
-
-        if len(images) != len(captions):
-            return jsonify({"error": "Images and captions count mismatch"}), 400
-
-        # Create ZIP file in memory
-        zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-            for img_file, caption in zip(images, captions):
-                # Read and process image
-                img_data = img_file.read()
-                image = process_uploaded_image(img_data)
-
-                # Embed caption in EXIF
-                output = io.BytesIO()
-
-                if image.format == 'JPEG' or img_file.filename.lower().endswith(('.jpg', '.jpeg')):
-                    # For JPEG, use exif
-                    exif = image.getexif()
-                    exif[0x010E] = caption  # ImageDescription tag
-                    image.save(output, format='JPEG', exif=exif, quality=95)
-                elif image.format == 'PNG' or img_file.filename.lower().endswith('.png'):
-                    # For PNG, use PNG text chunks
-                    metadata = PngInfo()
-                    metadata.add_text("Description", caption)
-                    image.save(output, format='PNG', pnginfo=metadata)
-                else:
-                    # For other formats, save as JPEG with EXIF
-                    if image.mode in ('RGBA', 'LA', 'P'):
-                        image = image.convert('RGB')
-                    exif = Image.Exif()
-                    exif[0x010E] = caption
-                    image.save(output, format='JPEG', exif=exif, quality=95)
-
-                # Add to ZIP
-                zip_file.writestr(img_file.filename, output.getvalue())
 
         # Prepare for download
         zip_buffer.seek(0)
