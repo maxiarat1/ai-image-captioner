@@ -1416,9 +1416,10 @@ main {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: var(--spacing-md);
-    margin-top: var(--spacing-lg);
-    padding: var(--spacing-md) 0;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-xs);
+    margin-bottom: var(--spacing-xs);
+    padding: var(--spacing-xs) 0;
 }
 
 .pagination-btn {
@@ -1548,14 +1549,29 @@ main {
 }
 
 .upload-item-info {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: var(--spacing-md);
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.7) 70%, transparent 100%);
     text-align: center;
-    padding: 0.5rem;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.5s cubic-bezier(0.4, 0.0, 0.2, 1);
+    z-index: 10;
+    pointer-events: none;
+}
+
+.upload-grid-item:hover .upload-item-info {
+    opacity: 1;
+    transform: translateY(0);
 }
 
 .upload-item-name {
     font-size: 0.85rem;
     font-weight: 500;
-    color: var(--text-primary);
+    color: white;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1563,10 +1579,17 @@ main {
 
 .upload-item-size {
     font-size: 0.75rem;
-    color: var(--text-secondary);
+    color: rgba(255, 255, 255, 0.8);
     margin-top: 0.25rem;
 }
 
+.upload-stats-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding: var(--spacing-xs) 0;
+    margin-top: var(--spacing-xs);
+    font-size: 0.85rem;
+}
 
 /* Footer */
 footer {

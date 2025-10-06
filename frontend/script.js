@@ -11,7 +11,7 @@ const AppState = {
     userConfig: null,
     allResults: [], // All result items for pagination: {queueItem, data}
     currentPage: 1,
-    itemsPerPage: 30,
+    itemsPerPage: 12,
     thumbnailCache: new Map(), // Cache loaded thumbnails with LRU
     thumbnailCacheMaxSize: 300, // Max 300 thumbnails total (~45MB) - shared between tabs
     uploadCurrentPage: 1 // Separate pagination for upload grid

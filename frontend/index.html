@@ -89,18 +89,20 @@
                         <div class="results-card" id="uploadGridContainer" style="display: none;">
                             <div class="results-header">
                                 <h3>Image Queue</h3>
+                                <div class="pagination-controls" id="uploadPaginationControls" style="display: none;">
+                                    <button class="pagination-btn" id="uploadPrevPageBtn">◀ Previous</button>
+                                    <span class="pagination-info" id="uploadPaginationInfo">Page 1 of 1</span>
+                                    <button class="pagination-btn" id="uploadNextPageBtn">Next ▶</button>
+                                </div>
                                 <div class="results-header-actions">
-                                    <span id="uploadStats" style="color: var(--text-secondary); margin-right: 1rem;">0 images ready</span>
                                     <button class="btn-secondary" id="clearQueueBtn">Clear</button>
                                 </div>
                             </div>
                             <div class="results-grid" id="uploadGrid">
                                 <!-- Grid items will be populated dynamically -->
                             </div>
-                            <div class="pagination-controls" id="uploadPaginationControls" style="display: none;">
-                                <button class="pagination-btn" id="uploadPrevPageBtn">◀ Previous</button>
-                                <span class="pagination-info" id="uploadPaginationInfo">Page 1 of 1</span>
-                                <button class="pagination-btn" id="uploadNextPageBtn">Next ▶</button>
+                            <div class="upload-stats-footer">
+                                <span id="uploadStats" style="color: var(--text-secondary);">0 images ready</span>
                             </div>
                         </div>
                     </div>
@@ -184,7 +186,12 @@
                     <div class="tab-content" id="results-content">
                         <div class="results-card">
                             <div class="results-header">
-                                <h3>Generated Descriptions</h3>
+                                <h3>Descriptions</h3>
+                                <div class="pagination-controls" id="paginationControls" style="display: none;">
+                                    <button class="pagination-btn" id="prevPageBtn">◀ Previous</button>
+                                    <span class="pagination-info" id="paginationInfo">Page 1 of 1</span>
+                                    <button class="pagination-btn" id="nextPageBtn">Next ▶</button>
+                                </div>
                                 <div class="results-header-actions">
                                     <!-- Processing Controls (shown during processing) -->
                                     <div class="processing-controls" id="processingControls" style="display: none;">
@@ -203,11 +210,6 @@
                             </div>
                             <div class="results-grid" id="resultsGrid">
                                 <!-- Results will be populated dynamically -->
-                            </div>
-                            <div class="pagination-controls" id="paginationControls" style="display: none;">
-                                <button class="pagination-btn" id="prevPageBtn">◀ Previous</button>
-                                <span class="pagination-info" id="paginationInfo">Page 1 of 1</span>
-                                <button class="pagination-btn" id="nextPageBtn">Next ▶</button>
                             </div>
                         </div>
                     </div>
