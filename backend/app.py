@@ -1,11 +1,13 @@
 import io
 import base64
 import json
+import zipfile
 from datetime import datetime
 from pathlib import Path
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from PIL import Image
+from PIL.PngImagePlugin import PngInfo
 from models.blip_adapter import BlipAdapter
 from models.r4b_adapter import R4BAdapter
 from utils.image_utils import process_uploaded_image, validate_image_format
@@ -82,7 +84,6 @@ def get_model(model_name, precision_params=None, force_reload=False):
 
                 models['blip'] = BlipAdapter()
                 models['blip'].load_model()
-                print("BLIP model loaded successfully")
             except Exception as e:
                 print(f"Failed to load BLIP model: {e}")
                 raise
@@ -113,8 +114,6 @@ def get_model(model_name, precision_params=None, force_reload=False):
                         'precision': 'float32',
                         'use_flash_attention': False
                     }
-
-                print("R-4B model loaded successfully")
             except Exception as e:
                 print(f"Failed to load R-4B model: {e}")
                 raise
@@ -566,6 +565,64 @@ def generate_batch():
         })
 
     except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/export/metadata', methods=['POST'])
+def export_with_metadata():
+    """Export images with embedded EXIF metadata"""
+    try:
+        if 'images' not in request.files or 'captions' not in request.form:
+            return jsonify({"error": "Missing images or captions"}), 400
+
+        images = request.files.getlist('images')
+        captions = request.form.getlist('captions')
+
+        if len(images) != len(captions):
+            return jsonify({"error": "Images and captions count mismatch"}), 400
+
+        # Create ZIP file in memory
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            for img_file, caption in zip(images, captions):
+                # Read and process image
+                img_data = img_file.read()
+                image = process_uploaded_image(img_data)
+
+                # Embed caption in EXIF
+                output = io.BytesIO()
+
+                if image.format == 'JPEG' or img_file.filename.lower().endswith(('.jpg', '.jpeg')):
+                    # For JPEG, use exif
+                    exif = image.getexif()
+                    exif[0x010E] = caption  # ImageDescription tag
+                    image.save(output, format='JPEG', exif=exif, quality=95)
+                elif image.format == 'PNG' or img_file.filename.lower().endswith('.png'):
+                    # For PNG, use PNG text chunks
+                    metadata = PngInfo()
+                    metadata.add_text("Description", caption)
+                    image.save(output, format='PNG', pnginfo=metadata)
+                else:
+                    # For other formats, save as JPEG with EXIF
+                    if image.mode in ('RGBA', 'LA', 'P'):
+                        image = image.convert('RGB')
+                    exif = Image.Exif()
+                    exif[0x010E] = caption
+                    image.save(output, format='JPEG', exif=exif, quality=95)
+
+                # Add to ZIP
+                zip_file.writestr(img_file.filename, output.getvalue())
+
+        # Prepare for download
+        zip_buffer.seek(0)
+        return send_file(
+            zip_buffer,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name='images_with_metadata.zip'
+        )
+
+    except Exception as e:
+        print(f"Error in export_with_metadata: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.errorhandler(413)

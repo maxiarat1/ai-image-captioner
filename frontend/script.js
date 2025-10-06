@@ -742,77 +742,151 @@ function goToPage(pageNumber) {
 
 
 // ============================================================================
-// Download Functionality
+// Export Functionality
 // ============================================================================
 
-async function downloadAllResults() {
-    if (AppState.processedResults.length === 0) {
-        showToast('No results to download');
-        return;
-    }
+async function exportAsTextZip() {
+    const zip = new JSZip();
+    AppState.processedResults.forEach((result) => {
+        const txtFilename = result.filename.replace(/\.[^/.]+$/, '.txt');
+        zip.file(txtFilename, result.caption);
+    });
 
-    const downloadBtn = document.getElementById('downloadAllBtn');
-    const originalText = downloadBtn.innerHTML;
+    const blob = await zip.generateAsync({
+        type: 'blob',
+        compression: 'DEFLATE',
+        compressionOptions: { level: 9 }
+    });
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    downloadBlob(blob, `captions_${timestamp}.zip`);
+    showToast(`Exported ${AppState.processedResults.length} text files`);
+}
+
+async function exportAsJson() {
+    const data = {};
+    AppState.processedResults.forEach((result) => {
+        data[result.filename] = result.caption;
+    });
+
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    downloadBlob(blob, `captions_${timestamp}.json`);
+    showToast('Exported as JSON');
+}
+
+async function exportAsCsv() {
+    let csv = 'filename,caption\n';
+    AppState.processedResults.forEach((result) => {
+        const escapedCaption = `"${result.caption.replace(/"/g, '""')}"`;
+        csv += `"${result.filename}",${escapedCaption}\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    downloadBlob(blob, `captions_${timestamp}.csv`);
+    showToast('Exported as CSV');
+}
+
+async function exportWithExif() {
+    showToast('Preparing images for EXIF embedding...', true);
+
+    const formData = new FormData();
+
+    // Add images and captions
+    for (const result of AppState.processedResults) {
+        const queueItem = AppState.uploadQueue.find(item => item.file.name === result.filename);
+        if (queueItem) {
+            formData.append('images', queueItem.file);
+            formData.append('captions', result.caption);
+        }
+    }
 
     try {
-        // Show progress feedback
-        downloadBtn.innerHTML = '<span class="download-icon">⏳</span> Creating ZIP...';
-        downloadBtn.disabled = true;
-
-        // Create a new JSZip instance
-        const zip = new JSZip();
-
-        // Add each description as a .txt file with matching name
-        AppState.processedResults.forEach((result) => {
-            // Get the exact filename and replace image extension with .txt
-            const txtFilename = result.filename.replace(/\.[^/.]+$/, '.txt');
-
-            // Add file to ZIP
-            zip.file(txtFilename, result.caption);
+        const response = await fetch(`${AppState.apiBaseUrl}/export/metadata`, {
+            method: 'POST',
+            body: formData
         });
 
-        // Generate the ZIP file
-        showToast('Generating ZIP file...', true);
-        const blob = await zip.generateAsync({
-            type: 'blob',
-            compression: 'DEFLATE',
-            compressionOptions: { level: 9 }
-        });
+        if (!response.ok) {
+            throw new Error('Failed to embed metadata');
+        }
 
-        // Create download link
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-
-        // Name the ZIP file with timestamp
+        const blob = await response.blob();
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-        a.download = `image_descriptions_${timestamp}.zip`;
-
-        // Trigger download
-        document.body.appendChild(a);
-        a.click();
-
-        // Cleanup
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-
-        showToast(`Downloaded ${AppState.processedResults.length} descriptions as ZIP`);
-
+        downloadBlob(blob, `images_with_metadata_${timestamp}.zip`);
+        showToast('Exported images with EXIF metadata');
     } catch (error) {
-        console.error('Error creating ZIP file:', error);
-        showToast('Failed to create ZIP file');
-    } finally {
-        // Restore button state
-        downloadBtn.innerHTML = originalText;
-        downloadBtn.disabled = false;
+        console.error('Error exporting with EXIF:', error);
+        showToast('Failed to embed EXIF metadata');
     }
+}
+
+function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
 
 function initDownloadButton() {
     const downloadBtn = document.getElementById('downloadAllBtn');
     if (downloadBtn) {
-        downloadBtn.addEventListener('click', downloadAllResults);
+        downloadBtn.addEventListener('click', openExportModal);
     }
+}
+
+function openExportModal() {
+    if (AppState.processedResults.length === 0) {
+        showToast('No results to export');
+        return;
+    }
+    const modal = document.getElementById('exportModal');
+    openModal(modal);
+}
+
+function initExportModal() {
+    const modal = document.getElementById('exportModal');
+    const closeBtn = document.getElementById('closeExportModal');
+    const cancelBtn = document.getElementById('cancelExport');
+    const confirmBtn = document.getElementById('confirmExport');
+
+    closeBtn?.addEventListener('click', () => closeModal(modal));
+    cancelBtn?.addEventListener('click', () => closeModal(modal));
+
+    confirmBtn?.addEventListener('click', async () => {
+        const format = document.querySelector('input[name="exportFormat"]:checked')?.value;
+        closeModal(modal);
+
+        const downloadBtn = document.getElementById('downloadAllBtn');
+        const originalText = downloadBtn.innerHTML;
+        downloadBtn.innerHTML = '<span class="download-icon">⏳</span> Exporting...';
+        downloadBtn.disabled = true;
+
+        try {
+            if (format === 'text') await exportAsTextZip();
+            else if (format === 'json') await exportAsJson();
+            else if (format === 'csv') await exportAsCsv();
+            else if (format === 'exif') await exportWithExif();
+        } catch (error) {
+            console.error('Export error:', error);
+            showToast('Export failed');
+        } finally {
+            downloadBtn.innerHTML = originalText;
+            downloadBtn.disabled = false;
+        }
+    });
+
+    // Close on backdrop click
+    const backdrop = modal.querySelector('.config-modal-backdrop');
+    backdrop?.addEventListener('click', (e) => {
+        if (e.target === backdrop) closeModal(modal);
+    });
 }
 
 // ============================================================================
@@ -1324,6 +1398,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initProcessingControls();
     initPaginationControls();
     initConfigModals();
+    initExportModal();
 
     // Fetch available models from backend
     await fetchAvailableModels();

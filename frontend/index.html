@@ -195,7 +195,7 @@
                                     </div>
                                     <button class="btn-download" id="downloadAllBtn" style="display: none;">
                                         <span class="download-icon">↓</span>
-                                        Download as ZIP
+                                        Export Results
                                     </button>
                                 </div>
                             </div>
@@ -306,6 +306,54 @@
                             <button class="btn-secondary" id="cancelSavePrompt">Cancel</button>
                             <button class="btn-primary" id="confirmSavePrompt">Save</button>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Options Modal -->
+    <div class="config-modal" id="exportModal">
+        <div class="config-modal-backdrop">
+            <div class="config-modal-content">
+                <div class="config-modal-header">
+                    <h3>Export Results</h3>
+                    <button class="config-modal-close" id="closeExportModal">&times;</button>
+                </div>
+                <div class="config-modal-body">
+                    <div class="export-options">
+                        <label class="export-option">
+                            <input type="radio" name="exportFormat" value="text" checked>
+                            <div class="export-option-content">
+                                <strong>Text Files (ZIP)</strong>
+                                <p>Separate .txt files for each image</p>
+                            </div>
+                        </label>
+                        <label class="export-option">
+                            <input type="radio" name="exportFormat" value="json">
+                            <div class="export-option-content">
+                                <strong>JSON File</strong>
+                                <p>Single structured data file</p>
+                            </div>
+                        </label>
+                        <label class="export-option">
+                            <input type="radio" name="exportFormat" value="csv">
+                            <div class="export-option-content">
+                                <strong>CSV File</strong>
+                                <p>Spreadsheet-compatible format</p>
+                            </div>
+                        </label>
+                        <label class="export-option">
+                            <input type="radio" name="exportFormat" value="exif">
+                            <div class="export-option-content">
+                                <strong>Images with EXIF</strong>
+                                <p>Embed captions in image metadata</p>
+                            </div>
+                        </label>
+                    </div>
+                    <div class="save-config-actions">
+                        <button class="btn-secondary" id="cancelExport">Cancel</button>
+                        <button class="btn-primary" id="confirmExport">Export</button>
                     </div>
                 </div>
             </div>

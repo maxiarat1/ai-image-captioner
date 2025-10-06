@@ -2206,6 +2206,59 @@ footer {
     margin-top: var(--spacing-sm);
 }
 
+/* Export Options */
+.export-options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-lg);
+}
+
+.export-option {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: var(--bg-tertiary);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-smooth);
+}
+
+.export-option:hover {
+    border-color: var(--accent-primary);
+    background: var(--bg-secondary);
+}
+
+.export-option input[type="radio"] {
+    margin-top: 0.2rem;
+    accent-color: var(--accent-primary);
+    cursor: pointer;
+}
+
+.export-option input[type="radio"]:checked + .export-option-content strong {
+    color: var(--accent-primary);
+}
+
+.export-option-content {
+    flex: 1;
+}
+
+.export-option-content strong {
+    display: block;
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+    color: var(--text-primary);
+    transition: color var(--transition-fast);
+}
+
+.export-option-content p {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
 /* Responsive modal */
 @media (max-width: 768px) {
     .modal-image {
