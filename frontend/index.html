@@ -89,12 +89,17 @@
                         <div class="results-card" id="uploadGridContainer" style="display: none;">
                             <div class="results-header">
                                 <h3>Image Queue</h3>
-                                <div class="pagination-controls" id="uploadPaginationControls" style="display: none;">
-                                    <button class="pagination-btn" id="uploadPrevPageBtn">◀ Previous</button>
-                                    <span class="pagination-info" id="uploadPaginationInfo">Page 1 of 1</span>
-                                    <button class="pagination-btn" id="uploadNextPageBtn">Next ▶</button>
+                            </div>
+                            <div class="results-toolbar">
+                                <div class="search-box">
+                                    <input type="text" id="uploadSearchInput" class="search-input" placeholder="Search images...">
                                 </div>
-                                <div class="results-header-actions">
+                                <div class="toolbar-actions">
+                                    <div class="pagination-controls" id="uploadPaginationControls" style="display: none;">
+                                        <button class="pagination-btn" id="uploadPrevPageBtn">◀ Previous</button>
+                                        <span class="pagination-info" id="uploadPaginationInfo">Page 1 of 1</span>
+                                        <button class="pagination-btn" id="uploadNextPageBtn">Next ▶</button>
+                                    </div>
                                     <button class="btn-secondary" id="clearQueueBtn">Clear</button>
                                 </div>
                             </div>
@@ -187,12 +192,17 @@
                         <div class="results-card">
                             <div class="results-header">
                                 <h3>Descriptions</h3>
-                                <div class="pagination-controls" id="paginationControls" style="display: none;">
-                                    <button class="pagination-btn" id="prevPageBtn">◀ Previous</button>
-                                    <span class="pagination-info" id="paginationInfo">Page 1 of 1</span>
-                                    <button class="pagination-btn" id="nextPageBtn">Next ▶</button>
+                            </div>
+                            <div class="results-toolbar">
+                                <div class="search-box">
+                                    <input type="text" id="resultsSearchInput" class="search-input" placeholder="Search descriptions...">
                                 </div>
-                                <div class="results-header-actions">
+                                <div class="toolbar-actions">
+                                    <div class="pagination-controls" id="paginationControls" style="display: none;">
+                                        <button class="pagination-btn" id="prevPageBtn">◀ Previous</button>
+                                        <span class="pagination-info" id="paginationInfo">Page 1 of 1</span>
+                                        <button class="pagination-btn" id="nextPageBtn">Next ▶</button>
+                                    </div>
                                     <!-- Processing Controls (shown during processing) -->
                                     <div class="processing-controls" id="processingControls" style="display: none;">
                                         <button class="btn-control btn-pause" id="pauseBtn" title="Pause processing">

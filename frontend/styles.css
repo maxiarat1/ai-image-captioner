@@ -1134,8 +1134,52 @@ main {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--spacing-lg);
+    margin-bottom: var(--spacing-md);
     gap: var(--spacing-md);
+}
+
+.results-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    padding: var(--spacing-sm);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+}
+
+.search-box {
+    flex: 1;
+    max-width: 400px;
+}
+
+.search-input {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    transition: all var(--transition-smooth);
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.search-input::placeholder {
+    color: var(--text-secondary);
+}
+
+.toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
 }
 
 .results-header-actions {
@@ -1417,9 +1461,6 @@ main {
     align-items: center;
     justify-content: center;
     gap: var(--spacing-sm);
-    margin-top: var(--spacing-xs);
-    margin-bottom: var(--spacing-xs);
-    padding: var(--spacing-xs) 0;
 }
 
 .pagination-btn {
@@ -1696,6 +1737,24 @@ footer {
     .results-header {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .results-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .search-box {
+        max-width: 100%;
+    }
+
+    .toolbar-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .pagination-controls {
+        width: 100%;
     }
 
     .results-card h3 {

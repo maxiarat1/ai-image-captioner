@@ -14,7 +14,9 @@ const AppState = {
     itemsPerPage: 12,
     thumbnailCache: new Map(), // Cache loaded thumbnails with LRU
     thumbnailCacheMaxSize: 300, // Max 300 thumbnails total (~45MB) - shared between tabs
-    uploadCurrentPage: 1 // Separate pagination for upload grid
+    uploadCurrentPage: 1, // Separate pagination for upload grid
+    uploadSearchQuery: '', // Search query for upload tab
+    resultsSearchQuery: '' // Search query for results tab
 };
 
 // ============================================================================
@@ -170,20 +172,35 @@ function updateUploadGrid() {
     gridContainer.style.display = 'block';
 
     // Update stats
-    const totalSize = AppState.uploadQueue.reduce((sum, item) => sum + item.size, 0);
-    uploadStats.textContent = `${queueSize} image${queueSize > 1 ? 's' : ''} (${formatFileSize(totalSize)})`;
+    const filteredQueue = getFilteredUploadQueue();
+    const totalSize = filteredQueue.reduce((sum, item) => sum + item.size, 0);
+    uploadStats.textContent = `${filteredQueue.length} image${filteredQueue.length !== 1 ? 's' : ''} (${formatFileSize(totalSize)})`;
 
     // Render current page
     renderUploadGridPage();
 }
 
+function getFilteredUploadQueue() {
+    if (!AppState.uploadSearchQuery) {
+        return AppState.uploadQueue;
+    }
+
+    const query = AppState.uploadSearchQuery.toLowerCase();
+    return AppState.uploadQueue.filter(item =>
+        item.filename.toLowerCase().includes(query)
+    );
+}
+
 function renderUploadGridPage() {
     const uploadGrid = document.getElementById('uploadGrid');
+
+    // Get filtered queue
+    const filteredQueue = getFilteredUploadQueue();
 
     // Calculate pagination
     const start = (AppState.uploadCurrentPage - 1) * AppState.itemsPerPage;
     const end = start + AppState.itemsPerPage;
-    const pageItems = AppState.uploadQueue.slice(start, end);
+    const pageItems = filteredQueue.slice(start, end);
 
     // Clear and render grid items
     uploadGrid.innerHTML = '';
@@ -233,7 +250,8 @@ function updateUploadPaginationControls() {
     const prevBtn = document.getElementById('uploadPrevPageBtn');
     const nextBtn = document.getElementById('uploadNextPageBtn');
 
-    const totalItems = AppState.uploadQueue.length;
+    const filteredQueue = getFilteredUploadQueue();
+    const totalItems = filteredQueue.length;
     const totalPages = Math.ceil(totalItems / AppState.itemsPerPage);
 
     if (totalPages > 1) {
@@ -871,7 +889,8 @@ function updatePaginationControls() {
     const prevBtn = document.getElementById('prevPageBtn');
     const nextBtn = document.getElementById('nextPageBtn');
 
-    const totalItems = AppState.allResults.length;
+    const filteredResults = getFilteredResults();
+    const totalItems = filteredResults.length;
     const totalPages = Math.ceil(totalItems / AppState.itemsPerPage);
 
     if (totalPages > 1) {
@@ -884,13 +903,27 @@ function updatePaginationControls() {
     }
 }
 
+function getFilteredResults() {
+    if (!AppState.resultsSearchQuery) {
+        return AppState.allResults;
+    }
+
+    const query = AppState.resultsSearchQuery.toLowerCase();
+    return AppState.allResults.filter(({ data }) =>
+        data.caption.toLowerCase().includes(query)
+    );
+}
+
 async function renderCurrentPage() {
     const resultsGrid = document.getElementById('resultsGrid');
+
+    // Get filtered results
+    const filteredResults = getFilteredResults();
 
     // Calculate pagination
     const start = (AppState.currentPage - 1) * AppState.itemsPerPage;
     const end = start + AppState.itemsPerPage;
-    const pageItems = AppState.allResults.slice(start, end);
+    const pageItems = filteredResults.slice(start, end);
 
     // Clear and render items for current page
     resultsGrid.innerHTML = '';
@@ -904,7 +937,8 @@ async function renderCurrentPage() {
 }
 
 function nextPage() {
-    const totalPages = Math.ceil(AppState.allResults.length / AppState.itemsPerPage);
+    const filteredResults = getFilteredResults();
+    const totalPages = Math.ceil(filteredResults.length / AppState.itemsPerPage);
     if (AppState.currentPage < totalPages) {
         AppState.currentPage++;
         renderCurrentPage();
@@ -919,7 +953,8 @@ function prevPage() {
 }
 
 function goToPage(pageNumber) {
-    const totalPages = Math.ceil(AppState.allResults.length / AppState.itemsPerPage);
+    const filteredResults = getFilteredResults();
+    const totalPages = Math.ceil(filteredResults.length / AppState.itemsPerPage);
     if (pageNumber >= 1 && pageNumber <= totalPages) {
         AppState.currentPage = pageNumber;
         renderCurrentPage();
@@ -1608,11 +1643,34 @@ function initPaginationControls() {
 
     if (uploadNextBtn) {
         uploadNextBtn.addEventListener('click', () => {
-            const totalPages = Math.ceil(AppState.uploadQueue.length / AppState.itemsPerPage);
+            const filteredQueue = getFilteredUploadQueue();
+            const totalPages = Math.ceil(filteredQueue.length / AppState.itemsPerPage);
             if (AppState.uploadCurrentPage < totalPages) {
                 AppState.uploadCurrentPage++;
                 renderUploadGridPage();
             }
+        });
+    }
+}
+
+function initSearchHandlers() {
+    // Upload search
+    const uploadSearchInput = document.getElementById('uploadSearchInput');
+    if (uploadSearchInput) {
+        uploadSearchInput.addEventListener('input', (e) => {
+            AppState.uploadSearchQuery = e.target.value.trim();
+            AppState.uploadCurrentPage = 1; // Reset to first page when searching
+            updateUploadGrid();
+        });
+    }
+
+    // Results search
+    const resultsSearchInput = document.getElementById('resultsSearchInput');
+    if (resultsSearchInput) {
+        resultsSearchInput.addEventListener('input', (e) => {
+            AppState.resultsSearchQuery = e.target.value.trim();
+            AppState.currentPage = 1; // Reset to first page when searching
+            renderCurrentPage();
         });
     }
 }
@@ -1631,6 +1689,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initDownloadButton();
     initProcessingControls();
     initPaginationControls();
+    initSearchHandlers();
     initConfigModals();
     initExportModal();
     initToastHoverBehavior();
