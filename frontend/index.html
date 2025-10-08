@@ -10,7 +10,23 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="css/components/base.css">
+    <link rel="stylesheet" href="css/components/transitions.css">
+    <link rel="stylesheet" href="css/components/typography.css">
+    <link rel="stylesheet" href="css/components/utilities.css">
+    <link rel="stylesheet" href="css/components/header.css">
+    <link rel="stylesheet" href="css/components/tabs.css">
+    <link rel="stylesheet" href="css/components/upload-card.css">
+    <link rel="stylesheet" href="css/components/upload-grid.css">
+    <link rel="stylesheet" href="css/components/options-card.css">
+    <link rel="stylesheet" href="css/components/results-card.css">
+    <link rel="stylesheet" href="css/components/pagination.css">
+    <link rel="stylesheet" href="css/components/toast.css">
+    <link rel="stylesheet" href="css/components/footer.css">
+    <link rel="stylesheet" href="css/components/modal.css">
+    <link rel="stylesheet" href="css/components/config.css">
+    <link rel="stylesheet" href="css/components/animations.css">
+    <link rel="stylesheet" href="css/components/responsive.css">
     <!-- JSZip for creating ZIP files -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
@@ -374,6 +390,43 @@
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <!-- Core Scripts -->
+    <script src="js/state.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/toast.js"></script>
+    <script src="js/modal.js"></script>
+    <script src="js/pageTransition.js"></script>
+
+    <!-- Upload Components -->
+    <script src="js/folderScanner.js"></script>
+    <script src="js/thumbnailLoader.js"></script>
+    <script src="js/uploadQueue.js"></script>
+    <script src="js/uploadGrid.js"></script>
+    <script src="js/lazyLoading.js"></script>
+
+    <!-- Options & Processing Components -->
+    <script src="js/optionsTab.js"></script>
+    <script src="js/imageProcessor.js"></script>
+
+    <!-- Results Components -->
+    <script src="js/resultsGrid.js"></script>
+    <script src="js/resultsPagination.js"></script>
+    <script src="js/exportFunctions.js"></script>
+
+    <!-- Configuration Components -->
+    <script src="js/configManagement.js"></script>
+    <script src="js/configModals.js"></script>
+    <script src="js/promptManagement.js"></script>
+
+    <!-- UI Controls -->
+    <script src="js/processingControls.js"></script>
+    <script src="js/searchHandlers.js"></script>
+
+    <!-- New modularized UI and bootstrap -->
+    <script src="js/ui/tabNavigation.js"></script>
+    <script src="js/ui/themeToggle.js"></script>
+    <script src="js/upload/uploadHandlers.js"></script>
+    <script src="js/results/copyFunctionality.js"></script>
+    <script src="js/bootstrap.js"></script>
 </body>
 </html>

@@ -1,0 +1,26 @@
+/* Footer */
+footer {
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+    padding: var(--spacing-lg) 0;
+}
+
+.footer-minimal {
+    text-align: center;
+}
+
+.footer-minimal p {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.footer-minimal a {
+    color: var(--accent-primary);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color var(--transition-fast);
+}
+
+.footer-minimal a:hover {
+    color: var(--accent-hover);
+}

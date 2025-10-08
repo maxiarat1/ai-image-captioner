@@ -1,0 +1,86 @@
+/* Upload Grid Specific Styles */
+.upload-thumbnail-container {
+    width: 100%;
+    height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.upload-remove-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: all var(--transition-normal);
+    z-index: 10;
+    backdrop-filter: blur(8px);
+}
+
+.upload-grid-item:hover .upload-remove-btn {
+    opacity: 0.8;
+}
+
+.upload-remove-btn:hover {
+    opacity: 1;
+    background: var(--bg-tertiary);
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
+}
+
+.upload-item-info {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: var(--spacing-md);
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.7) 70%, transparent 100%);
+    text-align: center;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.5s cubic-bezier(0.4, 0.0, 0.2, 1);
+    z-index: 10;
+    pointer-events: none;
+}
+
+.upload-grid-item:hover .upload-item-info {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.upload-item-name {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: white;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.upload-item-size {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.8);
+    margin-top: 0.25rem;
+}
+
+.upload-stats-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding: var(--spacing-xs) 0;
+    margin-top: var(--spacing-xs);
+    font-size: 0.85rem;
+}

@@ -1,0 +1,142 @@
+/* Responsive Design */
+@media (max-width: 768px) {
+    nav {
+        flex-direction: column;
+        gap: var(--spacing-md);
+        text-align: center;
+    }
+
+    .nav-links {
+        gap: var(--spacing-md);
+    }
+
+    .hero h1 {
+        font-size: 2.5rem;
+    }
+
+    .hero p {
+        font-size: 1rem;
+    }
+
+    h2 {
+        font-size: 1.75rem;
+    }
+
+    .tab-navigation {
+        flex-direction: column;
+        border-radius: var(--radius-lg);
+    }
+
+    .tab-btn {
+        border-radius: var(--radius-md);
+    }
+
+    .upload-buttons {
+        flex-direction: column;
+    }
+
+    .queue-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .queue-header h3 {
+        text-align: center;
+    }
+
+    .queue-controls {
+        flex-direction: column;
+    }
+
+    .queue-footer {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--spacing-sm);
+    }
+
+
+    .queue-stats {
+        text-align: center;
+    }
+
+    .options-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .options-card h3 {
+        text-align: center;
+    }
+
+    .options-header .btn-primary {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .results-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .results-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .search-box {
+        max-width: 100%;
+    }
+
+    .toolbar-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .pagination-controls {
+        width: 100%;
+    }
+
+    .results-card h3 {
+        text-align: center;
+    }
+
+    .results-header-actions {
+        justify-content: center;
+    }
+
+    .btn-download {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .processing-controls {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .result-item {
+        margin-bottom: var(--spacing-md);
+    }
+}
+
+@media (max-width: 480px) {
+    :root {
+        --container-padding: 1rem;
+    }
+
+    .hero h1 {
+        font-size: 2rem;
+    }
+
+    h1 {
+        font-size: 2rem;
+    }
+
+    h2 {
+        font-size: 1.5rem;
+    }
+
+    .tab-label {
+        display: none;
+    }
+}

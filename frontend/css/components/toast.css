@@ -1,0 +1,50 @@
+/* Status Notification Toast */
+/* Sleek Status Notification Toast */
+.copy-toast {
+    position: fixed;
+    bottom: -80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(40, 42, 58, 0.35);
+    backdrop-filter: blur(12px);
+    color: #fff;
+    padding: 0.8rem 1.4rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+    font-weight: 500;
+    font-size: 0.9rem;
+    z-index: 10000;
+    transition: bottom 0.35s cubic-bezier(0.4, 0.0, 0.2, 1);
+    min-width: 300px;
+    max-width: 500px;
+}
+
+.copy-toast.show {
+    bottom: 2rem;
+}
+
+.copy-toast.toast-hidden {
+    bottom: -80px !important;
+    pointer-events: none;
+}
+
+.toast-message {
+    margin-bottom: 0.5rem;
+    text-align: center;
+}
+
+.toast-progress-bar {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 0.5rem;
+}
+
+.toast-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    transition: width 0.3s ease;
+    border-radius: 2px;
+}
