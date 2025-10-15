@@ -551,16 +551,22 @@ function startConnect(e, nodeId, portIndex) {
     tempLine.style.opacity = '0.6';
     svg.appendChild(tempLine);
 
-    // Get starting port position
+    // Get starting port position in canvas local coordinates
     const portEl = document.querySelector(`#node-${nodeId} .port-out[data-port="${portIndex}"]`);
-    const canvasRect = canvas.getBoundingClientRect();
+    const container = canvas.parentElement;
+    const containerRect = container.getBoundingClientRect();
     const portRect = portEl.getBoundingClientRect();
+
+    const startPos = wrapperToCanvas(
+        portRect.left - containerRect.left + portRect.width / 2,
+        portRect.top - containerRect.top + portRect.height / 2
+    );
 
     NodeEditor.connecting = {
         from: nodeId,
         port: portIndex,
-        startX: portRect.left - canvasRect.left + portRect.width / 2,
-        startY: portRect.top - canvasRect.top + portRect.height / 2
+        startX: startPos.x,
+        startY: startPos.y
     };
 
     document.onmousemove = updateTempConnection;
@@ -571,15 +577,22 @@ function updateTempConnection(e) {
     if (!NodeEditor.connecting) return;
 
     const { canvas } = getElements();
-    const canvasRect = canvas.getBoundingClientRect();
     const tempLine = document.getElementById('temp-connection');
 
     if (!tempLine) return;
 
+    // Convert mouse position to canvas local coordinates
+    const container = canvas.parentElement;
+    const containerRect = container.getBoundingClientRect();
+    const mousePos = wrapperToCanvas(
+        e.clientX - containerRect.left,
+        e.clientY - containerRect.top
+    );
+
     tempLine.setAttribute('x1', NodeEditor.connecting.startX);
     tempLine.setAttribute('y1', NodeEditor.connecting.startY);
-    tempLine.setAttribute('x2', e.clientX - canvasRect.left);
-    tempLine.setAttribute('y2', e.clientY - canvasRect.top);
+    tempLine.setAttribute('x2', mousePos.x);
+    tempLine.setAttribute('y2', mousePos.y);
 }
 
 function endConnect(e) {
