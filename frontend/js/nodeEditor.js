@@ -8,7 +8,13 @@ const NodeEditor = {
     connections: [],
     nextId: 1,
     dragging: null,
-    connecting: null
+    connecting: null,
+    panning: null,
+    transform: {
+        x: 0,
+        y: 0,
+        scale: 1
+    }
 };
 
 // Node types
@@ -22,6 +28,8 @@ const NODES = {
 // Initialize
 function initNodeEditor() {
     setupToolbar();
+    initCanvasPanning();
+    createConnectionGradient();
 
     document.getElementById('executeGraphBtn').onclick = executeGraph;
     document.getElementById('clearGraphBtn').onclick = clearGraph;
@@ -103,17 +111,104 @@ function setupToolbar() {
     }
 }
 
+// Apply transform to canvas
+function applyTransform() {
+    const canvas = document.getElementById('nodeCanvas');
+    if (!canvas) return;
+
+    const { x, y, scale } = NodeEditor.transform;
+    canvas.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+}
+
+// Initialize canvas panning and zoom
+function initCanvasPanning() {
+    const wrapper = document.querySelector('.node-canvas-wrapper');
+    const canvas = document.getElementById('nodeCanvas');
+    if (!wrapper || !canvas) return;
+
+    // Mouse down - start panning on canvas background only
+    canvas.addEventListener('mousedown', (e) => {
+        // Only pan on left click on canvas or SVG (not on nodes)
+        const isNode = e.target.closest('.node');
+        if (e.button === 0 && !isNode) {
+            e.preventDefault();
+            NodeEditor.panning = {
+                startX: e.clientX - NodeEditor.transform.x,
+                startY: e.clientY - NodeEditor.transform.y
+            };
+            wrapper.classList.add('panning');
+        }
+    });
+
+    // Mouse move - do panning
+    document.addEventListener('mousemove', (e) => {
+        if (NodeEditor.panning) {
+            NodeEditor.transform.x = e.clientX - NodeEditor.panning.startX;
+            NodeEditor.transform.y = e.clientY - NodeEditor.panning.startY;
+            applyTransform();
+        }
+    });
+
+    // Mouse up - stop panning
+    document.addEventListener('mouseup', () => {
+        if (NodeEditor.panning) {
+            wrapper.classList.remove('panning');
+            NodeEditor.panning = null;
+        }
+    });
+
+    // Mouse wheel - zoom
+    wrapper.addEventListener('wheel', (e) => {
+        if (e.ctrlKey) {
+            e.preventDefault();
+            handleZoom(e);
+        }
+    });
+}
+
+// Handle zoom
+function handleZoom(e) {
+    const wrapper = document.querySelector('.node-canvas-wrapper');
+    const rect = wrapper.getBoundingClientRect();
+
+    // Mouse position relative to wrapper
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    // Current mouse position in canvas space (before zoom)
+    const canvasX = (mouseX - NodeEditor.transform.x) / NodeEditor.transform.scale;
+    const canvasY = (mouseY - NodeEditor.transform.y) / NodeEditor.transform.scale;
+
+    // Calculate zoom delta
+    const zoomDelta = e.deltaY > 0 ? 0.9 : 1.1;
+    let newScale = NodeEditor.transform.scale * zoomDelta;
+
+    // Limit zoom range
+    newScale = Math.max(0.1, Math.min(3, newScale));
+
+    // Adjust transform to zoom toward cursor
+    NodeEditor.transform.scale = newScale;
+    NodeEditor.transform.x = mouseX - canvasX * newScale;
+    NodeEditor.transform.y = mouseY - canvasY * newScale;
+
+    applyTransform();
+}
+
 // Add node
 function addNode(type) {
     const def = NODES[type];
-    const canvas = document.getElementById('nodeCanvas');
-    const rect = canvas.getBoundingClientRect();
+    const wrapper = document.querySelector('.node-canvas-wrapper');
+    const rect = wrapper.getBoundingClientRect();
+
+    // Position node in center of visible viewport (in canvas space)
+    const viewportCenterX = (rect.width / 2 - NodeEditor.transform.x) / NodeEditor.transform.scale;
+    const viewportCenterY = (rect.height / 2 - NodeEditor.transform.y) / NodeEditor.transform.scale;
 
     const node = {
         id: NodeEditor.nextId++,
         type: type,
-        x: 100 + Math.random() * 300,
-        y: 100 + Math.random() * 200,
+        x: viewportCenterX + (Math.random() - 0.5) * 200,
+        y: viewportCenterY + (Math.random() - 0.5) * 200,
         data: type === 'prompt' ? { text: '' } :
               type === 'aimodel' ? { model: 'blip' } : {}
     };
@@ -134,7 +229,6 @@ function renderNode(node) {
     // Header
     const header = document.createElement('div');
     header.className = 'node-header';
-    header.style.background = def.color;
     header.innerHTML = `
         <span>${def.label}</span>
         <button class="node-del" data-id="${node.id}">×</button>
@@ -214,10 +308,19 @@ function getNodeContent(node) {
 function startDrag(e, node) {
     if (e.target.classList.contains('node-del')) return;
 
+    // Convert screen coordinates to canvas space
+    const canvas = document.getElementById('nodeCanvas');
+    const rect = canvas.getBoundingClientRect();
+    const canvasX = (e.clientX - rect.left) / NodeEditor.transform.scale;
+    const canvasY = (e.clientY - rect.top) / NodeEditor.transform.scale;
+
+    const el = document.getElementById('node-' + node.id);
+    el.classList.add('dragging');
+
     NodeEditor.dragging = {
         node: node,
-        offsetX: e.clientX - node.x,
-        offsetY: e.clientY - node.y
+        offsetX: canvasX - node.x,
+        offsetY: canvasY - node.y
     };
 
     document.onmousemove = drag;
@@ -227,9 +330,15 @@ function startDrag(e, node) {
 function drag(e) {
     if (!NodeEditor.dragging) return;
 
+    // Convert screen coordinates to canvas space
+    const canvas = document.getElementById('nodeCanvas');
+    const rect = canvas.getBoundingClientRect();
+    const canvasX = (e.clientX - rect.left) / NodeEditor.transform.scale;
+    const canvasY = (e.clientY - rect.top) / NodeEditor.transform.scale;
+
     const node = NodeEditor.dragging.node;
-    node.x = e.clientX - NodeEditor.dragging.offsetX;
-    node.y = e.clientY - NodeEditor.dragging.offsetY;
+    node.x = canvasX - NodeEditor.dragging.offsetX;
+    node.y = canvasY - NodeEditor.dragging.offsetY;
 
     const el = document.getElementById('node-' + node.id);
     el.style.left = node.x + 'px';
@@ -239,6 +348,11 @@ function drag(e) {
 }
 
 function stopDrag() {
+    if (NodeEditor.dragging) {
+        const el = document.getElementById('node-' + NodeEditor.dragging.node.id);
+        el.classList.remove('dragging');
+    }
+
     NodeEditor.dragging = null;
     document.onmousemove = null;
     document.onmouseup = null;
@@ -289,13 +403,50 @@ function renderConnection(conn) {
     const svg = document.getElementById('connectionsSVG');
     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
     line.id = 'conn-' + conn.id;
-    line.setAttribute('stroke', '#666');
-    line.setAttribute('stroke-width', '2');
+    line.setAttribute('stroke', 'url(#connection-gradient)');
+    line.setAttribute('stroke-width', '3');
+    line.setAttribute('stroke-linecap', 'round');
     line.style.cursor = 'pointer';
+    line.style.filter = 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))';
+    line.style.transition = 'all 0.15s ease';
+
+    line.onmouseenter = () => {
+        line.setAttribute('stroke-width', '4');
+        line.style.filter = 'drop-shadow(0 4px 12px rgba(99, 102, 241, 0.6))';
+    };
+    line.onmouseleave = () => {
+        line.setAttribute('stroke-width', '3');
+        line.style.filter = 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))';
+    };
     line.onclick = () => deleteConnection(conn.id);
 
     svg.appendChild(line);
     updateConnectionLine(conn.id);
+}
+
+// Create gradient definition for connections
+function createConnectionGradient() {
+    const svg = document.getElementById('connectionsSVG');
+    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+    gradient.id = 'connection-gradient';
+    gradient.setAttribute('x1', '0%');
+    gradient.setAttribute('y1', '0%');
+    gradient.setAttribute('x2', '100%');
+    gradient.setAttribute('y2', '0%');
+
+    const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+    stop1.setAttribute('offset', '0%');
+    stop1.setAttribute('stop-color', '#2196F3');
+
+    const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+    stop2.setAttribute('offset', '100%');
+    stop2.setAttribute('stop-color', '#4CAF50');
+
+    gradient.appendChild(stop1);
+    gradient.appendChild(stop2);
+    defs.appendChild(gradient);
+    svg.appendChild(defs);
 }
 
 // Update connection line
