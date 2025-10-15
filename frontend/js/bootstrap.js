@@ -10,9 +10,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Upload
     initUploadHandlers();
 
-    // Options & Config
-    initOptionsHandlers();
-    initConfigModals();
+    // Node Editor
+    initNodeEditor();
 
     // Results & Export
     initCopyFunctionality();
@@ -28,11 +27,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     initDownloadButton();
     initToastHoverBehavior();
 
-    // Fetch available models from backend
-    await fetchAvailableModels();
-
-    // Load user configuration
-    await loadUserConfig();
-
-    console.log('AI Image Tagger initialized');
+    console.log('AI Image Tagger with Node Editor initialized');
 });

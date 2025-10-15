@@ -1,0 +1,317 @@
+/* ============================================================================
+   Node Editor Styles
+   ============================================================================ */
+
+.node-editor-container {
+    width: 100%;
+    height: 600px;
+    background: var(--card-bg);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-sm);
+}
+
+.node-editor-header {
+    padding: 1.5rem;
+    background: var(--surface-bg);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.node-editor-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    color: var(--text-primary);
+}
+
+.node-editor-actions {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.node-toolbar {
+    padding: 1rem 1.5rem;
+    background: var(--surface-bg);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.node-toolbar-btn {
+    padding: 0.5rem 1rem;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+    min-width: 140px;
+}
+
+.node-toolbar-btn:hover {
+    background: var(--surface-bg);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+.node-btn-label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.node-btn-desc {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.node-canvas-wrapper {
+    flex: 1;
+    position: relative;
+    overflow: auto;
+    background:
+        linear-gradient(90deg, var(--border-color) 1px, transparent 1px),
+        linear-gradient(var(--border-color) 1px, transparent 1px);
+    background-size: 20px 20px;
+}
+
+.node-canvas {
+    position: relative;
+    width: 100%;
+    min-height: 100%;
+    min-width: 100%;
+}
+
+.connections-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.connection-line {
+    pointer-events: stroke;
+    transition: stroke-width 0.2s ease;
+}
+
+.connection-line:hover {
+    stroke-width: 5 !important;
+    filter: drop-shadow(0 0 3px currentColor);
+}
+
+/* Node Styles */
+.node {
+    position: absolute;
+    width: 250px;
+    background: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: var(--shadow-md);
+    cursor: move;
+    z-index: 10;
+    transition: box-shadow 0.2s ease;
+}
+
+.node:hover {
+    box-shadow: var(--shadow-lg);
+}
+
+.node-header {
+    padding: 0.75rem 1rem;
+    border-radius: 6px 6px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: move;
+    user-select: none;
+}
+
+.node-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: white;
+}
+
+.node-delete-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.2rem;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease;
+}
+
+.node-delete-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.node-body {
+    padding: 1rem;
+}
+
+.node-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.node-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.node-field label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.node-select {
+    padding: 0.5rem;
+    background: var(--surface-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.node-textarea {
+    padding: 0.5rem;
+    background: var(--surface-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 60px;
+}
+
+.node-input {
+    padding: 0.5rem;
+    background: var(--surface-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+}
+
+/* Node Ports */
+.node-inputs,
+.node-outputs {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.node-inputs {
+    left: -10px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.node-outputs {
+    right: -10px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.node-port {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid var(--border-color);
+    background: var(--card-bg);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 20;
+    position: relative;
+}
+
+.node-port:hover {
+    transform: scale(1.3);
+    box-shadow: 0 0 8px currentColor;
+}
+
+.node-port-input {
+    background: #4CAF50;
+    border-color: #4CAF50;
+}
+
+.node-port-output {
+    background: #2196F3;
+    border-color: #2196F3;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .node-toolbar-btn {
+    border-color: var(--border-dark);
+}
+
+[data-theme="dark"] .node {
+    border-color: var(--border-dark);
+}
+
+[data-theme="dark"] .node-select,
+[data-theme="dark"] .node-textarea,
+[data-theme="dark"] .node-input {
+    border-color: var(--border-dark);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .node-editor-container {
+        height: 500px;
+    }
+
+    .node {
+        width: 200px;
+    }
+
+    .node-toolbar {
+        padding: 0.75rem 1rem;
+    }
+
+    .node-toolbar-btn {
+        min-width: 120px;
+        padding: 0.4rem 0.8rem;
+    }
+}
+
+/* Help Text */
+.node-help-text {
+    padding: 1rem 1.5rem;
+    background: var(--info-bg, #E3F2FD);
+    border-left: 4px solid var(--info-color, #2196F3);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.node-help-text strong {
+    font-weight: 600;
+}
+
+[data-theme="dark"] .node-help-text {
+    background: rgba(33, 150, 243, 0.1);
+    border-left-color: #2196F3;
+}

@@ -25,6 +25,7 @@
     <link rel="stylesheet" href="css/components/footer.css">
     <link rel="stylesheet" href="css/components/modal.css">
     <link rel="stylesheet" href="css/components/config.css">
+    <link rel="stylesheet" href="css/components/node-editor.css">
     <link rel="stylesheet" href="css/components/animations.css">
     <link rel="stylesheet" href="css/components/responsive.css">
     <!-- JSZip for creating ZIP files -->
@@ -72,9 +73,9 @@
                         <span class="tab-number">1</span>
                         <span class="tab-label">Upload</span>
                     </button>
-                    <button class="tab-btn" data-tab="options">
+                    <button class="tab-btn" data-tab="node">
                         <span class="tab-number">2</span>
-                        <span class="tab-label">Options</span>
+                        <span class="tab-label">Node</span>
                     </button>
                     <button class="tab-btn" data-tab="results">
                         <span class="tab-number">3</span>
@@ -128,76 +129,26 @@
                         </div>
                     </div>
 
-                    <!-- Options Tab -->
-                    <div class="tab-content" id="options-content">
-                        <div class="options-card">
-                            <div class="options-header">
-                                <h3>Configure Settings</h3>
-                                <button class="btn-primary" id="processImagesBtn">Process Images</button>
-                            </div>
-
-                            <div class="option-group">
-                                <label for="modelSelect">AI Model</label>
-                                <select id="modelSelect" class="model-select">
-                                    <option value="blip">BLIP (Fast)</option>
-                                    <option value="r4b">R-4B (Advanced)</option>
-                                </select>
-                                <p class="option-description" id="modelDescription">Fast, basic image captioning</p>
-                            </div>
-
-                            <div class="option-group">
-                                <div class="option-group-header">
-                                    <label for="promptInput">Custom Prompt (Optional)</label>
-                                    <div class="option-actions">
-                                        <button class="btn-load-config btn-load-prompt" id="loadPromptBtn" title="Load saved prompt">
-                                            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
-                                                <rect x="9" y="3" width="6" height="4" rx="1"/>
-                                            </svg>
-                                        </button>
-                                        <button class="btn-save-config btn-save-prompt" id="savePromptBtn" title="Save current prompt">
-                                            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                                                <polyline points="17 21 17 13 7 13 7 21"/>
-                                                <polyline points="7 3 7 8 15 8"/>
-                                            </svg>
-                                        </button>
-                                    </div>
+                    <!-- Node Tab -->
+                    <div class="tab-content" id="node-content">
+                        <div class="node-help-text">
+                            <strong>Visual Node Editor:</strong> Create a workflow by connecting nodes. Drag nodes to reposition. Click output ports (blue) and drag to input ports (green) to connect. Click connections to delete them.
+                        </div>
+                        <div class="node-editor-container">
+                            <div class="node-editor-header">
+                                <h3>Build Your Workflow</h3>
+                                <div class="node-editor-actions">
+                                    <button class="btn-secondary" id="clearGraphBtn">Clear All</button>
+                                    <button class="btn-primary" id="executeGraphBtn">Execute Graph</button>
                                 </div>
-                                <textarea id="promptInput" class="prompt-input" placeholder="Enter custom instructions for the AI model..."></textarea>
-                                <p class="option-description">Leave empty to use the model's default behavior</p>
                             </div>
-
-                            <!-- Advanced Settings (Collapsible) -->
-                            <div class="advanced-settings">
-                                <div class="advanced-header">
-                                    <button class="advanced-toggle" id="advancedToggle" type="button">
-                                        <span class="toggle-icon">▶</span>
-                                        <span class="toggle-label">Advanced Settings (Optional)</span>
-                                    </button>
-                                    <div class="advanced-actions">
-                                        <button class="btn-load-config" id="loadConfigBtn" title="Load saved configuration">
-                                            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                                <polyline points="7 10 12 15 17 10"/>
-                                                <line x1="12" y1="15" x2="12" y2="3"/>
-                                            </svg>
-                                        </button>
-                                        <button class="btn-save-config" id="saveConfigBtn" title="Save current configuration">
-                                            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                                                <polyline points="17 21 17 13 7 13 7 21"/>
-                                                <polyline points="7 3 7 8 15 8"/>
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div class="advanced-content" id="advancedContent">
-                                    <!-- Parameters will be dynamically loaded here -->
-                                    <div class="model-params" id="dynamicParams">
-                                        <p style="text-align: center; color: var(--text-secondary);">Loading parameters...</p>
-                                    </div>
+                            <div class="node-toolbar" id="nodeToolbar">
+                                <!-- Node type buttons will be populated here -->
+                            </div>
+                            <div class="node-canvas-wrapper">
+                                <div class="node-canvas" id="nodeCanvas">
+                                    <svg class="connections-svg" id="connectionsSVG"></svg>
+                                    <!-- Nodes will be dynamically added here -->
                                 </div>
                             </div>
                         </div>
@@ -404,8 +355,8 @@
     <script src="js/uploadGrid.js"></script>
     <script src="js/lazyLoading.js"></script>
 
-    <!-- Options & Processing Components -->
-    <script src="js/optionsTab.js"></script>
+    <!-- Node Editor & Processing Components -->
+    <script src="js/nodeEditor.js"></script>
     <script src="js/imageProcessor.js"></script>
 
     <!-- Results Components -->
