@@ -103,7 +103,7 @@
 /* Node */
 .node {
     position: absolute;
-    width: 220px;
+    width: 280px;
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
@@ -177,7 +177,7 @@
     font-family: var(--font-primary);
     font-size: 0.85rem;
     resize: vertical;
-    transition: all var(--transition-smooth);
+    transition: border-color var(--transition-smooth), box-shadow var(--transition-smooth);
 }
 
 .node-body textarea:focus {
@@ -234,7 +234,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: var(--spacing-md) var(--spacing-xs);
+    padding: var(--spacing-md) 0; /* top & bottom only */
     background: var(--bg-tertiary);
     border-bottom: 1px solid var(--border-color);
     min-height: 50px;
@@ -391,6 +391,79 @@
     width: 100%;
     height: 100%;
     position: relative;
-    overflow: auto;
+    overflow: hidden;
     background: var(--surface-bg);
+}
+
+/* Scrollbar styling for fullscreen container */
+#fullscreenCanvasContainer::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+#fullscreenCanvasContainer::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+#fullscreenCanvasContainer::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+}
+
+#fullscreenCanvasContainer::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+/* Minimap */
+.node-minimap {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    width: 120px;
+    height: 120px;
+    background: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    z-index: 50;
+    box-shadow: 0 4px 16px var(--shadow);
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0.7;
+}
+
+.node-minimap:hover {
+    width: 200px;
+    height: 200px;
+    opacity: 1;
+    box-shadow: 0 8px 24px var(--shadow), 0 0 20px var(--shadow-glow);
+}
+
+.minimap-canvas {
+    width: 200px;
+    height: 200px;
+    background: var(--surface-bg);
+    position: relative;
+    transform: scale(0.6);
+    transform-origin: top left;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.node-minimap:hover .minimap-canvas {
+    transform: scale(1);
+}
+
+.minimap-viewport {
+    position: absolute;
+    border: 2px solid var(--accent-primary);
+    background: rgba(99, 102, 241, 0.1);
+    pointer-events: none;
+    box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.minimap-node {
+    position: absolute;
+    background: var(--accent-secondary);
+    border-radius: 2px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
