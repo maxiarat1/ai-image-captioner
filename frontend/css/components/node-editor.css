@@ -136,6 +136,7 @@
     font-weight: 600;
     background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
     letter-spacing: 0.3px;
+    user-select: none;
 }
 
 .node-del {
@@ -204,23 +205,71 @@
     box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
-/* Ports */
+/* Node Info Display */
+.node-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+}
+
+.node-info-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.node-info-value {
+    font-size: 1.1rem;
+    color: var(--accent-primary);
+    font-weight: 700;
+}
+
+/* Ports Section */
+.node-ports-section {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-md) var(--spacing-xs);
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+    min-height: 50px;
+}
+
 .node-ports-in,
 .node-ports-out {
-    position: absolute;
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
-    top: 50%;
-    transform: translateY(-50%);
+    position: relative;
 }
 
 .node-ports-in {
-    left: -10px;
+    align-items: flex-start;
 }
 
 .node-ports-out {
-    right: -10px;
+    align-items: flex-end;
+}
+
+.port-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.port-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    user-select: none;
 }
 
 .port {
@@ -228,34 +277,57 @@
     height: 16px;
     border-radius: 50%;
     border: 3px solid var(--bg-secondary);
-    background: var(--accent-primary);
     cursor: pointer;
     z-index: 20;
     transition: all var(--transition-fast);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    flex-shrink: 0;
+    user-select: none;
 }
 
 .port:hover {
     transform: scale(1.3);
-    box-shadow: 0 4px 12px var(--accent-glow);
 }
 
-.port-in {
-    background: #4CAF50;
+/* Prevent selection while connecting */
+.node-canvas.connecting {
+    user-select: none;
+}
+
+.node-canvas.connecting * {
+    user-select: none;
+}
+
+/* Port colors by type */
+.port[data-port-type="images"] {
+    background: #FF6B6B;
     border-color: var(--bg-secondary);
 }
 
-.port-in:hover {
-    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.5);
+.port[data-port-type="images"]:hover {
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.6);
 }
 
-.port-out {
-    background: #2196F3;
+.port[data-port-type="text"],
+.port[data-port-type="prompt"] {
+    background: #4ECDC4;
     border-color: var(--bg-secondary);
 }
 
-.port-out:hover {
-    box-shadow: 0 4px 12px rgba(33, 150, 243, 0.5);
+.port[data-port-type="text"]:hover,
+.port[data-port-type="prompt"]:hover {
+    box-shadow: 0 4px 12px rgba(78, 205, 196, 0.6);
+}
+
+.port[data-port-type="captions"],
+.port[data-port-type="data"] {
+    background: #FFD93D;
+    border-color: var(--bg-secondary);
+}
+
+.port[data-port-type="captions"]:hover,
+.port[data-port-type="data"]:hover {
+    box-shadow: 0 4px 12px rgba(255, 217, 61, 0.6);
 }
 
 /* Fullscreen Button */

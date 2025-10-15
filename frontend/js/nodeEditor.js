@@ -19,10 +19,10 @@ const NodeEditor = {
 
 // Node types
 const NODES = {
-    input: { label: 'Input', color: '#4CAF50', inputs: [], outputs: ['out'] },
-    prompt: { label: 'Prompt', color: '#2196F3', inputs: [], outputs: ['out'] },
-    aimodel: { label: 'AI Model', color: '#9C27B0', inputs: ['img', 'txt'], outputs: ['out'] },
-    output: { label: 'Output', color: '#FF9800', inputs: ['in'], outputs: [] }
+    input: { label: 'Input', color: '#4CAF50', inputs: [], outputs: ['images'] },
+    prompt: { label: 'Prompt', color: '#2196F3', inputs: [], outputs: ['text'] },
+    aimodel: { label: 'AI Model', color: '#9C27B0', inputs: ['images', 'prompt'], outputs: ['captions'] },
+    output: { label: 'Output', color: '#FF9800', inputs: ['data'], outputs: [] }
 };
 
 // Initialize
@@ -159,10 +159,8 @@ function initCanvasPanning() {
 
     // Mouse wheel - zoom
     wrapper.addEventListener('wheel', (e) => {
-        if (e.ctrlKey) {
-            e.preventDefault();
-            handleZoom(e);
-        }
+        e.preventDefault();
+        handleZoom(e);
     });
 }
 
@@ -192,6 +190,7 @@ function handleZoom(e) {
     NodeEditor.transform.y = mouseY - canvasY * newScale;
 
     applyTransform();
+    updateConnections();
 }
 
 // Add node
@@ -236,39 +235,70 @@ function renderNode(node) {
     header.onmousedown = (e) => startDrag(e, node);
     el.appendChild(header);
 
-    // Body
-    const body = document.createElement('div');
-    body.className = 'node-body';
-    body.innerHTML = getNodeContent(node);
-    el.appendChild(body);
+    // Ports Section
+    const portsSection = document.createElement('div');
+    portsSection.className = 'node-ports-section';
 
-    // Ports
+    // Input ports
+    const inputsContainer = document.createElement('div');
+    inputsContainer.className = 'node-ports-in';
     if (def.inputs.length) {
-        const inputs = document.createElement('div');
-        inputs.className = 'node-ports-in';
-        def.inputs.forEach((port, i) => {
+        def.inputs.forEach((portName, i) => {
+            const portWrapper = document.createElement('div');
+            portWrapper.className = 'port-wrapper';
+
             const p = document.createElement('div');
             p.className = 'port port-in';
             p.dataset.node = node.id;
             p.dataset.port = i;
-            inputs.appendChild(p);
-        });
-        el.appendChild(inputs);
-    }
+            p.dataset.portType = portName;
 
+            const label = document.createElement('span');
+            label.className = 'port-label';
+            label.textContent = portName;
+
+            // Input: port first, label after (label on right)
+            portWrapper.appendChild(p);
+            portWrapper.appendChild(label);
+            inputsContainer.appendChild(portWrapper);
+        });
+    }
+    portsSection.appendChild(inputsContainer);
+
+    // Output ports
+    const outputsContainer = document.createElement('div');
+    outputsContainer.className = 'node-ports-out';
     if (def.outputs.length) {
-        const outputs = document.createElement('div');
-        outputs.className = 'node-ports-out';
-        def.outputs.forEach((port, i) => {
+        def.outputs.forEach((portName, i) => {
+            const portWrapper = document.createElement('div');
+            portWrapper.className = 'port-wrapper';
+
             const p = document.createElement('div');
             p.className = 'port port-out';
             p.dataset.node = node.id;
             p.dataset.port = i;
+            p.dataset.portType = portName;
             p.onmousedown = (e) => startConnect(e, node.id, i);
-            outputs.appendChild(p);
+
+            const label = document.createElement('span');
+            label.className = 'port-label';
+            label.textContent = portName;
+
+            // Output: label first, port after (label on left)
+            portWrapper.appendChild(label);
+            portWrapper.appendChild(p);
+            outputsContainer.appendChild(portWrapper);
         });
-        el.appendChild(outputs);
     }
+    portsSection.appendChild(outputsContainer);
+
+    el.appendChild(portsSection);
+
+    // Body (content section)
+    const body = document.createElement('div');
+    body.className = 'node-body';
+    body.innerHTML = getNodeContent(node);
+    el.appendChild(body);
 
     document.getElementById('nodeCanvas').appendChild(el);
 
@@ -290,6 +320,15 @@ function renderNode(node) {
 
 // Get node content HTML
 function getNodeContent(node) {
+    if (node.type === 'input') {
+        const imageCount = AppState.uploadQueue ? AppState.uploadQueue.length : 0;
+        return `
+            <div class="node-info">
+                <span class="node-info-label">Images Ready</span>
+                <span class="node-info-value">${imageCount}</span>
+            </div>
+        `;
+    }
     if (node.type === 'prompt') {
         return `<textarea data-key="text" placeholder="Enter prompt...">${node.data.text || ''}</textarea>`;
     }
@@ -361,13 +400,69 @@ function stopDrag() {
 // Connect nodes
 function startConnect(e, nodeId, portIndex) {
     e.stopPropagation();
-    NodeEditor.connecting = { from: nodeId, port: portIndex };
+    e.preventDefault();
 
+    const canvas = document.getElementById('nodeCanvas');
+    canvas.classList.add('connecting');
+
+    // Create temporary connection line
+    const svg = document.getElementById('connectionsSVG');
+    const tempLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    tempLine.id = 'temp-connection';
+    tempLine.setAttribute('stroke', 'url(#connection-gradient)');
+    tempLine.setAttribute('stroke-width', '3');
+    tempLine.setAttribute('stroke-linecap', 'round');
+    tempLine.setAttribute('stroke-dasharray', '5,5');
+    tempLine.style.opacity = '0.6';
+    svg.appendChild(tempLine);
+
+    // Get starting port position
+    const portEl = document.querySelector(`#node-${nodeId} .port-out[data-port="${portIndex}"]`);
+    const canvasRect = canvas.getBoundingClientRect();
+    const portRect = portEl.getBoundingClientRect();
+
+    const startX = portRect.left - canvasRect.left + portRect.width / 2;
+    const startY = portRect.top - canvasRect.top + portRect.height / 2;
+
+    NodeEditor.connecting = {
+        from: nodeId,
+        port: portIndex,
+        startX: startX,
+        startY: startY
+    };
+
+    document.onmousemove = updateTempConnection;
     document.onmouseup = endConnect;
+}
+
+function updateTempConnection(e) {
+    if (!NodeEditor.connecting) return;
+
+    const canvas = document.getElementById('nodeCanvas');
+    const canvasRect = canvas.getBoundingClientRect();
+    const tempLine = document.getElementById('temp-connection');
+
+    if (!tempLine) return;
+
+    // Mouse position relative to canvas
+    const mouseX = e.clientX - canvasRect.left;
+    const mouseY = e.clientY - canvasRect.top;
+
+    tempLine.setAttribute('x1', NodeEditor.connecting.startX);
+    tempLine.setAttribute('y1', NodeEditor.connecting.startY);
+    tempLine.setAttribute('x2', mouseX);
+    tempLine.setAttribute('y2', mouseY);
 }
 
 function endConnect(e) {
     if (!NodeEditor.connecting) return;
+
+    const canvas = document.getElementById('nodeCanvas');
+    canvas.classList.remove('connecting');
+
+    // Remove temporary line
+    const tempLine = document.getElementById('temp-connection');
+    if (tempLine) tempLine.remove();
 
     const target = e.target;
     if (target.classList.contains('port-in')) {
@@ -380,6 +475,7 @@ function endConnect(e) {
     }
 
     NodeEditor.connecting = null;
+    document.onmousemove = null;
     document.onmouseup = null;
 }
 
@@ -457,20 +553,29 @@ function updateConnectionLine(connId) {
     const line = document.getElementById('conn-' + connId);
     if (!line) return;
 
-    const fromEl = document.querySelector(`#node-${conn.from} .port-out:nth-child(${conn.fromPort + 1})`);
-    const toEl = document.querySelector(`#node-${conn.to} .port-in:nth-child(${conn.toPort + 1})`);
+    // Find ports using data attributes
+    const fromEl = document.querySelector(`#node-${conn.from} .port-out[data-port="${conn.fromPort}"]`);
+    const toEl = document.querySelector(`#node-${conn.to} .port-in[data-port="${conn.toPort}"]`);
 
     if (!fromEl || !toEl) return;
 
-    const canvas = document.getElementById('nodeCanvas');
-    const canvasRect = canvas.getBoundingClientRect();
+    // Use wrapper instead of canvas for reference
+    const wrapper = document.querySelector('.node-canvas-wrapper');
+    const wrapperRect = wrapper.getBoundingClientRect();
     const fromRect = fromEl.getBoundingClientRect();
     const toRect = toEl.getBoundingClientRect();
 
-    const x1 = fromRect.left - canvasRect.left + fromRect.width / 2;
-    const y1 = fromRect.top - canvasRect.top + fromRect.height / 2;
-    const x2 = toRect.left - canvasRect.left + toRect.width / 2;
-    const y2 = toRect.top - canvasRect.top + toRect.height / 2;
+    // Calculate screen positions relative to wrapper
+    const screenX1 = fromRect.left - wrapperRect.left + fromRect.width / 2;
+    const screenY1 = fromRect.top - wrapperRect.top + fromRect.height / 2;
+    const screenX2 = toRect.left - wrapperRect.left + toRect.width / 2;
+    const screenY2 = toRect.top - wrapperRect.top + toRect.height / 2;
+
+    // Convert to canvas local coordinates
+    const x1 = (screenX1 - NodeEditor.transform.x) / NodeEditor.transform.scale;
+    const y1 = (screenY1 - NodeEditor.transform.y) / NodeEditor.transform.scale;
+    const x2 = (screenX2 - NodeEditor.transform.x) / NodeEditor.transform.scale;
+    const y2 = (screenY2 - NodeEditor.transform.y) / NodeEditor.transform.scale;
 
     line.setAttribute('x1', x1);
     line.setAttribute('y1', y1);
