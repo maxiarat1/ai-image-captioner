@@ -146,6 +146,7 @@
                                 <!-- Node type buttons will be populated here -->
                             </div>
                             <div class="node-canvas-wrapper">
+                                <button class="fullscreen-btn" id="fullscreenBtn" title="Toggle fullscreen">⛶</button>
                                 <div class="node-canvas" id="nodeCanvas">
                                     <svg class="connections-svg" id="connectionsSVG"></svg>
                                     <!-- Nodes will be dynamically added here -->
@@ -336,6 +337,21 @@
                         <button class="btn-secondary" id="cancelExport">Cancel</button>
                         <button class="btn-primary" id="confirmExport">Export</button>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Node Fullscreen Modal -->
+    <div class="config-modal" id="nodeFullscreenModal">
+        <div class="config-modal-backdrop" id="nodeFullscreenBackdrop">
+            <div class="config-modal-content node-fullscreen-content">
+                <div class="config-modal-header">
+                    <h3>Node Editor - Fullscreen</h3>
+                    <button class="config-modal-close" id="closeNodeFullscreen">&times;</button>
+                </div>
+                <div class="config-modal-body node-fullscreen-body">
+                    <div id="fullscreenCanvasContainer"></div>
                 </div>
             </div>
         </div>

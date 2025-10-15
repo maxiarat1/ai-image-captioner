@@ -1,21 +1,22 @@
 /* ============================================================================
-   Node Editor Styles
+   Node Editor - Simple & Barebone Styles
    ============================================================================ */
 
 .node-editor-container {
     width: 100%;
-    height: 600px;
-    background: var(--card-bg);
-    border-radius: var(--border-radius);
+    height: 850px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 4px 16px var(--shadow-subtle);
+    animation: fadeIn 0.3s ease;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    box-shadow: var(--shadow-sm);
 }
 
 .node-editor-header {
-    padding: 1.5rem;
-    background: var(--surface-bg);
+    padding: 12px;
     border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
@@ -24,68 +25,40 @@
 
 .node-editor-header h3 {
     margin: 0;
-    font-size: 1.25rem;
-    color: var(--text-primary);
+    font-size: 16px;
 }
 
 .node-editor-actions {
     display: flex;
-    gap: 0.75rem;
+    gap: 8px;
 }
 
 .node-toolbar {
-    padding: 1rem 1.5rem;
-    background: var(--surface-bg);
+    padding: 8px;
     border-bottom: 1px solid var(--border-color);
     display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
+    gap: 8px;
 }
 
-.node-toolbar-btn {
-    padding: 0.5rem 1rem;
+.node-toolbar button {
+    padding: 6px 12px;
     background: var(--card-bg);
     border: 1px solid var(--border-color);
-    border-radius: 6px;
     cursor: pointer;
-    transition: all 0.2s ease;
-    text-align: left;
-    min-width: 140px;
-}
-
-.node-toolbar-btn:hover {
-    background: var(--surface-bg);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-sm);
-}
-
-.node-btn-label {
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--text-primary);
-    margin-bottom: 0.25rem;
-}
-
-.node-btn-desc {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
+    font-size: 13px;
 }
 
 .node-canvas-wrapper {
     flex: 1;
     position: relative;
     overflow: auto;
-    background:
-        linear-gradient(90deg, var(--border-color) 1px, transparent 1px),
-        linear-gradient(var(--border-color) 1px, transparent 1px);
-    background-size: 20px 20px;
+    background: var(--surface-bg);
 }
 
 .node-canvas {
     position: relative;
     width: 100%;
     min-height: 100%;
-    min-width: 100%;
 }
 
 .connections-svg {
@@ -98,220 +71,162 @@
     z-index: 1;
 }
 
-.connection-line {
+.connections-svg line {
     pointer-events: stroke;
-    transition: stroke-width 0.2s ease;
 }
 
-.connection-line:hover {
-    stroke-width: 5 !important;
-    filter: drop-shadow(0 0 3px currentColor);
-}
-
-/* Node Styles */
+/* Node */
 .node {
     position: absolute;
-    width: 250px;
+    width: 200px;
     background: var(--card-bg);
     border: 2px solid var(--border-color);
-    border-radius: 8px;
-    box-shadow: var(--shadow-md);
     cursor: move;
     z-index: 10;
-    transition: box-shadow 0.2s ease;
-}
-
-.node:hover {
-    box-shadow: var(--shadow-lg);
 }
 
 .node-header {
-    padding: 0.75rem 1rem;
-    border-radius: 6px 6px 0 0;
+    padding: 8px;
+    color: white;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    cursor: move;
-    user-select: none;
+    font-size: 13px;
+    font-weight: 500;
 }
 
-.node-title {
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: white;
-}
-
-.node-delete-btn {
-    background: rgba(255, 255, 255, 0.2);
+.node-del {
+    background: rgba(0, 0, 0, 0.2);
     border: none;
     color: white;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
+    width: 20px;
+    height: 20px;
     cursor: pointer;
-    font-size: 1.2rem;
+    font-size: 16px;
     line-height: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.2s ease;
-}
-
-.node-delete-btn:hover {
-    background: rgba(255, 255, 255, 0.3);
 }
 
 .node-body {
-    padding: 1rem;
+    padding: 8px;
 }
 
-.node-content {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
-
-.node-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.375rem;
-}
-
-.node-field label {
-    font-size: 0.8rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-}
-
-.node-select {
-    padding: 0.5rem;
-    background: var(--surface-bg);
+.node-body textarea {
+    width: 100%;
+    min-height: 50px;
+    padding: 4px;
     border: 1px solid var(--border-color);
-    border-radius: 4px;
-    color: var(--text-primary);
-    font-size: 0.85rem;
-    cursor: pointer;
-}
-
-.node-textarea {
-    padding: 0.5rem;
     background: var(--surface-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
     color: var(--text-primary);
-    font-size: 0.85rem;
-    font-family: inherit;
+    font-size: 12px;
     resize: vertical;
-    min-height: 60px;
 }
 
-.node-input {
-    padding: 0.5rem;
-    background: var(--surface-bg);
+.node-body select {
+    width: 100%;
+    padding: 4px;
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    background: var(--surface-bg);
     color: var(--text-primary);
-    font-size: 0.85rem;
+    font-size: 12px;
 }
 
-/* Node Ports */
-.node-inputs,
-.node-outputs {
+/* Ports */
+.node-ports-in,
+.node-ports-out {
     position: absolute;
     display: flex;
     flex-direction: column;
     gap: 8px;
-}
-
-.node-inputs {
-    left: -10px;
     top: 50%;
     transform: translateY(-50%);
 }
 
-.node-outputs {
-    right: -10px;
-    top: 50%;
-    transform: translateY(-50%);
+.node-ports-in {
+    left: -8px;
 }
 
-.node-port {
-    width: 16px;
-    height: 16px;
+.node-ports-out {
+    right: -8px;
+}
+
+.port {
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
-    border: 2px solid var(--border-color);
-    background: var(--card-bg);
+    border: 2px solid #666;
+    background: white;
     cursor: pointer;
-    transition: all 0.2s ease;
     z-index: 20;
-    position: relative;
 }
 
-.node-port:hover {
-    transform: scale(1.3);
-    box-shadow: 0 0 8px currentColor;
-}
-
-.node-port-input {
+.port-in {
     background: #4CAF50;
     border-color: #4CAF50;
 }
 
-.node-port-output {
+.port-out {
     background: #2196F3;
     border-color: #2196F3;
 }
 
-/* Dark mode adjustments */
-[data-theme="dark"] .node-toolbar-btn {
-    border-color: var(--border-dark);
+/* Fullscreen Button */
+.fullscreen-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    font-size: 18px;
+    z-index: 100;
+    transition: all var(--transition-normal);
+    box-shadow: 0 2px 4px var(--shadow-subtle);
 }
 
-[data-theme="dark"] .node {
-    border-color: var(--border-dark);
+.fullscreen-btn:hover {
+    border-color: var(--accent-primary);
+    background: rgba(99, 102, 241, 0.1);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px var(--shadow-subtle);
 }
 
-[data-theme="dark"] .node-select,
-[data-theme="dark"] .node-textarea,
-[data-theme="dark"] .node-input {
-    border-color: var(--border-dark);
+.fullscreen-btn:active {
+    transform: translateY(0px);
+    transition: transform 0.1s ease;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-    .node-editor-container {
-        height: 500px;
-    }
-
-    .node {
-        width: 200px;
-    }
-
-    .node-toolbar {
-        padding: 0.75rem 1rem;
-    }
-
-    .node-toolbar-btn {
-        min-width: 120px;
-        padding: 0.4rem 0.8rem;
-    }
+/* Fullscreen Modal */
+.node-fullscreen-content {
+    max-width: 90vw;
+    max-height: 90vh;
+    width: 90vw;
+    height: 90vh;
+    animation: zoomIn 0.3s ease;
 }
 
-/* Help Text */
-.node-help-text {
-    padding: 1rem 1.5rem;
-    background: var(--info-bg, #E3F2FD);
-    border-left: 4px solid var(--info-color, #2196F3);
-    color: var(--text-primary);
-    font-size: 0.85rem;
-    line-height: 1.5;
+#nodeFullscreenModal.closing {
+    animation: modalFadeOut 0.25s ease;
 }
 
-.node-help-text strong {
-    font-weight: 600;
+#nodeFullscreenModal.closing .node-fullscreen-content {
+    animation: zoomOut 0.3s ease;
 }
 
-[data-theme="dark"] .node-help-text {
-    background: rgba(33, 150, 243, 0.1);
-    border-left-color: #2196F3;
+.node-fullscreen-body {
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+}
+
+#fullscreenCanvasContainer {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: auto;
+    background: var(--surface-bg);
 }
