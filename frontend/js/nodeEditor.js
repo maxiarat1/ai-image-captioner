@@ -117,12 +117,12 @@ function initNodeEditor() {
 function openFullscreen() {
     const modal = document.getElementById('nodeFullscreenModal');
     const container = document.getElementById('fullscreenCanvasContainer');
-    const canvas = document.getElementById('nodeCanvas');
-    const minimap = document.getElementById('nodeMinimap');
+    const toolbar = document.getElementById('nodeToolbar');
+    const wrapper = document.querySelector('.node-canvas-wrapper');
 
-    // Move canvas and minimap into modal
-    container.appendChild(canvas);
-    if (minimap) container.appendChild(minimap);
+    // Move toolbar and wrapper into modal
+    container.appendChild(toolbar);
+    container.appendChild(wrapper);
 
     // Show modal
     modal.classList.add('active');
@@ -169,13 +169,14 @@ function closeFullscreen() {
             modal.removeEventListener('animationend', handleAnimationEnd);
 
             // Animation complete - now safe to move elements and cleanup
+            const editorContainer = document.querySelector('.node-editor-container');
+            const toolbar = document.getElementById('nodeToolbar');
             const wrapper = document.querySelector('.node-canvas-wrapper');
-            const canvas = document.getElementById('nodeCanvas');
-            const minimap = document.getElementById('nodeMinimap');
 
             modal.classList.remove('active', 'closing');
-            wrapper.appendChild(canvas);
-            if (minimap) wrapper.appendChild(minimap);
+            // Move toolbar and wrapper back to editor container
+            editorContainer.appendChild(toolbar);
+            editorContainer.appendChild(wrapper);
             document.body.style.overflow = '';
 
             // Re-center canvas for normal wrapper dimensions
@@ -384,7 +385,7 @@ function addNode(type) {
         x: center.x + (Math.random() - 0.5) * 200,
         y: center.y + (Math.random() - 0.5) * 200,
         data: type === 'prompt' ? { text: '' } :
-              type === 'aimodel' ? { model: 'blip' } : {}
+              type === 'aimodel' ? { model: 'blip', parameters: {}, showAdvanced: false } : {}
     };
 
     NodeEditor.nodes.push(node);
@@ -452,9 +453,51 @@ function renderNode(node) {
     inputs.forEach(input => {
         input.oninput = (e) => {
             const key = e.target.dataset.key;
-            if (key) node.data[key] = e.target.value;
+            if (key) {
+                node.data[key] = e.target.value;
+
+                // If model selection changed, reload parameters
+                if (key === 'model' && node.type === 'aimodel') {
+                    loadModelParameters(node.id, e.target.value);
+                }
+            }
         };
     });
+
+    // Advanced toggle handler for AI model nodes
+    if (node.type === 'aimodel') {
+        const advancedBtn = el.querySelector('.btn-advanced');
+        if (advancedBtn) {
+            advancedBtn.onclick = (e) => {
+                e.stopPropagation();
+                node.data.showAdvanced = !node.data.showAdvanced;
+
+                // Update button text and parameters visibility
+                const paramsContainer = document.getElementById(`params-${node.id}`);
+                if (paramsContainer) {
+                    if (node.data.showAdvanced) {
+                        advancedBtn.textContent = '▼ Hide Advanced';
+                        paramsContainer.classList.remove('hidden');
+                        // Load parameters when showing advanced for the first time
+                        loadModelParameters(node.id, node.data.model || 'blip');
+                    } else {
+                        advancedBtn.textContent = '▶ Show Advanced';
+                        paramsContainer.classList.add('hidden');
+                    }
+
+                    // Update connections after toggle animation completes
+                    setTimeout(() => {
+                        updateConnections();
+                    }, 300);
+                }
+            };
+        }
+
+        // Load parameters for AI model nodes (only if advanced is shown)
+        if (node.data.showAdvanced) {
+            loadModelParameters(node.id, node.data.model || 'blip');
+        }
+    }
 }
 
 // Get node content HTML
@@ -472,14 +515,147 @@ function getNodeContent(node) {
         return `<textarea data-key="text" placeholder="Enter prompt...">${node.data.text || ''}</textarea>`;
     }
     if (node.type === 'aimodel') {
-        return `
-            <select data-key="model">
+        const showAdvanced = node.data.showAdvanced || false;
+        let html = `
+            <select data-key="model" class="model-select">
                 <option value="blip" ${node.data.model === 'blip' ? 'selected' : ''}>BLIP</option>
                 <option value="r4b" ${node.data.model === 'r4b' ? 'selected' : ''}>R-4B</option>
             </select>
+            <button class="btn-advanced" data-node-id="${node.id}">
+                ${showAdvanced ? '▼ Hide Advanced' : '▶ Show Advanced'}
+            </button>
+            <div class="model-parameters ${showAdvanced ? '' : 'hidden'}" id="params-${node.id}">
+                <div style="text-align: center; color: var(--text-secondary); padding: 8px; font-size: 0.75rem;">
+                    Loading parameters...
+                </div>
+            </div>
+        `;
+        return html;
+    }
+    return '';
+}
+
+// Update all input nodes with current queue count
+function updateInputNodes() {
+    NodeEditor.nodes.forEach(node => {
+        if (node.type === 'input') {
+            const el = document.getElementById('node-' + node.id);
+            if (el) {
+                const body = el.querySelector('.node-body');
+                if (body) {
+                    body.innerHTML = getNodeContent(node);
+                }
+            }
+        }
+    });
+}
+
+// Fetch model parameters from API
+async function fetchModelParameters(modelName) {
+    try {
+        const response = await fetch(`${AppState.apiBaseUrl}/model/info?model=${modelName}`);
+        if (!response.ok) throw new Error('Failed to fetch model parameters');
+        const data = await response.json();
+        return data.parameters || [];
+    } catch (error) {
+        console.error('Error fetching model parameters:', error);
+        return [];
+    }
+}
+
+// Build parameter input HTML based on parameter definition
+function buildParameterInput(param, currentValue) {
+    const value = currentValue !== undefined ? currentValue : '';
+    
+    if (param.type === 'number') {
+        return `
+            <div class="param-group">
+                <label class="param-label" title="${param.description}">${param.name}</label>
+                <input type="number" 
+                       class="param-input" 
+                       data-param-key="${param.param_key}"
+                       min="${param.min}"
+                       max="${param.max}"
+                       step="${param.step}"
+                       value="${value}"
+                       placeholder="${param.min}-${param.max}">
+            </div>
+        `;
+    } else if (param.type === 'select') {
+        const options = param.options.map(opt => 
+            `<option value="${opt.value}" ${value === opt.value ? 'selected' : ''}>${opt.label}</option>`
+        ).join('');
+        return `
+            <div class="param-group">
+                <label class="param-label" title="${param.description}">${param.name}</label>
+                <select class="param-input" data-param-key="${param.param_key}">
+                    <option value="">Default</option>
+                    ${options}
+                </select>
+            </div>
+        `;
+    } else if (param.type === 'checkbox') {
+        return `
+            <div class="param-group">
+                <label class="param-label param-checkbox-label" title="${param.description}">
+                    <input type="checkbox" 
+                           class="param-checkbox" 
+                           data-param-key="${param.param_key}"
+                           ${value ? 'checked' : ''}>
+                    ${param.name}
+                </label>
+            </div>
         `;
     }
     return '';
+}
+
+// Load and display model parameters
+async function loadModelParameters(nodeId, modelName) {
+    const node = NodeEditor.nodes.find(n => n.id === nodeId);
+    if (!node) return;
+    
+    const paramsContainer = document.getElementById(`params-${nodeId}`);
+    if (!paramsContainer) return;
+    
+    // Fetch parameters
+    const parameters = await fetchModelParameters(modelName);
+    
+    if (parameters.length === 0) {
+        paramsContainer.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 4px; font-size: 0.75rem;">No parameters available</div>';
+        return;
+    }
+    
+    // Build parameters UI
+    const currentParams = node.data.parameters || {};
+    const paramsHtml = parameters.map(param => buildParameterInput(param, currentParams[param.param_key])).join('');
+    paramsContainer.innerHTML = paramsHtml;
+    
+    // Add event listeners for parameter inputs
+    paramsContainer.querySelectorAll('.param-input, .param-checkbox').forEach(input => {
+        input.addEventListener('input', (e) => {
+            const paramKey = e.target.dataset.paramKey;
+            if (!paramKey) return;
+            
+            if (e.target.type === 'checkbox') {
+                node.data.parameters[paramKey] = e.target.checked;
+            } else if (e.target.type === 'number') {
+                const value = parseFloat(e.target.value);
+                if (!isNaN(value)) {
+                    node.data.parameters[paramKey] = value;
+                } else {
+                    delete node.data.parameters[paramKey];
+                }
+            } else {
+                const value = e.target.value;
+                if (value) {
+                    node.data.parameters[paramKey] = value;
+                } else {
+                    delete node.data.parameters[paramKey];
+                }
+            }
+        });
+    });
 }
 
 // ============================================================================
@@ -854,7 +1030,7 @@ async function processGraph(aiNode) {
         else if (item.path) formData.append('image_path', item.path);
 
         formData.append('model', aiNode.data.model);
-        formData.append('parameters', '{}');
+        formData.append('parameters', JSON.stringify(aiNode.data.parameters || {}));
         if (prompt) formData.append('prompt', prompt);
 
         try {

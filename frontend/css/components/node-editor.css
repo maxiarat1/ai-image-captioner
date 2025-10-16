@@ -2,6 +2,47 @@
    Node Editor - Simple & Barebone Styles
    ============================================================================ */
 
+/* ============================================================================
+   Base Classes for Inheritance
+   ============================================================================ */
+
+/* Common input styling for form elements */
+.node-body textarea,
+.node-body select {
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-family: var(--font-primary);
+    font-size: 0.85rem;
+    transition: border-color var(--transition-smooth), box-shadow var(--transition-smooth);
+    user-select: text; /* Allow text selection in inputs */
+}
+
+.node-body textarea:focus,
+.node-body select:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+/* Common accent button hover effect */
+.node-toolbar button:hover,
+.fullscreen-btn:hover {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+.node-toolbar button:active,
+.fullscreen-btn:active {
+    transform: translateY(0);
+}
+
 .node-editor-container {
     width: 100%;
     height: 850px;
@@ -51,18 +92,6 @@
     transition: all var(--transition-smooth);
 }
 
-.node-toolbar button:hover {
-    background: var(--accent-primary);
-    border-color: var(--accent-primary);
-    color: white;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px var(--accent-glow);
-}
-
-.node-toolbar button:active {
-    transform: translateY(0);
-}
-
 .node-canvas-wrapper {
     flex: 1;
     position: relative;
@@ -110,8 +139,14 @@
     cursor: move;
     z-index: 10;
     box-shadow: 0 4px 16px var(--shadow-subtle);
-    transition: box-shadow var(--transition-smooth), transform var(--transition-smooth);
+    transition: box-shadow var(--transition-smooth), transform var(--transition-smooth), width 0.3s ease;
     overflow: hidden;
+    user-select: none;
+}
+
+/* Nodes expand when parameters are visible */
+.node:has(.model-parameters:not(.hidden)) {
+    width: 340px;
 }
 
 .node.dragging {
@@ -167,42 +202,113 @@
 }
 
 .node-body textarea {
-    width: 100%;
     min-height: 60px;
-    padding: var(--spacing-sm);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    font-family: var(--font-primary);
-    font-size: 0.85rem;
     resize: vertical;
-    transition: border-color var(--transition-smooth), box-shadow var(--transition-smooth);
-}
-
-.node-body textarea:focus {
-    outline: none;
-    border-color: var(--accent-primary);
-    box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 .node-body select {
+    cursor: pointer;
+}
+
+/* Advanced Button */
+.btn-advanced {
     width: 100%;
-    padding: var(--spacing-sm);
+    padding: 6px 8px;
+    margin-top: 4px;
+    background: var(--bg-tertiary);
     border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-smooth);
+    text-align: left;
+}
+
+.btn-advanced:hover {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+}
+
+.btn-advanced:active {
+    transform: scale(0.98);
+}
+
+/* Model Parameters */
+.model-parameters {
+    margin-top: var(--spacing-sm);
+    padding: 4px;
+    animation: slideDown 0.3s ease;
+    transform-origin: top;
+}
+
+.model-parameters.hidden {
+    display: none;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: scaleY(0);
+    }
+    to {
+        opacity: 1;
+        transform: scaleY(1);
+    }
+}
+
+.param-group {
+    margin-bottom: var(--spacing-sm);
+}
+
+.param-label {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.param-input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
     background: var(--bg-secondary);
     color: var(--text-primary);
     font-family: var(--font-primary);
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: all var(--transition-smooth);
+    font-size: 0.8rem;
+    transition: border-color var(--transition-smooth), box-shadow var(--transition-smooth);
+    user-select: text; /* Allow text selection in parameter inputs */
 }
 
-.node-body select:focus {
+.param-input:focus {
     outline: none;
     border-color: var(--accent-primary);
-    box-shadow: 0 0 0 3px var(--accent-glow);
+    box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.param-checkbox-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    text-transform: none;
+    font-size: 0.75rem;
+}
+
+.param-checkbox {
+    width: auto;
+    margin-right: 6px;
+    cursor: pointer;
+}
+
+/* Model select styling */
+.model-select {
+    margin-bottom: var(--spacing-sm);
 }
 
 /* Node Info Display */
@@ -298,36 +404,31 @@
     user-select: none;
 }
 
-/* Port colors by type */
-.port[data-port-type="images"] {
-    background: #FF6B6B;
+/* Port colors by type - Base styling */
+.port[data-port-type] {
     border-color: var(--bg-secondary);
 }
 
-.port[data-port-type="images"]:hover {
-    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.6);
+.port[data-port-type]:hover {
+    box-shadow: 0 4px 12px var(--port-glow-color, rgba(0, 0, 0, 0.4));
+}
+
+/* Port type specific colors */
+.port[data-port-type="images"] {
+    background: #FF6B6B;
+    --port-glow-color: rgba(255, 107, 107, 0.6);
 }
 
 .port[data-port-type="text"],
 .port[data-port-type="prompt"] {
     background: #4ECDC4;
-    border-color: var(--bg-secondary);
-}
-
-.port[data-port-type="text"]:hover,
-.port[data-port-type="prompt"]:hover {
-    box-shadow: 0 4px 12px rgba(78, 205, 196, 0.6);
+    --port-glow-color: rgba(78, 205, 196, 0.6);
 }
 
 .port[data-port-type="captions"],
 .port[data-port-type="data"] {
     background: #FFD93D;
-    border-color: var(--bg-secondary);
-}
-
-.port[data-port-type="captions"]:hover,
-.port[data-port-type="data"]:hover {
-    box-shadow: 0 4px 12px rgba(255, 217, 61, 0.6);
+    --port-glow-color: rgba(255, 217, 61, 0.6);
 }
 
 /* Fullscreen Button */
@@ -349,19 +450,6 @@
     z-index: 100;
     transition: all var(--transition-smooth);
     box-shadow: 0 2px 4px var(--shadow-subtle);
-}
-
-.fullscreen-btn:hover {
-    background: var(--accent-primary);
-    border-color: var(--accent-primary);
-    color: white;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px var(--accent-glow);
-}
-
-.fullscreen-btn:active {
-    transform: translateY(0);
-    transition: transform 0.1s ease;
 }
 
 /* Fullscreen Modal */
@@ -393,9 +481,22 @@
     position: relative;
     overflow: hidden;
     background: var(--surface-bg);
+    display: flex;
+    flex-direction: column;
 }
 
-/* Scrollbar styling for fullscreen container */
+/* Toolbar inside fullscreen container - inherits from .node-toolbar */
+#fullscreenCanvasContainer .node-toolbar {
+    background: var(--bg-secondary);
+    flex-shrink: 0;
+}
+
+/* Canvas wrapper inside fullscreen container */
+#fullscreenCanvasContainer .node-canvas-wrapper {
+    flex: 1;
+}
+
+/* Custom scrollbar styling */
 #fullscreenCanvasContainer::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -409,6 +510,7 @@
 #fullscreenCanvasContainer::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.3);
     border-radius: 3px;
+    transition: background 0.2s ease;
 }
 
 #fullscreenCanvasContainer::-webkit-scrollbar-thumb:hover {

@@ -5,6 +5,7 @@ __pycache__/*
 .claude
 CLAUDE*
 RELEASE_SUMMARY.md
+/.serena
 
 # C extensions
 *.so

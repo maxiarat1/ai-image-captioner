@@ -42,6 +42,7 @@ async function scanFolder() {
         });
 
         updateUploadGrid();
+        updateInputNodes();
         showToast(`Found ${data.count} images`);
 
     } catch (error) {
@@ -96,6 +97,7 @@ async function scanFolderFromFileList(files) {
         }
 
         updateUploadGrid();
+        updateInputNodes();
         showToast(`Found ${imageCount} images`);
 
     } catch (error) {

@@ -5,6 +5,7 @@
 function removeFromQueue(id) {
     AppState.uploadQueue = AppState.uploadQueue.filter(item => item.id !== id);
     updateUploadGrid();
+    updateInputNodes();
     showToast('Image removed from queue');
 }
 
@@ -21,6 +22,7 @@ function clearQueue() {
     setTimeout(() => {
         AppState.uploadQueue = [];
         updateUploadGrid();
+        updateInputNodes();
         showToast('Queue cleared');
 
         // Reset file input so same folder can be selected again
