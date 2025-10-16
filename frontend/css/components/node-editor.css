@@ -167,11 +167,48 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 8px;
     font-size: 0.9rem;
     font-weight: 600;
     background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
     letter-spacing: 0.3px;
     user-select: none;
+}
+
+.node-type-label {
+    flex-shrink: 0;
+}
+
+.node-label-input {
+    flex: 1;
+    max-width: 100px;
+    padding: 2px 6px;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--radius-sm);
+    color: white;
+    font-size: 0.75rem;
+    font-style: italic;
+    transition: all var(--transition-fast);
+    user-select: text;
+}
+
+.node-label-input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
+}
+
+.node-label-input:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+.node-label-input:focus {
+    outline: none;
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.6);
+    font-style: normal;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
 }
 
 .node-del {
@@ -332,6 +369,131 @@
     font-size: 1.1rem;
     color: var(--accent-primary);
     font-weight: 700;
+}
+
+/* Conjunction Node - References Section (outside node-body) */
+.conjunction-references {
+    padding: 16px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+}
+
+.conjunction-references-title {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 6px;
+}
+
+.conjunction-references-empty {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    padding: 16px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+    font-style: italic;
+}
+
+.conjunction-ref-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.conjunction-ref-item {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 14px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.conjunction-ref-item:hover {
+    background: var(--card-bg);
+    border-color: var(--accent-primary);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px var(--shadow-subtle);
+}
+
+.conjunction-ref-item:active {
+    transform: translateY(0);
+}
+
+.conjunction-ref-key {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--accent-primary);
+    font-family: 'Courier New', monospace;
+}
+
+/* Conjunction Template */
+.conjunction-template-wrapper {
+    position: relative;
+}
+
+.conjunction-template {
+    width: 100%;
+    min-height: 80px;
+    padding: var(--spacing-sm);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-family: var(--font-primary);
+    font-size: 0.85rem;
+    resize: vertical;
+    position: relative;
+    z-index: 2;
+    transition: border-color var(--transition-smooth), box-shadow var(--transition-smooth);
+    user-select: text;
+}
+
+.conjunction-template:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+/* Highlights overlay */
+.conjunction-highlights {
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    right: 1px;
+    bottom: 1px;
+    padding: var(--spacing-sm);
+    color: transparent;
+    font-family: var(--font-primary);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Placeholder highlighting */
+.placeholder-valid {
+    background: rgba(34, 197, 94, 0.25);
+    color: var(--accent-primary);
+    padding: 1px 3px;
+    border-radius: 3px;
+    font-weight: 600;
+}
+
+.placeholder-invalid {
+    background: rgba(239, 68, 68, 0.25);
+    color: #ef4444;
+    padding: 1px 3px;
+    border-radius: 3px;
+    font-weight: 600;
 }
 
 /* Ports Section */

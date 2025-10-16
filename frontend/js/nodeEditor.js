@@ -21,6 +21,7 @@ const NodeEditor = {
 const NODES = {
     input: { label: 'Input', inputs: [], outputs: ['images'] },
     prompt: { label: 'Prompt', inputs: [], outputs: ['text'] },
+    conjunction: { label: 'Conjunction', inputs: ['text', 'captions'], outputs: ['text'] },
     aimodel: { label: 'AI Model', inputs: ['images', 'prompt'], outputs: ['captions'] },
     output: { label: 'Output', inputs: ['data'], outputs: [] }
 };
@@ -79,6 +80,18 @@ function createPort(node, portName, portIndex, isOutput) {
     }
 
     return portWrapper;
+}
+
+// Sanitize label to create valid reference key
+function sanitizeLabel(label) {
+    if (!label || typeof label !== 'string') return '';
+
+    // Replace spaces with underscores, remove special chars except underscores
+    return label
+        .trim()
+        .replace(/\s+/g, '_')
+        .replace(/[^a-zA-Z0-9_]/g, '')
+        .substring(0, 30); // Limit length
 }
 
 // ============================================================================
@@ -384,8 +397,10 @@ function addNode(type) {
         type: type,
         x: center.x + (Math.random() - 0.5) * 200,
         y: center.y + (Math.random() - 0.5) * 200,
+        label: '',
         data: type === 'prompt' ? { text: '' } :
-              type === 'aimodel' ? { model: 'blip', parameters: {}, showAdvanced: false } : {}
+              type === 'aimodel' ? { model: 'blip', parameters: {}, showAdvanced: false } :
+              type === 'conjunction' ? { connectedItems: [], template: '' } : {}
     };
 
     NodeEditor.nodes.push(node);
@@ -405,11 +420,29 @@ function renderNode(node) {
     // Header
     const header = document.createElement('div');
     header.className = 'node-header';
+
+    // Only show label input for nodes with outputs (can be referenced)
+    const showLabelInput = def.outputs && def.outputs.length > 0;
+
     header.innerHTML = `
-        <span>${def.label}</span>
+        <span class="node-type-label">${def.label}</span>
+        ${showLabelInput ? `
+            <input type="text"
+                   class="node-label-input"
+                   id="node-${node.id}-label"
+                   placeholder="label..."
+                   value="${node.label || ''}"
+                   title="Custom label for references">
+        ` : ''}
         <button class="node-del" data-id="${node.id}">×</button>
     `;
-    header.onmousedown = (e) => startDrag(e, node);
+    header.onmousedown = (e) => {
+        // Prevent drag when clicking on label input
+        if (e.target.classList.contains('node-label-input')) {
+            return;
+        }
+        startDrag(e, node);
+    };
     el.appendChild(header);
 
     // Ports Section
@@ -433,6 +466,14 @@ function renderNode(node) {
     portsSection.appendChild(outputsContainer);
 
     el.appendChild(portsSection);
+
+    // For conjunction nodes, add references section before body
+    if (node.type === 'conjunction') {
+        const refsSection = document.createElement('div');
+        refsSection.id = `node-${node.id}-refs-section`;
+        refsSection.innerHTML = getConjunctionReferencesHtml(node);
+        el.appendChild(refsSection);
+    }
 
     // Body (content section)
     const body = document.createElement('div');
@@ -460,9 +501,45 @@ function renderNode(node) {
                 if (key === 'model' && node.type === 'aimodel') {
                     loadModelParameters(node.id, e.target.value);
                 }
+
+                // If prompt text changed, update any connected conjunction nodes
+                if (key === 'text' && node.type === 'prompt') {
+                    const connectedConjunctions = NodeEditor.connections
+                        .filter(c => c.from === node.id)
+                        .map(c => NodeEditor.nodes.find(n => n.id === c.to))
+                        .filter(n => n && n.type === 'conjunction');
+
+                    connectedConjunctions.forEach(conjNode => {
+                        updateConjunctionNode(conjNode.id);
+                    });
+                }
             }
         };
     });
+
+    // Label input handler
+    const labelInput = el.querySelector(`#node-${node.id}-label`);
+    if (labelInput) {
+        labelInput.oninput = (e) => {
+            e.stopPropagation();
+            node.label = e.target.value;
+
+            // Update any connected conjunction nodes with new label
+            const connectedConjunctions = NodeEditor.connections
+                .filter(c => c.from === node.id)
+                .map(c => NodeEditor.nodes.find(n => n.id === c.to))
+                .filter(n => n && n.type === 'conjunction');
+
+            connectedConjunctions.forEach(conjNode => {
+                updateConjunctionNode(conjNode.id);
+            });
+        };
+
+        // Prevent propagation on click/focus to avoid triggering node drag
+        labelInput.onclick = (e) => e.stopPropagation();
+        labelInput.onmousedown = (e) => e.stopPropagation();
+        labelInput.onfocus = (e) => e.stopPropagation();
+    }
 
     // Advanced toggle handler for AI model nodes
     if (node.type === 'aimodel') {
@@ -498,6 +575,97 @@ function renderNode(node) {
             loadModelParameters(node.id, node.data.model || 'blip');
         }
     }
+
+    // Conjunction template handler
+    if (node.type === 'conjunction') {
+        const templateTextarea = el.querySelector(`#node-${node.id}-template`);
+        if (templateTextarea) {
+            // Handle input and scroll events
+            templateTextarea.oninput = () => {
+                node.data.template = templateTextarea.value;
+                highlightPlaceholders(node.id);
+            };
+            templateTextarea.onscroll = () => {
+                const highlightsDiv = document.getElementById(`node-${node.id}-highlights`);
+                if (highlightsDiv) {
+                    highlightsDiv.scrollTop = templateTextarea.scrollTop;
+                    highlightsDiv.scrollLeft = templateTextarea.scrollLeft;
+                }
+            };
+
+            // Initial highlight
+            highlightPlaceholders(node.id);
+        }
+
+        // Add click handlers to reference items to insert at cursor
+        const refItems = el.querySelectorAll('.conjunction-ref-item');
+        refItems.forEach(refItem => {
+            refItem.onclick = (e) => {
+                e.stopPropagation();
+                const refKey = refItem.dataset.refKey;
+                const textarea = el.querySelector(`#node-${node.id}-template`);
+                if (!textarea || !refKey) return;
+
+                // Get cursor position
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+                const text = textarea.value;
+
+                // Insert reference at cursor position
+                const placeholder = `{${refKey}}`;
+                const newText = text.substring(0, start) + placeholder + text.substring(end);
+                textarea.value = newText;
+
+                // Update node data
+                node.data.template = newText;
+
+                // Set cursor after inserted text
+                const newCursorPos = start + placeholder.length;
+                textarea.setSelectionRange(newCursorPos, newCursorPos);
+
+                // Focus textarea and update highlights
+                textarea.focus();
+                highlightPlaceholders(node.id);
+            };
+        });
+    }
+}
+
+// Get conjunction references HTML (separate from body)
+function getConjunctionReferencesHtml(node) {
+    const items = node.data.connectedItems || [];
+
+    if (items.length === 0) {
+        return `
+            <div class="conjunction-references-empty">
+                Connect prompts/captions to use as references
+            </div>
+        `;
+    }
+
+    const refsItems = items.map(item => {
+        // Build tooltip with label info
+        let tooltipText = item.sourceLabel;
+        if (item.customLabel) {
+            tooltipText += ` (${item.customLabel})`;
+        }
+        tooltipText += `: ${item.preview}`;
+
+        return `
+            <div class="conjunction-ref-item" data-ref-key="${item.refKey}" title="${tooltipText}">
+                <span class="conjunction-ref-key">{${item.refKey}}</span>
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div class="conjunction-references">
+            <div class="conjunction-references-title">Available References:</div>
+            <div class="conjunction-ref-list">
+                ${refsItems}
+            </div>
+        </div>
+    `;
 }
 
 // Get node content HTML
@@ -512,12 +680,27 @@ function getNodeContent(node) {
         `;
     }
     if (node.type === 'prompt') {
-        return `<textarea data-key="text" placeholder="Enter prompt...">${node.data.text || ''}</textarea>`;
+        return `<textarea id="node-${node.id}-prompt" name="prompt-${node.id}" data-key="text" placeholder="Enter prompt...">${node.data.text || ''}</textarea>`;
+    }
+    if (node.type === 'conjunction') {
+        const template = node.data.template || '';
+
+        return `
+            <div class="conjunction-template-wrapper">
+                <textarea
+                    id="node-${node.id}-template"
+                    name="template-${node.id}"
+                    data-key="template"
+                    class="conjunction-template"
+                    placeholder="Enter prompt template (use {Prompt}, {AI_Model}, etc.)">${template}</textarea>
+                <div id="node-${node.id}-highlights" class="conjunction-highlights"></div>
+            </div>
+        `;
     }
     if (node.type === 'aimodel') {
         const showAdvanced = node.data.showAdvanced || false;
         let html = `
-            <select data-key="model" class="model-select">
+            <select id="node-${node.id}-model" name="model-${node.id}" data-key="model" class="model-select">
                 <option value="blip" ${node.data.model === 'blip' ? 'selected' : ''}>BLIP</option>
                 <option value="r4b" ${node.data.model === 'r4b' ? 'selected' : ''}>R-4B</option>
             </select>
@@ -550,6 +733,172 @@ function updateInputNodes() {
     });
 }
 
+// Update conjunction node with connected items
+function updateConjunctionNode(nodeId) {
+    const node = NodeEditor.nodes.find(n => n.id === nodeId);
+    if (!node || node.type !== 'conjunction') return;
+
+    // Find all incoming connections
+    const incomingConnections = NodeEditor.connections.filter(c => c.to === nodeId);
+
+    // Gather connected items with reference keys
+    const connectedItems = [];
+    const usedRefKeys = new Set(); // Track all used reference keys to avoid duplicates
+    const labelCounts = {}; // Track count of each node type for auto-numbering
+
+    incomingConnections.forEach(conn => {
+        const sourceNode = NodeEditor.nodes.find(n => n.id === conn.from);
+        if (!sourceNode) return;
+
+        const sourceDef = NODES[sourceNode.type];
+        const portType = sourceDef.outputs[conn.fromPort];
+        const baseLabel = sourceDef.label.replace(/\s+/g, '_');
+
+        // Generate reference key with priority: custom label > content preview > auto-numbered
+        let refKey;
+        let shouldSetLabel = false;
+
+        if (sourceNode.label && sourceNode.label.trim()) {
+            // Priority 1: Use existing label (custom or previously auto-generated)
+            refKey = sanitizeLabel(sourceNode.label);
+        } else if (sourceNode.type === 'prompt' && sourceNode.data.text && sourceNode.data.text.trim()) {
+            // Priority 2: Use content preview for prompts
+            const preview = sourceNode.data.text.trim().substring(0, 20);
+            refKey = sanitizeLabel(preview);
+        } else {
+            // Priority 3: Auto-generate with numbering
+            labelCounts[baseLabel] = (labelCounts[baseLabel] || 0) + 1;
+            refKey = labelCounts[baseLabel] === 1 ? baseLabel : `${baseLabel}${labelCounts[baseLabel]}`;
+            shouldSetLabel = true;
+        }
+
+        // Handle duplicate keys by appending numbers
+        const originalRefKey = refKey;
+        let counter = 2;
+        while (usedRefKeys.has(refKey)) {
+            refKey = `${originalRefKey}_${counter}`;
+            counter++;
+            shouldSetLabel = true; // Update label if we had to deduplicate
+        }
+
+        // Mark this refKey as used
+        usedRefKeys.add(refKey);
+
+        // Update node label to match the final refKey
+        if (shouldSetLabel) {
+            sourceNode.label = refKey;
+            // Update the label input field
+            const labelInput = document.getElementById(`node-${sourceNode.id}-label`);
+            if (labelInput) {
+                labelInput.value = refKey;
+            }
+        }
+
+        let content = '';
+        let preview = '';
+
+        if (sourceNode.type === 'prompt') {
+            content = sourceNode.data.text || '';
+            preview = content.substring(0, 60) + (content.length > 60 ? '...' : '');
+        } else if (sourceNode.type === 'aimodel') {
+            content = '[Generated Captions]';
+            preview = 'Captions from AI Model (generated at runtime)';
+        } else {
+            content = `[${sourceDef.label} Output]`;
+            preview = `Output from ${sourceDef.label}`;
+        }
+
+        connectedItems.push({
+            sourceId: sourceNode.id,
+            sourceLabel: sourceDef.label,
+            customLabel: sourceNode.label || '',
+            refKey: refKey,
+            portType: portType,
+            content: content,
+            preview: preview
+        });
+    });
+
+    // Update node data
+    node.data.connectedItems = connectedItems;
+
+    // Update node display - only update the references section
+    const el = document.getElementById('node-' + nodeId);
+    if (el) {
+        const refsSection = document.getElementById(`node-${nodeId}-refs-section`);
+        if (refsSection) {
+            refsSection.innerHTML = getConjunctionReferencesHtml(node);
+
+            // Re-attach click handlers to reference items
+            const refItems = refsSection.querySelectorAll('.conjunction-ref-item');
+            refItems.forEach(refItem => {
+                refItem.onclick = (e) => {
+                    e.stopPropagation();
+                    const refKey = refItem.dataset.refKey;
+                    const textarea = el.querySelector(`#node-${nodeId}-template`);
+                    if (!textarea || !refKey) return;
+
+                    // Get cursor position
+                    const start = textarea.selectionStart;
+                    const end = textarea.selectionEnd;
+                    const text = textarea.value;
+
+                    // Insert reference at cursor position
+                    const placeholder = `{${refKey}}`;
+                    const newText = text.substring(0, start) + placeholder + text.substring(end);
+                    textarea.value = newText;
+
+                    // Update node data
+                    node.data.template = newText;
+
+                    // Set cursor after inserted text
+                    const newCursorPos = start + placeholder.length;
+                    textarea.setSelectionRange(newCursorPos, newCursorPos);
+
+                    // Focus textarea and update highlights
+                    textarea.focus();
+                    highlightPlaceholders(nodeId);
+                };
+            });
+
+            // Update placeholder highlighting
+            highlightPlaceholders(nodeId);
+        }
+    }
+}
+
+// Highlight placeholders in conjunction template
+function highlightPlaceholders(nodeId) {
+    const node = NodeEditor.nodes.find(n => n.id === nodeId);
+    if (!node || node.type !== 'conjunction') return;
+
+    const textarea = document.getElementById(`node-${nodeId}-template`);
+    const highlightsDiv = document.getElementById(`node-${nodeId}-highlights`);
+    if (!textarea || !highlightsDiv) return;
+
+    const text = textarea.value;
+    const validKeys = (node.data.connectedItems || []).map(item => item.refKey);
+
+    // Find all placeholders and mark them as valid or invalid
+    const regex = /\{([^}]+)\}/g;
+    let highlightedText = text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    highlightedText = highlightedText.replace(regex, (match, key) => {
+        const isValid = validKeys.includes(key);
+        const className = isValid ? 'placeholder-valid' : 'placeholder-invalid';
+        return `<mark class="${className}">${match}</mark>`;
+    });
+
+    // Add line breaks for proper alignment
+    highlightedText = highlightedText.replace(/\n/g, '<br>');
+
+    highlightsDiv.innerHTML = highlightedText;
+
+    // Sync scroll
+    highlightsDiv.scrollTop = textarea.scrollTop;
+    highlightsDiv.scrollLeft = textarea.scrollLeft;
+}
+
 // Fetch model parameters from API
 async function fetchModelParameters(modelName) {
     try {
@@ -564,15 +913,19 @@ async function fetchModelParameters(modelName) {
 }
 
 // Build parameter input HTML based on parameter definition
-function buildParameterInput(param, currentValue) {
+function buildParameterInput(param, currentValue, nodeId) {
     const value = currentValue !== undefined ? currentValue : '';
-    
+    const inputId = `node-${nodeId}-param-${param.param_key}`;
+    const inputName = `${param.param_key}-${nodeId}`;
+
     if (param.type === 'number') {
         return `
             <div class="param-group">
-                <label class="param-label" title="${param.description}">${param.name}</label>
-                <input type="number" 
-                       class="param-input" 
+                <label class="param-label" for="${inputId}" title="${param.description}">${param.name}</label>
+                <input type="number"
+                       id="${inputId}"
+                       name="${inputName}"
+                       class="param-input"
                        data-param-key="${param.param_key}"
                        min="${param.min}"
                        max="${param.max}"
@@ -582,13 +935,16 @@ function buildParameterInput(param, currentValue) {
             </div>
         `;
     } else if (param.type === 'select') {
-        const options = param.options.map(opt => 
+        const options = param.options.map(opt =>
             `<option value="${opt.value}" ${value === opt.value ? 'selected' : ''}>${opt.label}</option>`
         ).join('');
         return `
             <div class="param-group">
-                <label class="param-label" title="${param.description}">${param.name}</label>
-                <select class="param-input" data-param-key="${param.param_key}">
+                <label class="param-label" for="${inputId}" title="${param.description}">${param.name}</label>
+                <select id="${inputId}"
+                        name="${inputName}"
+                        class="param-input"
+                        data-param-key="${param.param_key}">
                     <option value="">Default</option>
                     ${options}
                 </select>
@@ -597,9 +953,11 @@ function buildParameterInput(param, currentValue) {
     } else if (param.type === 'checkbox') {
         return `
             <div class="param-group">
-                <label class="param-label param-checkbox-label" title="${param.description}">
-                    <input type="checkbox" 
-                           class="param-checkbox" 
+                <label class="param-label param-checkbox-label" for="${inputId}" title="${param.description}">
+                    <input type="checkbox"
+                           id="${inputId}"
+                           name="${inputName}"
+                           class="param-checkbox"
                            data-param-key="${param.param_key}"
                            ${value ? 'checked' : ''}>
                     ${param.name}
@@ -628,7 +986,7 @@ async function loadModelParameters(nodeId, modelName) {
     
     // Build parameters UI
     const currentParams = node.data.parameters || {};
-    const paramsHtml = parameters.map(param => buildParameterInput(param, currentParams[param.param_key])).join('');
+    const paramsHtml = parameters.map(param => buildParameterInput(param, currentParams[param.param_key], nodeId)).join('');
     paramsContainer.innerHTML = paramsHtml;
     
     // Add event listeners for parameter inputs
@@ -813,6 +1171,12 @@ function addConnection(fromNode, fromPort, toNode, toPort) {
     const conn = { id: NodeEditor.nextId++, from: fromNode, fromPort, to: toNode, toPort };
     NodeEditor.connections.push(conn);
     renderConnection(conn);
+
+    // Update conjunction node if the target is a conjunction
+    const targetNode = NodeEditor.nodes.find(n => n.id === toNode);
+    if (targetNode && targetNode.type === 'conjunction') {
+        updateConjunctionNode(toNode);
+    }
 }
 
 // Render connection
@@ -913,6 +1277,17 @@ function updateConnections() {
 // ============================================================================
 
 function deleteNode(nodeId) {
+    // Find conjunction nodes that were connected to this node
+    const affectedConjunctions = new Set();
+    NodeEditor.connections.forEach(c => {
+        if (c.from === nodeId) {
+            const targetNode = NodeEditor.nodes.find(n => n.id === c.to);
+            if (targetNode && targetNode.type === 'conjunction') {
+                affectedConjunctions.add(c.to);
+            }
+        }
+    });
+
     // Remove connections
     NodeEditor.connections = NodeEditor.connections.filter(c => {
         if (c.from === nodeId || c.to === nodeId) {
@@ -928,13 +1303,27 @@ function deleteNode(nodeId) {
     const el = document.getElementById('node-' + nodeId);
     if (el) el.remove();
     updateMinimap();
+
+    // Update affected conjunction nodes to remove references
+    affectedConjunctions.forEach(conjId => {
+        updateConjunctionNode(conjId);
+    });
 }
 
 // Delete connection
 function deleteConnection(connId) {
+    // Find the connection before deleting to check if it was connected to a conjunction
+    const conn = NodeEditor.connections.find(c => c.id === connId);
+    const targetNode = conn ? NodeEditor.nodes.find(n => n.id === conn.to) : null;
+
     NodeEditor.connections = NodeEditor.connections.filter(c => c.id !== connId);
     const line = document.getElementById('conn-' + connId);
     if (line) line.remove();
+
+    // Update conjunction node if the deleted connection was connected to one
+    if (targetNode && targetNode.type === 'conjunction') {
+        updateConjunctionNode(targetNode.id);
+    }
 }
 
 function clearGraph() {
@@ -1011,12 +1400,39 @@ async function processGraph(aiNode) {
     const total = AppState.uploadQueue.length;
     let count = 0;
 
-    // Get prompt if connected
+    // Get prompt if connected (from prompt or conjunction node)
+    let prompt = '';
+
+    // Check for direct prompt connection
     const promptNode = NodeEditor.nodes.find(n => n.type === 'prompt');
     const hasPromptConn = promptNode && NodeEditor.connections.some(c =>
         c.from === promptNode.id && c.to === aiNode.id
     );
-    const prompt = hasPromptConn ? promptNode.data.text : '';
+    if (hasPromptConn) {
+        prompt = promptNode.data.text || '';
+    }
+
+    // Check for conjunction node connection (takes precedence)
+    const conjunctionNode = NodeEditor.nodes.find(n => n.type === 'conjunction');
+    const hasConjunctionConn = conjunctionNode && NodeEditor.connections.some(c =>
+        c.from === conjunctionNode.id && c.to === aiNode.id
+    );
+    if (hasConjunctionConn) {
+        // Use the template and resolve placeholders
+        let template = conjunctionNode.data.template || '';
+        const items = conjunctionNode.data.connectedItems || [];
+
+        // Create a map of reference keys to content
+        const refMap = {};
+        items.forEach(item => {
+            refMap[item.refKey] = item.content;
+        });
+
+        // Replace all placeholders with actual content
+        prompt = template.replace(/\{([^}]+)\}/g, (match, key) => {
+            return refMap[key] !== undefined ? refMap[key] : match;
+        });
+    }
 
     // Process images
     for (const item of AppState.uploadQueue) {
