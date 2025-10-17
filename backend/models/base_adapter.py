@@ -61,7 +61,7 @@ class BaseModelAdapter(ABC):
         # Force garbage collection and clear GPU cache
         import gc
         import torch
+        from utils.torch_utils import maybe_empty_cuda_cache
         gc.collect()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-            print(f"GPU cache cleared for {self.model_name}")
+        # Safely clear CUDA cache if applicable
+        maybe_empty_cuda_cache(torch)

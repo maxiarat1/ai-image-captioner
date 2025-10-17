@@ -1,4 +1,5 @@
 import torch
+from utils.torch_utils import pick_device
 from PIL import Image
 from transformers import BlipProcessor, BlipForConditionalGeneration
 from .base_adapter import BaseModelAdapter
@@ -8,7 +9,7 @@ class BlipAdapter(BaseModelAdapter):
 
     def __init__(self):
         super().__init__("blip-image-captioning-base")
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = pick_device(torch)
 
     def load_model(self) -> None:
         """Load BLIP model and processor"""

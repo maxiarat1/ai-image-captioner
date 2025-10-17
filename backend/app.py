@@ -2,12 +2,24 @@ import io
 import base64
 import json
 import zipfile
+import os
 from datetime import datetime
 from pathlib import Path
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
+"""
+Set CUDA visibility before importing any modules that might import torch/transformers.
+Users can force CPU by exporting TAGGER_FORCE_CPU=1 before launching the app.
+This prevents PyTorch from attempting forward-compat CUDA init on unsupported GPUs.
+"""
+if os.environ.get("TAGGER_FORCE_CPU", "0") == "1":
+    # Hide all CUDA devices from PyTorch/Transformers
+    os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
+    # Be tolerant on Apple MPS or other backends if present
+    os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
+
 from models.blip_adapter import BlipAdapter
 from models.r4b_adapter import R4BAdapter
 from utils.image_utils import process_uploaded_image, validate_image_format

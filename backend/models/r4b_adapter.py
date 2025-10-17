@@ -1,4 +1,5 @@
 import torch
+from utils.torch_utils import pick_device, force_cpu_mode
 from PIL import Image
 from transformers import AutoProcessor, AutoModel, BitsAndBytesConfig
 from .base_adapter import BaseModelAdapter
@@ -8,7 +9,7 @@ class R4BAdapter(BaseModelAdapter):
 
     def __init__(self):
         super().__init__("YannQi/R-4B")
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = pick_device(torch)
         self.quantization_config = None
 
     def _create_quantization_config(self, precision):
@@ -79,7 +80,7 @@ class R4BAdapter(BaseModelAdapter):
                 model_kwargs["torch_dtype"] = self._get_torch_dtype(precision)
 
             # Add Flash Attention support if available and requested
-            if use_flash_attention and torch.cuda.is_available():
+            if use_flash_attention and not force_cpu_mode() and torch.cuda.is_available():
                 try:
                     import flash_attn
                     model_kwargs["attn_implementation"] = "flash_attention_2"
