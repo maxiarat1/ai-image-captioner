@@ -12,6 +12,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Node Editor
     initNodeEditor();
+    // Node Editor context menu
+    if (typeof NEContextMenu !== 'undefined') NEContextMenu.init();
 
     // Results & Export
     initCopyFunctionality();

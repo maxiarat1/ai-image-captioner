@@ -38,6 +38,19 @@ function initNodeEditor() {
             NEFullscreen.closeFullscreen();
         }
     });
+
+    // Context menu on node canvas using generic AppContextMenu
+    const { wrapper } = NEUtils.getElements();
+    if (wrapper) {
+        wrapper.addEventListener('contextmenu', (e) => {
+            // Only open if right-clicking on empty canvas area or inside wrapper
+            e.preventDefault();
+            if (typeof AppContextMenu === 'undefined' || typeof GridSettings === 'undefined') return;
+            AppContextMenu.open(e.pageX, e.pageY, [
+                { label: 'Grid…', onClick: () => GridSettings.openAt(e.pageX + 8, e.pageY + 8) }
+            ]);
+        });
+    }
 }
 
 // Fullscreen functions moved to NEFullscreen

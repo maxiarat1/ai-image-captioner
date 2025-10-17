@@ -14,7 +14,14 @@
                 x: 0,
                 y: 0,
                 scale: 1
-            }
+                },
+                // Editor runtime settings
+                settings: {
+                    gridSize: 20,        // px grid size
+                    snapEpsilon: 4,      // soft snap range in px
+                    snapMode: 'always',  // 'always' | 'withShift' | 'disableWithAlt' | 'off'
+                    showGuides: true     // show faint guides while dragging
+                }
         };
     }
 

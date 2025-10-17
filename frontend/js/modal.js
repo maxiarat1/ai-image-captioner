@@ -7,7 +7,8 @@ function openImagePreview(imageSrc, captionText, fileName) {
     const modalImage = document.getElementById('modalImage');
     const modalInfo = document.getElementById('modalInfo');
     const backdrop = document.getElementById('modalBackdrop');
-    const currentTab = document.querySelector('.tab-content.active').id;
+    const activeTab = document.querySelector('.tab-content.active');
+    const currentTab = activeTab?.id;
 
     modalImage.src = imageSrc;
     modalInfo.textContent = captionText || fileName;
@@ -16,6 +17,9 @@ function openImagePreview(imageSrc, captionText, fileName) {
 
     // Prevent body scrolling when modal is open
     document.body.style.overflow = 'hidden';
+
+    // Smoothly blur the active tab content behind the modal
+    if (activeTab) activeTab.classList.add('blur-bg');
 }
 
 function closeImagePreview() {
@@ -24,6 +28,10 @@ function closeImagePreview() {
 
     // Re-enable body scrolling
     document.body.style.overflow = '';
+    
+    // Remove blur from whichever tab is currently active
+    const activeTab = document.querySelector('.tab-content.active');
+    if (activeTab) activeTab.classList.remove('blur-bg');
 }
 
 // Initialize modal close handlers

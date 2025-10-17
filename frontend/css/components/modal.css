@@ -20,14 +20,20 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.15);
-    backdrop-filter: blur(8px);
+    /* Simpler overlay + fade for smoother performance */
+    background: rgba(0, 0, 0, 0.45);
+    opacity: 0;
+    transition: opacity 200ms ease;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: var(--spacing-xl);
     gap: var(--spacing-lg);
+}
+
+.image-preview-modal.active .modal-backdrop {
+    opacity: 1;
 }
 
 .modal-content {
@@ -66,6 +72,7 @@
     max-height: 80vh;
     padding: var(--spacing-xl);
     background: rgba(0, 0, 0, 0.85);
+    /* Keep subtle internal blur for info panel */
     backdrop-filter: blur(12px);
     color: white;
     font-size: 0.95rem;
@@ -75,6 +82,24 @@
     overflow-y: auto;
     pointer-events: auto;
     animation: slideInFromRight 0.4s ease 0.1s backwards;
+}
+
+/* Smooth background blur for the active tab content when preview opens */
+.tab-content.blur-bg {
+    filter: blur(8px);
+    transition: filter 200ms ease;
+    will-change: filter;
+    transform: translateZ(0);
+}
+
+/* Reduced motion: remove transitions */
+@media (prefers-reduced-motion: reduce) {
+    .tab-content.blur-bg {
+        transition: none;
+    }
+    .image-preview-modal.active .modal-backdrop {
+        transition: none;
+    }
 }
 
 /* Scrollbar for modal info */

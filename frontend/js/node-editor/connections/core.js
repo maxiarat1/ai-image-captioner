@@ -6,13 +6,17 @@
     NEConnections.createConnectionGradient = function() {
         const { svg } = NEUtils.getElements();
         if (!svg) return;
-        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-        const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
-        gradient.id = 'connection-gradient';
-        gradient.setAttribute('x1', '0%');
-        gradient.setAttribute('y1', '0%');
-        gradient.setAttribute('x2', '100%');
-        gradient.setAttribute('y2', '0%');
+    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+    gradient.id = 'connection-gradient';
+    // Use user space units to avoid degenerate gradients when the target shape
+    // has a zero-width/height bounding box (e.g., perfectly vertical or horizontal lines)
+    gradient.setAttribute('gradientUnits', 'userSpaceOnUse');
+    // Horizontal gradient across the entire SVG viewport
+    gradient.setAttribute('x1', '0%');
+    gradient.setAttribute('y1', '0%');
+    gradient.setAttribute('x2', '100%');
+    gradient.setAttribute('y2', '0%');
 
         const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
         stop1.setAttribute('offset', '0%');

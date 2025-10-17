@@ -1,0 +1,49 @@
+/* Generic Context Menu (app-wide) */
+.app-context-menu {
+    position: absolute;
+    z-index: 2000;
+    min-width: 200px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 24px var(--shadow), 0 0 20px var(--shadow-glow);
+    padding: 6px 0;
+    display: none;
+}
+.app-context-menu .menu-item {
+    padding: 8px 12px;
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.app-context-menu .menu-item:hover {
+    background: var(--bg-tertiary);
+}
+.app-context-menu .menu-separator {
+    height: 1px;
+    background: var(--border-color);
+    margin: 4px 0;
+}
+
+/* Settings popover (used for grid settings, etc.) */
+.settings-popover {
+    position: absolute;
+    z-index: 2001;
+    min-width: 240px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 24px var(--shadow), 0 0 20px var(--shadow-glow);
+    padding: 10px;
+}
+.settings-popover .settings-title {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+.settings-popover .settings-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 6px 0; }
+.settings-popover .settings-row label { font-size: 0.9rem; color: var(--text-primary); }
+.settings-popover input[type="number"], .settings-popover select { width: 130px; padding: 4px 6px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); }
