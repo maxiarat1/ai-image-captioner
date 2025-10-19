@@ -8,12 +8,12 @@ Batch image captioning using BLIP and R-4B models. Generate descriptions for mul
 
 ## Features
 
-- Batch image processing
-- Dual AI models: BLIP (fast) and R-4B (advanced reasoning)
-- Custom prompts, precision modes, generation parameters
-- On-demand model loading
-- ZIP export
-- Dark/light themes
+- **Visual Node Editor** - Build AI pipelines with drag-and-drop nodes
+- **Dual AI Models** - BLIP (fast) & R-4B (detailed reasoning)
+- **Smart Templates** - Combine prompts and AI outputs with Conjunction nodes
+- **Real-time Stats** - Live progress tracking with speed & ETA
+- **Batch Processing** - Handle hundreds of images efficiently
+- **Flexible Export** - ZIP with embedded metadata
 
 ![AI Image Tagger Interface](assets/Image%20Tagger.png)
 
@@ -71,10 +71,21 @@ python -m http.server 8080
 
 ## Usage
 
-1. Upload images (JPG, PNG, WebP, BMP)
-2. Select model (BLIP/R-4B), configure prompts and settings
-3. Generate and review captions
-4. Export as ZIP
+### Node Editor Workflow
+
+1. **Upload** - Add images to the Input node
+2. **Connect** - Link Input → AI Model → Output nodes
+3. **Customize** - Add Prompt or Conjunction nodes for templates
+4. **Process** - Execute and watch real-time stats in Output node
+5. **Export** - Download ZIP with embedded captions
+
+**Example Pipeline:**
+```
+Input → Prompt → AI Model (BLIP) → Conjunction → Output
+                                         ↑
+                                    Prompt (style guide)
+```
+Conjunction template: `Caption: {AI_Model}. Style: {Prompt}`
 
 ### Models
 
@@ -152,29 +163,18 @@ ai-image-tagger/
 
 ## Troubleshooting
 
-**Out of Memory:** Use lower precision (8-bit/4-bit) or BLIP
+| Issue | Solution |
+|-------|----------|
+| Out of Memory | Use 8-bit/4-bit precision or BLIP model |
+| CUDA Error | RTX 20/30/40: `cuda121` build, RTX 50: `cuda128` build |
+| First Run Slow | Models download ~2GB to `~/.cache/huggingface/` |
+| Docker GPU Error | Install `nvidia-container-toolkit`, use Docker Engine (not Desktop) |
 
-**CUDA Error:**
-- RTX 20/30/40: CUDA 12.1+ drivers, `cuda121` build
-- RTX 50: CUDA 12.8+ drivers, `cuda128` build
-
-**Models Downloading:** First run downloads 500MB-2GB to `~/.cache/huggingface/`
-
-**Wrong GPU Architecture:** RTX 50 "sm_120 not supported" error requires `python312-cuda128` build
-
-**Docker GPU Error** (`could not select device driver "" with capabilities: [[gpu]]`):
-
-Linux users: Use Docker Engine (not Docker Desktop). Desktop runs in a VM without GPU access.
-
-Install nvidia-container-toolkit:
+**Docker GPU Setup (Linux):**
 ```bash
-# Install nvidia-container-toolkit (one-time setup)
 curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
-  sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-  sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
-sudo systemctl restart docker
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit && sudo systemctl restart docker
 ```
 
 ## License
