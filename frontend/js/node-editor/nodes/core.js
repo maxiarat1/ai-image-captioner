@@ -22,6 +22,7 @@
             portWrapper.appendChild(label);
             portWrapper.appendChild(port);
         } else {
+            port.onmousedown = (e) => NEConnections.startConnectFromInput(e, node.id, portIndex);
             portWrapper.appendChild(port);
             portWrapper.appendChild(label);
         }

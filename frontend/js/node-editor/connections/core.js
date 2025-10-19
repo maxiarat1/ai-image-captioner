@@ -2,35 +2,62 @@
 (function() {
     const NEConnections = {};
 
+    // Port type to color mapping
+    const PORT_COLORS = {
+        'images': '#FF6B6B',
+        'text': '#4ECDC4',
+        'prompt': '#4ECDC4',
+        'captions': '#4ECDC4',
+        'data': '#FFD93D'
+    };
+
+    // Get color for a port type
+    function getPortColor(portType) {
+        return PORT_COLORS[portType] || '#888888';
+    }
+
     // Create gradient definition for connections
     NEConnections.createConnectionGradient = function() {
         const { svg } = NEUtils.getElements();
         if (!svg) return;
-    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-    const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
-    gradient.id = 'connection-gradient';
-    // Use user space units to avoid degenerate gradients when the target shape
-    // has a zero-width/height bounding box (e.g., perfectly vertical or horizontal lines)
-    gradient.setAttribute('gradientUnits', 'userSpaceOnUse');
-    // Horizontal gradient across the entire SVG viewport
-    gradient.setAttribute('x1', '0%');
-    gradient.setAttribute('y1', '0%');
-    gradient.setAttribute('x2', '100%');
-    gradient.setAttribute('y2', '0%');
+        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        svg.appendChild(defs);
+    };
+
+    // Create a dynamic gradient for a specific connection
+    function createConnectionGradient(connId, fromColor, toColor, x1, y1, x2, y2) {
+        const { svg } = NEUtils.getElements();
+        if (!svg) return null;
+
+        const defs = svg.querySelector('defs');
+        if (!defs) return null;
+
+        // Remove old gradient if exists
+        const oldGradient = document.getElementById(`gradient-${connId}`);
+        if (oldGradient) oldGradient.remove();
+
+        const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+        gradient.id = `gradient-${connId}`;
+        gradient.setAttribute('gradientUnits', 'userSpaceOnUse');
+        gradient.setAttribute('x1', x1);
+        gradient.setAttribute('y1', y1);
+        gradient.setAttribute('x2', x2);
+        gradient.setAttribute('y2', y2);
 
         const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
         stop1.setAttribute('offset', '0%');
-        stop1.setAttribute('stop-color', '#2196F3');
+        stop1.setAttribute('stop-color', fromColor);
 
         const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
         stop2.setAttribute('offset', '100%');
-        stop2.setAttribute('stop-color', '#4CAF50');
+        stop2.setAttribute('stop-color', toColor);
 
         gradient.appendChild(stop1);
         gradient.appendChild(stop2);
         defs.appendChild(gradient);
-        svg.appendChild(defs);
-    };
+
+        return `url(#gradient-${connId})`;
+    }
 
     // Start connecting from an output port
     NEConnections.startConnect = function(e, nodeId, portIndex) {
@@ -40,16 +67,6 @@
         const { canvas, svg } = NEUtils.getElements();
         if (!canvas || !svg) return;
         canvas.classList.add('connecting');
-
-        // Create temporary connection line
-        const tempLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        tempLine.id = 'temp-connection';
-        tempLine.setAttribute('stroke', 'url(#connection-gradient)');
-        tempLine.setAttribute('stroke-width', '3');
-        tempLine.setAttribute('stroke-linecap', 'round');
-        tempLine.setAttribute('stroke-dasharray', '5,5');
-        tempLine.style.opacity = '0.6';
-        svg.appendChild(tempLine);
 
         // Get starting port position in canvas local coordinates
         const portEl = document.querySelector(`#node-${nodeId} .port-out[data-port="${portIndex}"]`);
@@ -62,15 +79,73 @@
             portRect.top - containerRect.top + portRect.height / 2
         );
 
+        // Get port type and color
+        const portType = portEl.dataset.portType;
+        const portColor = getPortColor(portType);
+
+        // Create temporary connection line
+        const tempLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        tempLine.id = 'temp-connection';
+        tempLine.setAttribute('stroke', portColor);
+        tempLine.setAttribute('stroke-width', '3');
+        tempLine.setAttribute('stroke-linecap', 'round');
+        tempLine.setAttribute('stroke-dasharray', '5,5');
+        tempLine.style.opacity = '0.6';
+        svg.appendChild(tempLine);
+
         NodeEditor.connecting = {
             from: nodeId,
             port: portIndex,
             startX: startPos.x,
-            startY: startPos.y
+            startY: startPos.y,
+            portColor: portColor
         };
 
         document.onmousemove = updateTempConnection;
         document.onmouseup = endConnect;
+    };
+
+    // Start connecting from an input port (ComfyUI-style reconnection)
+    NEConnections.startConnectFromInput = function(e, nodeId, portIndex) {
+        e.stopPropagation();
+        e.preventDefault();
+
+        // Find existing connection TO this input port
+        const existingConnection = NodeEditor.connections.find(c =>
+            c.to === nodeId && c.toPort === portIndex
+        );
+
+        if (!existingConnection) {
+            // No connection exists, do nothing
+            return;
+        }
+
+        // Store the source node/port before removing connection
+        const sourceNodeId = existingConnection.from;
+        const sourcePortIndex = existingConnection.fromPort;
+
+        // Store affected conjunction nodes before deleting
+        const targetNode = NodeEditor.nodes.find(n => n.id === nodeId);
+        const affectedConjunctions = targetNode && targetNode.type === 'conjunction' ? [targetNode] : [];
+
+        // Remove the existing connection
+        NodeEditor.connections = NodeEditor.connections.filter(c => c.id !== existingConnection.id);
+        const line = document.getElementById('conn-' + existingConnection.id);
+        if (line) line.remove();
+
+        // Remove the gradient for this connection
+        const gradient = document.getElementById(`gradient-${existingConnection.id}`);
+        if (gradient) gradient.remove();
+
+        // Update affected conjunction nodes
+        affectedConjunctions.forEach(conjNode => {
+            if (typeof updateConjunctionNode === 'function') {
+                updateConjunctionNode(conjNode.id);
+            }
+        });
+
+        // Now start a new connection FROM the original source
+        NEConnections.startConnect(e, sourceNodeId, sourcePortIndex);
     };
 
     function updateTempConnection(e) {
@@ -92,6 +167,48 @@
         tempLine.setAttribute('y1', NodeEditor.connecting.startY);
         tempLine.setAttribute('x2', mousePos.x);
         tempLine.setAttribute('y2', mousePos.y);
+
+        // Visual feedback for port compatibility
+        const target = e.target;
+        if (target.classList && target.classList.contains('port-in')) {
+            const toNode = parseInt(target.dataset.node);
+            const toPort = parseInt(target.dataset.port);
+
+            // Get port types
+            const fromNodeObj = NodeEditor.nodes.find(n => n.id === NodeEditor.connecting.from);
+            const toNodeObj = NodeEditor.nodes.find(n => n.id === toNode);
+
+            if (fromNodeObj && toNodeObj && toNode !== NodeEditor.connecting.from) {
+                const fromDef = NODES[fromNodeObj.type];
+                const toDef = NODES[toNodeObj.type];
+                const fromPortType = fromDef.outputs[NodeEditor.connecting.port];
+                const toPortType = toDef.inputs[toPort];
+
+                // Check for circular dependency
+                const wouldCreateCycle = NodeEditor.connections.some(c =>
+                    c.from === toNode && c.to === NodeEditor.connecting.from
+                );
+
+                // Update visual feedback
+                if (wouldCreateCycle) {
+                    // Red for circular dependency
+                    tempLine.setAttribute('stroke', '#ef4444');
+                    tempLine.style.opacity = '0.6';
+                } else if (arePortsCompatible(fromPortType, toPortType)) {
+                    // Use source port color for compatible connections
+                    tempLine.setAttribute('stroke', NodeEditor.connecting.portColor);
+                    tempLine.style.opacity = '0.8';
+                } else {
+                    // Red for incompatible types
+                    tempLine.setAttribute('stroke', '#ef4444');
+                    tempLine.style.opacity = '0.6';
+                }
+            }
+        } else {
+            // Reset to source port color when not hovering over a port
+            tempLine.setAttribute('stroke', NodeEditor.connecting.portColor);
+            tempLine.style.opacity = '0.6';
+        }
     }
 
     function endConnect(e) {
@@ -119,6 +236,27 @@
         document.onmouseup = null;
     }
 
+    // Check if two port types are compatible
+    function arePortsCompatible(fromPortType, toPortType) {
+        // Images can only connect to images
+        if (fromPortType === 'images' || toPortType === 'images') {
+            return fromPortType === 'images' && toPortType === 'images';
+        }
+
+        // Text-based ports (text, prompt, captions) can connect to each other
+        const textTypes = ['text', 'prompt', 'captions'];
+        if (textTypes.includes(fromPortType) && textTypes.includes(toPortType)) {
+            return true;
+        }
+
+        // Data port accepts anything (generic output)
+        if (toPortType === 'data') {
+            return true;
+        }
+
+        return false;
+    }
+
     // Add connection
     NEConnections.addConnection = function(fromNode, fromPort, toNode, toPort) {
         // Check if exists
@@ -127,6 +265,34 @@
             c.to === toNode && c.toPort === toPort
         );
         if (exists) return;
+
+        // Get port types for validation
+        const fromNodeObj = NodeEditor.nodes.find(n => n.id === fromNode);
+        const toNodeObj = NodeEditor.nodes.find(n => n.id === toNode);
+
+        if (!fromNodeObj || !toNodeObj) return;
+
+        const fromDef = NODES[fromNodeObj.type];
+        const toDef = NODES[toNodeObj.type];
+
+        const fromPortType = fromDef.outputs[fromPort];
+        const toPortType = toDef.inputs[toPort];
+
+        // Validate port type compatibility
+        if (!arePortsCompatible(fromPortType, toPortType)) {
+            console.warn(`Incompatible connection: ${fromPortType} cannot connect to ${toPortType}`);
+            return;
+        }
+
+        // Prevent circular dependencies: if target node already connects to source node, block it
+        // This prevents: Conjunction → AI Model → back to same Conjunction
+        const wouldCreateCycle = NodeEditor.connections.some(c =>
+            c.from === toNode && c.to === fromNode
+        );
+        if (wouldCreateCycle) {
+            console.warn(`Circular connection blocked: ${toNodeObj.type} (${toNode}) already connects to ${fromNodeObj.type} (${fromNode})`);
+            return;
+        }
 
         const conn = { id: NodeEditor.nextId++, from: fromNode, fromPort, to: toNode, toPort };
         NodeEditor.connections.push(conn);
@@ -199,6 +365,18 @@
         line.setAttribute('y1', pos1.y);
         line.setAttribute('x2', pos2.x);
         line.setAttribute('y2', pos2.y);
+
+        // Get port types and colors
+        const fromPortType = fromEl.dataset.portType;
+        const toPortType = toEl.dataset.portType;
+        const fromColor = getPortColor(fromPortType);
+        const toColor = getPortColor(toPortType);
+
+        // Create/update gradient with port colors
+        const gradientUrl = createConnectionGradient(connId, fromColor, toColor, pos1.x, pos1.y, pos2.x, pos2.y);
+        if (gradientUrl) {
+            line.setAttribute('stroke', gradientUrl);
+        }
     };
 
     // Update all connections
@@ -215,6 +393,10 @@
         NodeEditor.connections = NodeEditor.connections.filter(c => c.id !== connId);
         const line = document.getElementById('conn-' + connId);
         if (line) line.remove();
+
+        // Remove the gradient for this connection
+        const gradient = document.getElementById(`gradient-${connId}`);
+        if (gradient) gradient.remove();
 
         // Update conjunction node if the deleted connection was connected to one
         if (targetNode && targetNode.type === 'conjunction' && typeof updateConjunctionNode === 'function') {

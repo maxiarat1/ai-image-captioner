@@ -600,7 +600,11 @@
     --port-glow-color: rgba(78, 205, 196, 0.6);
 }
 
-.port[data-port-type="captions"],
+.port[data-port-type="captions"] {
+    background: #4ECDC4;
+    --port-glow-color: rgba(78, 205, 196, 0.6);
+}
+
 .port[data-port-type="data"] {
     background: #FFD93D;
     --port-glow-color: rgba(255, 217, 61, 0.6);

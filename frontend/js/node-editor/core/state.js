@@ -29,7 +29,7 @@
         window.NODES = {
             input: { label: 'Input', inputs: [], outputs: ['images'] },
             prompt: { label: 'Prompt', inputs: [], outputs: ['text'] },
-            conjunction: { label: 'Conjunction', inputs: ['text', 'captions'], outputs: ['text'] },
+            conjunction: { label: 'Conjunction', inputs: ['text'], outputs: ['text'] },
             aimodel: { label: 'AI Model', inputs: ['images', 'prompt'], outputs: ['captions'] },
             output: { label: 'Output', inputs: ['data'], outputs: [] }
         };
