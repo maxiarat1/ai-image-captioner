@@ -67,7 +67,11 @@ class R4BAdapter(BaseModelAdapter):
             self.quantization_config = self._create_quantization_config(precision)
 
             # Load processor
+            print("Loading processor...")
             self.processor = AutoProcessor.from_pretrained("YannQi/R-4B", trust_remote_code=True, use_fast=True)
+            if self.processor is None:
+                raise RuntimeError("Processor loading failed - AutoProcessor.from_pretrained returned None")
+            print("Processor loaded successfully")
 
             # Prepare model loading arguments
             model_kwargs = {
@@ -89,10 +93,15 @@ class R4BAdapter(BaseModelAdapter):
                     print("Flash Attention not available, using default attention")
 
             # Load model
+            print("Loading model...")
             self.model = AutoModel.from_pretrained("YannQi/R-4B", **model_kwargs)
+            if self.model is None:
+                raise RuntimeError("Model loading failed - AutoModel.from_pretrained returned None")
+            print("Model loaded successfully")
 
             # Move to device if not quantized (quantized models handle device placement automatically)
             if precision not in ["4bit", "8bit"]:
+                print(f"Moving model to device: {self.device}")
                 self.model.to(self.device)
 
             self.model.eval()
