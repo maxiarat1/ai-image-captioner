@@ -46,7 +46,7 @@
             label: '',
             data: type === 'prompt' ? { text: '' } :
                   type === 'aimodel' ? { model: 'blip', parameters: {}, showAdvanced: false } :
-                  type === 'conjunction' ? { connectedItems: [], template: '' } : {}
+                  type === 'conjunction' ? { connectedItems: [], template: '', showPreview: false } : {}
         };
 
         NodeEditor.nodes.push(node);
@@ -236,6 +236,7 @@
                 templateTextarea.oninput = () => {
                     node.data.template = templateTextarea.value;
                     NENodes.highlightPlaceholders(node.id);
+                    NENodes.updateConjunctionPreview(node.id);
                 };
                 templateTextarea.onscroll = () => {
                     const highlightsDiv = document.getElementById(`node-${node.id}-highlights`);
@@ -247,6 +248,34 @@
 
                 // Initial highlight
                 NENodes.highlightPlaceholders(node.id);
+            }
+
+            // Preview toggle handler
+            const previewBtn = el.querySelector('.btn-preview');
+            if (previewBtn) {
+                previewBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    node.data.showPreview = !node.data.showPreview;
+
+                    // Update button text and preview visibility
+                    const previewContainer = document.getElementById(`preview-${node.id}`);
+                    if (previewContainer) {
+                        if (node.data.showPreview) {
+                            previewBtn.textContent = '▼ Hide Preview';
+                            previewContainer.classList.remove('hidden');
+                            // Update preview content
+                            NENodes.updateConjunctionPreview(node.id);
+                        } else {
+                            previewBtn.textContent = '▶ Show Preview';
+                            previewContainer.classList.add('hidden');
+                        }
+
+                        // Update connections after toggle animation completes
+                        setTimeout(() => {
+                            if (typeof NEConnections !== 'undefined') NEConnections.updateConnections();
+                        }, 300);
+                    }
+                };
             }
 
             // Add click handlers to reference items to insert at cursor
@@ -278,6 +307,7 @@
                     // Focus textarea and update highlights
                     textarea.focus();
                     NENodes.highlightPlaceholders(node.id);
+                    NENodes.updateConjunctionPreview(node.id);
                 };
             });
         }
@@ -336,6 +366,8 @@
         }
         if (node.type === 'conjunction') {
             const template = node.data.template || '';
+            const showPreview = node.data.showPreview || false;
+            const preview = NENodes.resolveConjunctionTemplate(node);
 
             return `
                 <div class="conjunction-template-wrapper">
@@ -346,6 +378,13 @@
                         class="conjunction-template"
                         placeholder="Enter prompt template (use {Prompt}, {AI_Model}, etc.)">${template}</textarea>
                     <div id="node-${node.id}-highlights" class="conjunction-highlights"></div>
+                </div>
+                <button class="btn-preview" data-node-id="${node.id}">
+                    ${showPreview ? '▼ Hide Preview' : '▶ Show Preview'}
+                </button>
+                <div class="conjunction-preview ${showPreview ? '' : 'hidden'}" id="preview-${node.id}">
+                    <div class="conjunction-preview-label">Resolved Text:</div>
+                    <div class="conjunction-preview-content">${preview || '<em style="color: var(--text-secondary);">Empty template</em>'}</div>
                 </div>
             `;
         }
@@ -494,6 +533,42 @@
         highlightsDiv.scrollLeft = textarea.scrollLeft;
     };
 
+    // Resolve conjunction template with actual values
+    NENodes.resolveConjunctionTemplate = function(node) {
+        if (!node || node.type !== 'conjunction') return '';
+
+        const template = node.data.template || '';
+        if (!template) return '';
+
+        const items = node.data.connectedItems || [];
+        const refMap = {};
+
+        // Build reference map
+        items.forEach(item => {
+            refMap[item.refKey] = item.content;
+        });
+
+        // Replace placeholders with actual content
+        const resolved = template.replace(/\{([^}]+)\}/g, (match, key) => {
+            return refMap[key] !== undefined ? refMap[key] : match;
+        });
+
+        // Escape HTML for display
+        return resolved.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+    };
+
+    // Update conjunction preview
+    NENodes.updateConjunctionPreview = function(nodeId) {
+        const node = NodeEditor.nodes.find(n => n.id === nodeId);
+        if (!node || node.type !== 'conjunction') return;
+
+        const previewContent = document.querySelector(`#preview-${nodeId} .conjunction-preview-content`);
+        if (!previewContent) return;
+
+        const preview = NENodes.resolveConjunctionTemplate(node);
+        previewContent.innerHTML = preview || '<em style="color: var(--text-secondary);">Empty template</em>';
+    };
+
     // Update output node statistics
     NENodes.updateOutputStats = function(nodeId, stats) {
         const node = NodeEditor.nodes.find(n => n.id === nodeId);
@@ -534,6 +609,8 @@
     window.getConjunctionReferencesHtml = NENodes.getConjunctionReferencesHtml;
     window.getNodeContent = NENodes.getNodeContent;
     window.highlightPlaceholders = NENodes.highlightPlaceholders;
+    window.resolveConjunctionTemplate = NENodes.resolveConjunctionTemplate;
+    window.updateConjunctionPreview = NENodes.updateConjunctionPreview;
     window.updateOutputStats = NENodes.updateOutputStats;
     window.resetOutputStats = NENodes.resetOutputStats;
 })();

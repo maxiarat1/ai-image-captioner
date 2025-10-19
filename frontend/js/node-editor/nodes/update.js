@@ -137,6 +137,11 @@
 
                 // Update placeholder highlighting
                 if (typeof highlightPlaceholders === 'function') highlightPlaceholders(nodeId);
+
+                // Update preview if visible
+                if (typeof NENodes !== 'undefined' && typeof NENodes.updateConjunctionPreview === 'function') {
+                    NENodes.updateConjunctionPreview(nodeId);
+                }
             }
         }
     };

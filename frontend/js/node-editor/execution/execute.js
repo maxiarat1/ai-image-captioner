@@ -162,19 +162,29 @@
                     const data = await res.json();
                     requestSuccess = true;
 
-                    // If last stage, record/show results; otherwise carry forward caption
+                    // Store caption for next stage or final results
+                    prevCaptions[idx] = data.caption || '';
+
+                    // If last stage, record/show results
                     const isLastStage = (stageIndex === aiChain.length - 1);
                     if (isLastStage) {
-                        AppState.allResults.push({ queueItem: item, data });
+                        // Check if there's a Conjunction node between last AI model and Output
+                        const conjunctionNode = NEExec._findOutputConjunction(aiNode, outputNode);
+                        let finalCaption = data.caption;
+
+                        if (conjunctionNode) {
+                            // Resolve conjunction template with AI model outputs
+                            finalCaption = NEExec._resolveConjunctionForImage(conjunctionNode, prevCaptions, idx);
+                        }
+
+                        AppState.allResults.push({ queueItem: item, data: { ...data, caption: finalCaption } });
                         AppState.processedResults.push({
                             filename: item.filename,
-                            caption: data.caption,
+                            caption: finalCaption,
                             path: item.path || item.filename
                         });
-                        await addResultItemToCurrentPage(item, data);
+                        await addResultItemToCurrentPage(item, { ...data, caption: finalCaption });
                         totalSuccess++;
-                    } else {
-                        prevCaptions[idx] = data.caption || '';
                     }
                 } catch (err) {
                     console.error(err);
@@ -262,6 +272,62 @@
             const mins = Math.floor((seconds % 3600) / 60);
             return `~${hours}h ${mins}m`;
         }
+    };
+
+    // Find if there's a Conjunction node between last AI model and Output
+    NEExec._findOutputConjunction = function(lastAiNode, outputNode) {
+        // Look for conjunction nodes
+        const conjunctionNodes = NodeEditor.nodes.filter(n => n.type === 'conjunction');
+
+        for (const conjNode of conjunctionNodes) {
+            // Check if this conjunction receives from the last AI model
+            const hasAiInput = NodeEditor.connections.some(c =>
+                c.from === lastAiNode.id && c.to === conjNode.id
+            );
+
+            // Check if this conjunction connects to the output
+            const hasOutputConn = NodeEditor.connections.some(c =>
+                c.from === conjNode.id && c.to === outputNode.id
+            );
+
+            if (hasAiInput && hasOutputConn) {
+                return conjNode;
+            }
+        }
+
+        return null;
+    };
+
+    // Resolve conjunction template for a specific image using AI outputs
+    NEExec._resolveConjunctionForImage = function(conjunctionNode, allCaptions, imageIndex) {
+        const template = conjunctionNode.data.template || '';
+        if (!template) return allCaptions[imageIndex] || '';
+
+        const items = conjunctionNode.data.connectedItems || [];
+        const refMap = {};
+
+        // Build reference map with actual AI-generated captions
+        items.forEach(item => {
+            // If the source is an AI model, use the generated caption for this specific image
+            if (item.content === '[Generated Captions]') {
+                // Find which AI model this is from
+                const sourceNode = NodeEditor.nodes.find(n => n.id === item.sourceId);
+                if (sourceNode && sourceNode.type === 'aimodel') {
+                    // Use the caption from this image index
+                    refMap[item.refKey] = allCaptions[imageIndex] || '';
+                }
+            } else {
+                // Use static content (from Prompt nodes, etc.)
+                refMap[item.refKey] = item.content;
+            }
+        });
+
+        // Replace placeholders with actual content
+        const resolved = template.replace(/\{([^}]+)\}/g, (match, key) => {
+            return refMap[key] !== undefined ? refMap[key] : match;
+        });
+
+        return resolved;
     };
 
     // Build prompt string for a specific AI node based on connected Prompt or Conjunction nodes
