@@ -83,15 +83,16 @@
         const portType = portEl.dataset.portType;
         const portColor = getPortColor(portType);
 
-        // Create temporary connection line
-        const tempLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        tempLine.id = 'temp-connection';
-        tempLine.setAttribute('stroke', portColor);
-        tempLine.setAttribute('stroke-width', '3');
-        tempLine.setAttribute('stroke-linecap', 'round');
-        tempLine.setAttribute('stroke-dasharray', '5,5');
-        tempLine.style.opacity = '0.6';
-        svg.appendChild(tempLine);
+        // Create temporary connection path (bezier curve)
+        const tempPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        tempPath.id = 'temp-connection';
+        tempPath.setAttribute('fill', 'none');
+        tempPath.setAttribute('stroke', portColor);
+        tempPath.setAttribute('stroke-width', '3');
+        tempPath.setAttribute('stroke-linecap', 'round');
+        tempPath.setAttribute('stroke-dasharray', '5,5');
+        tempPath.style.opacity = '0.6';
+        svg.appendChild(tempPath);
 
         NodeEditor.connecting = {
             from: nodeId,
@@ -130,8 +131,8 @@
 
         // Remove the existing connection
         NodeEditor.connections = NodeEditor.connections.filter(c => c.id !== existingConnection.id);
-        const line = document.getElementById('conn-' + existingConnection.id);
-        if (line) line.remove();
+        const path = document.getElementById('conn-' + existingConnection.id);
+        if (path) path.remove();
 
         // Remove the gradient for this connection
         const gradient = document.getElementById(`gradient-${existingConnection.id}`);
@@ -152,8 +153,8 @@
         if (!NodeEditor.connecting) return;
 
         const { canvas } = NEUtils.getElements();
-        const tempLine = document.getElementById('temp-connection');
-        if (!canvas || !tempLine) return;
+        const tempPath = document.getElementById('temp-connection');
+        if (!canvas || !tempPath) return;
 
         // Convert mouse position to canvas local coordinates
         const container = canvas.parentElement;
@@ -163,10 +164,25 @@
             e.clientY - containerRect.top
         );
 
-        tempLine.setAttribute('x1', NodeEditor.connecting.startX);
-        tempLine.setAttribute('y1', NodeEditor.connecting.startY);
-        tempLine.setAttribute('x2', mousePos.x);
-        tempLine.setAttribute('y2', mousePos.y);
+        // Calculate bezier curve for smooth flow
+        const pos1 = { x: NodeEditor.connecting.startX, y: NodeEditor.connecting.startY };
+        const pos2 = { x: mousePos.x, y: mousePos.y };
+
+        const dx = pos2.x - pos1.x;
+        const dy = pos2.y - pos1.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        // Control point offset
+        const offset = Math.max(80, Math.min(distance * 0.5, 200));
+
+        const cp1x = pos1.x + offset;
+        const cp1y = pos1.y;
+        const cp2x = pos2.x - offset;
+        const cp2y = pos2.y;
+
+        // Create bezier curve path
+        const pathData = `M ${pos1.x} ${pos1.y} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${pos2.x} ${pos2.y}`;
+        tempPath.setAttribute('d', pathData);
 
         // Visual feedback for port compatibility
         const target = e.target;
@@ -192,22 +208,22 @@
                 // Update visual feedback
                 if (wouldCreateCycle) {
                     // Red for circular dependency
-                    tempLine.setAttribute('stroke', '#ef4444');
-                    tempLine.style.opacity = '0.6';
+                    tempPath.setAttribute('stroke', '#ef4444');
+                    tempPath.style.opacity = '0.6';
                 } else if (arePortsCompatible(fromPortType, toPortType)) {
                     // Use source port color for compatible connections
-                    tempLine.setAttribute('stroke', NodeEditor.connecting.portColor);
-                    tempLine.style.opacity = '0.8';
+                    tempPath.setAttribute('stroke', NodeEditor.connecting.portColor);
+                    tempPath.style.opacity = '0.8';
                 } else {
                     // Red for incompatible types
-                    tempLine.setAttribute('stroke', '#ef4444');
-                    tempLine.style.opacity = '0.6';
+                    tempPath.setAttribute('stroke', '#ef4444');
+                    tempPath.style.opacity = '0.6';
                 }
             }
         } else {
             // Reset to source port color when not hovering over a port
-            tempLine.setAttribute('stroke', NodeEditor.connecting.portColor);
-            tempLine.style.opacity = '0.6';
+            tempPath.setAttribute('stroke', NodeEditor.connecting.portColor);
+            tempPath.style.opacity = '0.6';
         }
     }
 
@@ -217,9 +233,9 @@
         const { canvas } = NEUtils.getElements();
         if (canvas) canvas.classList.remove('connecting');
 
-        // Remove temporary line
-        const tempLine = document.getElementById('temp-connection');
-        if (tempLine) tempLine.remove();
+        // Remove temporary path
+        const tempPath = document.getElementById('temp-connection');
+        if (tempPath) tempPath.remove();
 
         const target = e.target;
         if (target.classList && target.classList.contains('port-in')) {
@@ -308,26 +324,27 @@
     function renderConnection(conn) {
         const { svg } = NEUtils.getElements();
         if (!svg) return;
-        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        line.id = 'conn-' + conn.id;
-        line.setAttribute('stroke', 'url(#connection-gradient)');
-        line.setAttribute('stroke-width', '3');
-        line.setAttribute('stroke-linecap', 'round');
-        line.style.cursor = 'pointer';
-        line.style.filter = 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))';
-        line.style.transition = 'all 0.15s ease';
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.id = 'conn-' + conn.id;
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', 'url(#connection-gradient)');
+        path.setAttribute('stroke-width', '3');
+        path.setAttribute('stroke-linecap', 'round');
+        path.style.cursor = 'pointer';
+        path.style.filter = 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))';
+        path.style.transition = 'all 0.15s ease';
 
-        line.onmouseenter = () => {
-            line.setAttribute('stroke-width', '4');
-            line.style.filter = 'drop-shadow(0 4px 12px rgba(99, 102, 241, 0.6))';
+        path.onmouseenter = () => {
+            path.setAttribute('stroke-width', '4');
+            path.style.filter = 'drop-shadow(0 4px 12px rgba(99, 102, 241, 0.6))';
         };
-        line.onmouseleave = () => {
-            line.setAttribute('stroke-width', '3');
-            line.style.filter = 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))';
+        path.onmouseleave = () => {
+            path.setAttribute('stroke-width', '3');
+            path.style.filter = 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))';
         };
-        line.onclick = () => NEConnections.deleteConnection(conn.id);
+        path.onclick = () => NEConnections.deleteConnection(conn.id);
 
-        svg.appendChild(line);
+        svg.appendChild(path);
         NEConnections.updateConnectionLine(conn.id);
     }
 
@@ -336,8 +353,8 @@
         const conn = NodeEditor.connections.find(c => c.id === connId);
         if (!conn) return;
 
-        const line = document.getElementById('conn-' + connId);
-        if (!line) return;
+        const path = document.getElementById('conn-' + connId);
+        if (!path) return;
 
         // Find ports using data attributes
         const fromEl = document.querySelector(`#node-${conn.from} .port-out[data-port="${conn.fromPort}"]`);
@@ -361,10 +378,22 @@
             toRect.top - containerRect.top + toRect.height / 2
         );
 
-        line.setAttribute('x1', pos1.x);
-        line.setAttribute('y1', pos1.y);
-        line.setAttribute('x2', pos2.x);
-        line.setAttribute('y2', pos2.y);
+        // Calculate bezier curve control points for smooth horizontal flow
+        const dx = pos2.x - pos1.x;
+        const dy = pos2.y - pos1.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        // Control point offset based on distance (minimum 80px, scales with distance)
+        const offset = Math.max(80, Math.min(distance * 0.5, 200));
+
+        const cp1x = pos1.x + offset;
+        const cp1y = pos1.y;
+        const cp2x = pos2.x - offset;
+        const cp2y = pos2.y;
+
+        // Create smooth cubic bezier curve path
+        const pathData = `M ${pos1.x} ${pos1.y} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${pos2.x} ${pos2.y}`;
+        path.setAttribute('d', pathData);
 
         // Get port types and colors
         const fromPortType = fromEl.dataset.portType;
@@ -375,7 +404,7 @@
         // Create/update gradient with port colors
         const gradientUrl = createConnectionGradient(connId, fromColor, toColor, pos1.x, pos1.y, pos2.x, pos2.y);
         if (gradientUrl) {
-            line.setAttribute('stroke', gradientUrl);
+            path.setAttribute('stroke', gradientUrl);
         }
     };
 
@@ -391,8 +420,8 @@
         const targetNode = conn ? NodeEditor.nodes.find(n => n.id === conn.to) : null;
 
         NodeEditor.connections = NodeEditor.connections.filter(c => c.id !== connId);
-        const line = document.getElementById('conn-' + connId);
-        if (line) line.remove();
+        const path = document.getElementById('conn-' + connId);
+        if (path) path.remove();
 
         // Remove the gradient for this connection
         const gradient = document.getElementById(`gradient-${connId}`);

@@ -99,6 +99,18 @@
         // Holds per-image prompt for next stage (captions from previous stage)
         let prevCaptions = new Array(totalImages).fill('');
 
+        // Find output node and reset its stats
+        const outputNode = NodeEditor.nodes.find(n => n.type === 'output');
+        if (outputNode && typeof resetOutputStats === 'function') {
+            resetOutputStats(outputNode.id);
+        }
+
+        // Track overall statistics
+        let totalSuccess = 0;
+        let totalFailed = 0;
+        let totalProcessed = 0;
+        const startTime = Date.now();
+
         // Stage-by-stage processing: finish all images for stage 0, then stage 1, etc.
         for (const aiNode of aiChain) {
             // Highlight current node as processing
@@ -138,6 +150,7 @@
                 }
                 if (promptToUse) formData.append('prompt', promptToUse);
 
+                let requestSuccess = false;
                 try {
                     const res = await fetch(`${AppState.apiBaseUrl}/generate`, {
                         method: 'POST',
@@ -147,6 +160,7 @@
                     if (!res.ok) throw new Error(res.statusText);
 
                     const data = await res.json();
+                    requestSuccess = true;
 
                     // If last stage, record/show results; otherwise carry forward caption
                     const isLastStage = (stageIndex === aiChain.length - 1);
@@ -158,16 +172,45 @@
                             path: item.path || item.filename
                         });
                         await addResultItemToCurrentPage(item, data);
+                        totalSuccess++;
                     } else {
                         prevCaptions[idx] = data.caption || '';
                     }
                 } catch (err) {
                     console.error(err);
+                    totalFailed++;
                 }
 
                 processedInStage++;
+                totalProcessed++;
                 const progress = processedInStage / totalImages;
                 showToast(`Stage ${stageIndex + 1}/${aiChain.length}: ${processedInStage}/${totalImages}`, true, progress);
+
+                // Update Output node stats
+                if (outputNode && typeof updateOutputStats === 'function') {
+                    const elapsed = (Date.now() - startTime) / 1000; // seconds
+                    const avgSpeed = totalProcessed > 0 ? elapsed / totalProcessed : 0;
+                    const remaining = (totalImages * aiChain.length) - totalProcessed;
+                    const eta = remaining > 0 ? avgSpeed * remaining : 0;
+
+                    // Format speed and ETA
+                    const speedText = avgSpeed > 0 ? `~${avgSpeed.toFixed(1)}s/img` : '';
+                    const etaText = eta > 0 ? NEExec._formatTime(eta) : '';
+
+                    // Calculate stage display
+                    const stageText = aiChain.length > 1 ? `${stageIndex + 1}/${aiChain.length}` : '';
+
+                    updateOutputStats(outputNode.id, {
+                        total: totalImages,
+                        processed: processedInStage,
+                        success: totalSuccess,
+                        failed: totalFailed,
+                        stage: stageText,
+                        speed: speedText,
+                        eta: etaText,
+                        resultsReady: 0
+                    });
+                }
             }
 
             // Prepare for next stage: ensure we keep captions from this stage
@@ -185,9 +228,39 @@
         isProcessing = false;
         if (processingControls) processingControls.style.display = 'none';
 
+        // Calculate final statistics
+        const totalTime = (Date.now() - startTime) / 1000; // seconds
+        const iterationsPerSecond = totalProcessed > 0 ? totalProcessed / totalTime : 0;
+
+        // Update Output node with final results
+        if (outputNode && typeof updateOutputStats === 'function') {
+            updateOutputStats(outputNode.id, {
+                resultsReady: AppState.processedResults.length,
+                eta: '',
+                speed: '',
+                totalTime: NEExec._formatTime(totalTime),
+                iterationsPerSecond: iterationsPerSecond.toFixed(2)
+            });
+        }
+
         if (AppState.processedResults.length > 0) {
             if (downloadBtn) downloadBtn.style.display = 'inline-flex';
             showToast('Done!');
+        }
+    };
+
+    // Format time in seconds to human-readable string
+    NEExec._formatTime = function(seconds) {
+        if (seconds < 60) {
+            return `~${Math.round(seconds)}s`;
+        } else if (seconds < 3600) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.round(seconds % 60);
+            return `~${mins}m ${secs}s`;
+        } else {
+            const hours = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            return `~${hours}h ${mins}m`;
         }
     };
 

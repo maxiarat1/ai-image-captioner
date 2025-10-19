@@ -367,6 +367,98 @@
             `;
             return html;
         }
+        if (node.type === 'output') {
+            const stats = node.data.stats || {};
+            const processed = stats.processed || 0;
+            const total = stats.total || 0;
+            const success = stats.success || 0;
+            const failed = stats.failed || 0;
+            const progress = total > 0 ? Math.round((processed / total) * 100) : 0;
+            const stage = stats.stage || '';
+            const speed = stats.speed || '';
+            const eta = stats.eta || '';
+            const totalTime = stats.totalTime || '';
+            const iterationsPerSecond = stats.iterationsPerSecond || '';
+            const resultsReady = stats.resultsReady || 0;
+
+            return `
+                <div class="output-stats" id="output-stats-${node.id}">
+                    ${total > 0 ? `
+                        <div class="output-progress-container">
+                            <div class="output-progress-bar">
+                                <div class="output-progress-fill" style="width: ${progress}%"></div>
+                            </div>
+                            <div class="output-progress-text">${progress}%</div>
+                        </div>
+
+                        <div class="output-stat-row">
+                            <span class="output-stat-label">Processed:</span>
+                            <span class="output-stat-value">${processed}/${total}</span>
+                        </div>
+
+                        ${success > 0 || failed > 0 ? `
+                            <div class="output-stat-row">
+                                <span class="output-stat-label">Success:</span>
+                                <span class="output-stat-value success">${success}</span>
+                            </div>
+                        ` : ''}
+
+                        ${failed > 0 ? `
+                            <div class="output-stat-row">
+                                <span class="output-stat-label">Failed:</span>
+                                <span class="output-stat-value error">${failed}</span>
+                            </div>
+                        ` : ''}
+
+                        ${stage ? `
+                            <div class="output-stat-row">
+                                <span class="output-stat-label">Stage:</span>
+                                <span class="output-stat-value">${stage}</span>
+                            </div>
+                        ` : ''}
+
+                        ${speed ? `
+                            <div class="output-stat-row">
+                                <span class="output-stat-label">Speed:</span>
+                                <span class="output-stat-value">${speed}</span>
+                            </div>
+                        ` : ''}
+
+                        ${eta ? `
+                            <div class="output-stat-row">
+                                <span class="output-stat-label">ETA:</span>
+                                <span class="output-stat-value">${eta}</span>
+                            </div>
+                        ` : ''}
+
+                        ${totalTime ? `
+                            <div class="output-stat-row">
+                                <span class="output-stat-label">Total Time:</span>
+                                <span class="output-stat-value">${totalTime}</span>
+                            </div>
+                        ` : ''}
+
+                        ${iterationsPerSecond ? `
+                            <div class="output-stat-row">
+                                <span class="output-stat-label">It/s:</span>
+                                <span class="output-stat-value">${iterationsPerSecond}</span>
+                            </div>
+                        ` : ''}
+                    ` : ''}
+
+                    ${resultsReady > 0 ? `
+                        <div class="output-results-ready">
+                            <span class="output-results-icon">✓</span>
+                            <span>Results Ready (${resultsReady})</span>
+                        </div>
+                    ` : `
+                        <div class="output-idle">
+                            <span style="color: var(--text-secondary); font-size: 0.85rem;">Waiting for processing...</span>
+                        </div>
+                    `}
+                </div>
+            `;
+        }
         return '';
     };
 
@@ -402,6 +494,37 @@
         highlightsDiv.scrollLeft = textarea.scrollLeft;
     };
 
+    // Update output node statistics
+    NENodes.updateOutputStats = function(nodeId, stats) {
+        const node = NodeEditor.nodes.find(n => n.id === nodeId);
+        if (!node || node.type !== 'output') return;
+
+        // Update node data
+        node.data.stats = { ...node.data.stats, ...stats };
+
+        // Update the display
+        const statsContainer = document.getElementById(`output-stats-${nodeId}`);
+        if (statsContainer) {
+            const body = document.getElementById(`node-${nodeId}`).querySelector('.node-body');
+            if (body) {
+                body.innerHTML = NENodes.getNodeContent(node);
+            }
+        }
+    };
+
+    // Reset output node statistics
+    NENodes.resetOutputStats = function(nodeId) {
+        const node = NodeEditor.nodes.find(n => n.id === nodeId);
+        if (!node || node.type !== 'output') return;
+
+        node.data.stats = {};
+
+        const body = document.getElementById(`node-${nodeId}`).querySelector('.node-body');
+        if (body) {
+            body.innerHTML = NENodes.getNodeContent(node);
+        }
+    };
+
     // Expose
     window.NENodes = NENodes;
     // Backward compatibility aliases
@@ -411,4 +534,6 @@
     window.getConjunctionReferencesHtml = NENodes.getConjunctionReferencesHtml;
     window.getNodeContent = NENodes.getNodeContent;
     window.highlightPlaceholders = NENodes.highlightPlaceholders;
+    window.updateOutputStats = NENodes.updateOutputStats;
+    window.resetOutputStats = NENodes.resetOutputStats;
 })();

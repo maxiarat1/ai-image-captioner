@@ -125,7 +125,8 @@
     z-index: 1;
 }
 
-.connections-svg line {
+.connections-svg line,
+.connections-svg path {
     pointer-events: stroke;
 }
 
@@ -780,3 +781,101 @@
 }
 .drag-guide-line.h { height: 1px; width: 10000px; }
 .drag-guide-line.v { width: 1px; height: 10000px; }
+
+/* Output Node Statistics */
+.output-stats {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.output-progress-container {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: 4px;
+}
+
+.output-progress-bar {
+    flex: 1;
+    height: 8px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    position: relative;
+}
+
+.output-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    border-radius: var(--radius-md);
+    transition: width 0.3s ease;
+    box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.output-progress-text {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--accent-primary);
+    min-width: 35px;
+    text-align: right;
+}
+
+.output-stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 8px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+}
+
+.output-stat-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.output-stat-value {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.output-stat-value.success {
+    color: #22c55e;
+}
+
+.output-stat-value.error {
+    color: #ef4444;
+}
+
+.output-results-ready {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05));
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    border-radius: var(--radius-md);
+    color: #22c55e;
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin-top: 4px;
+}
+
+.output-results-icon {
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.output-idle {
+    text-align: center;
+    padding: var(--spacing-md);
+    color: var(--text-secondary);
+    font-style: italic;
+}
