@@ -394,6 +394,8 @@
                 <select id="node-${node.id}-model" name="model-${node.id}" data-key="model" class="model-select">
                     <option value="blip" ${node.data.model === 'blip' ? 'selected' : ''}>BLIP</option>
                     <option value="r4b" ${node.data.model === 'r4b' ? 'selected' : ''}>R-4B</option>
+                    <option value="qwen3vl-4b" ${node.data.model === 'qwen3vl-4b' ? 'selected' : ''}>Qwen3-VL 4B</option>
+                    <option value="qwen3vl-8b" ${node.data.model === 'qwen3vl-8b' ? 'selected' : ''}>Qwen3-VL 8B</option>
                 </select>
                 <button class="btn-advanced" data-node-id="${node.id}">
                     ${showAdvanced ? '▼ Hide Advanced' : '▶ Show Advanced'}

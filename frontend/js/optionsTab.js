@@ -28,7 +28,9 @@ async function initOptionsHandlers() {
     // Model descriptions
     const modelDescriptions = {
         'blip': 'Fast, basic image captioning',
-        'r4b': 'Advanced reasoning model with configurable parameters'
+        'r4b': 'Advanced reasoning model with configurable parameters',
+        'qwen3vl-4b': 'Qwen3-VL 4B - Compact vision-language model with strong performance',
+        'qwen3vl-8b': 'Qwen3-VL 8B - Advanced vision-language model with superior image understanding'
     };
 
     // Handle advanced settings toggle

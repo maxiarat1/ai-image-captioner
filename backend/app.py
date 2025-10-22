@@ -22,6 +22,7 @@ if os.environ.get("TAGGER_FORCE_CPU", "0") == "1":
 
 from models.blip_adapter import BlipAdapter
 from models.r4b_adapter import R4BAdapter
+from models.qwen3vl_adapter import Qwen3VLAdapter
 from utils.image_utils import process_uploaded_image, validate_image_format
 
 # Debug mode - set to True to enable detailed logging
@@ -44,7 +45,9 @@ CONFIG_FILE = Path(__file__).parent.parent / "user_config.json"
 # Global model instances
 models = {
     'blip': None,
-    'r4b': None
+    'r4b': None,
+    'qwen3vl-4b': None,
+    'qwen3vl-8b': None
 }
 current_model = 'blip'
 
@@ -54,7 +57,7 @@ def init_models():
 
     # Note: All models are now loaded on-demand to save memory and startup time
     print("Model registry initialized. Models will be loaded on-demand when first used.")
-    print("Available models: BLIP (fast), R-4B (advanced reasoning)")
+    print("Available models: BLIP (fast), R-4B (advanced reasoning), Qwen3-VL-4B, Qwen3-VL-8B (vision-language)")
 
 def get_model(model_name, precision_params=None, force_reload=False):
     """Get or load a specific model with optional precision parameters"""
@@ -72,12 +75,12 @@ def get_model(model_name, precision_params=None, force_reload=False):
 
     # Check if we need to reload the model due to precision changes
     should_reload = force_reload
-    if model_name == 'r4b' and models[model_name] is not None and precision_params:
+    if model_name in ['r4b', 'qwen3vl-4b', 'qwen3vl-8b'] and models[model_name] is not None and precision_params:
         # Check if current model settings differ from requested settings
         current_adapter = models[model_name]
         if hasattr(current_adapter, 'current_precision_params'):
             if current_adapter.current_precision_params != precision_params:
-                print("Model settings changed, reloading R-4B model...")
+                print(f"Model settings changed, reloading {model_name} model...")
                 should_reload = True
         else:
             # First time with parameters, need to track them
@@ -128,6 +131,66 @@ def get_model(model_name, precision_params=None, force_reload=False):
                     }
             except Exception as e:
                 print(f"Failed to load R-4B model: {e}")
+                raise
+
+        elif model_name == 'qwen3vl-4b':
+            try:
+                action = "Reloading" if should_reload else "Loading"
+                print(f"{action} Qwen3-VL-4B model on-demand...")
+
+                # Clear existing model if reloading
+                if should_reload and models['qwen3vl-4b'] is not None:
+                    models['qwen3vl-4b'].unload()  # Properly unload the model
+                    models['qwen3vl-4b'] = None
+
+                models['qwen3vl-4b'] = Qwen3VLAdapter(model_id="Qwen/Qwen3-VL-4B-Instruct")
+
+                # Extract precision parameters if provided
+                if precision_params:
+                    models['qwen3vl-4b'].load_model(
+                        precision=precision_params.get('precision', 'auto'),
+                        use_flash_attention=precision_params.get('use_flash_attention', False)
+                    )
+                    # Store current parameters for future comparison
+                    models['qwen3vl-4b'].current_precision_params = precision_params.copy()
+                else:
+                    models['qwen3vl-4b'].load_model()
+                    models['qwen3vl-4b'].current_precision_params = {
+                        'precision': 'auto',
+                        'use_flash_attention': False
+                    }
+            except Exception as e:
+                print(f"Failed to load Qwen3-VL-4B model: {e}")
+                raise
+
+        elif model_name == 'qwen3vl-8b':
+            try:
+                action = "Reloading" if should_reload else "Loading"
+                print(f"{action} Qwen3-VL-8B model on-demand...")
+
+                # Clear existing model if reloading
+                if should_reload and models['qwen3vl-8b'] is not None:
+                    models['qwen3vl-8b'].unload()  # Properly unload the model
+                    models['qwen3vl-8b'] = None
+
+                models['qwen3vl-8b'] = Qwen3VLAdapter(model_id="Qwen/Qwen3-VL-8B-Instruct")
+
+                # Extract precision parameters if provided
+                if precision_params:
+                    models['qwen3vl-8b'].load_model(
+                        precision=precision_params.get('precision', 'auto'),
+                        use_flash_attention=precision_params.get('use_flash_attention', False)
+                    )
+                    # Store current parameters for future comparison
+                    models['qwen3vl-8b'].current_precision_params = precision_params.copy()
+                else:
+                    models['qwen3vl-8b'].load_model()
+                    models['qwen3vl-8b'].current_precision_params = {
+                        'precision': 'auto',
+                        'use_flash_attention': False
+                    }
+            except Exception as e:
+                print(f"Failed to load Qwen3-VL-8B model: {e}")
                 raise
 
     return models[model_name]
@@ -197,7 +260,9 @@ def health_check():
         "status": "ok",
         "models_available": list(models.keys()),
         "blip_loaded": models['blip'] is not None and models['blip'].is_loaded(),
-        "r4b_loaded": models['r4b'] is not None and models['r4b'].is_loaded()
+        "r4b_loaded": models['r4b'] is not None and models['r4b'].is_loaded(),
+        "qwen3vl_4b_loaded": models['qwen3vl-4b'] is not None and models['qwen3vl-4b'].is_loaded(),
+        "qwen3vl_8b_loaded": models['qwen3vl-8b'] is not None and models['qwen3vl-8b'].is_loaded()
     })
 
 @app.route('/model/info', methods=['GET'])
@@ -213,6 +278,12 @@ def model_info():
         elif model_name == 'r4b':
             from models.r4b_adapter import R4BAdapter
             adapter = R4BAdapter()
+        elif model_name == 'qwen3vl-4b':
+            from models.qwen3vl_adapter import Qwen3VLAdapter
+            adapter = Qwen3VLAdapter(model_id="Qwen/Qwen3-VL-4B-Instruct")
+        elif model_name == 'qwen3vl-8b':
+            from models.qwen3vl_adapter import Qwen3VLAdapter
+            adapter = Qwen3VLAdapter(model_id="Qwen/Qwen3-VL-8B-Instruct")
         else:
             return jsonify({"error": f"Unknown model: {model_name}"}), 400
 
@@ -234,7 +305,9 @@ def list_models():
             "loaded": model_instance is not None and model_instance.is_loaded(),
             "description": {
                 "blip": "Fast, basic image captioning",
-                "r4b": "Advanced reasoning model with configurable parameters"
+                "r4b": "Advanced reasoning model with configurable parameters",
+                "qwen3vl-4b": "Qwen3-VL 4B - Compact vision-language model with strong performance",
+                "qwen3vl-8b": "Qwen3-VL 8B - Advanced vision-language model with superior image understanding"
             }.get(model_name, "Unknown model")
         })
 
@@ -492,7 +565,7 @@ def generate_caption():
             debug_log("Failed to parse parameters", {"error": str(e), "raw": parameters_str})
             parameters = {}
 
-        # Extract precision parameters for R-4B model
+        # Extract precision parameters for models that support it
         precision_params = None
         if model_name == 'r4b' and parameters:
             precision_params = {
@@ -500,6 +573,12 @@ def generate_caption():
                 'use_flash_attention': parameters.get('use_flash_attention', False)
             }
             debug_log("Extracted precision parameters for R-4B", precision_params)
+        elif model_name in ['qwen3vl-4b', 'qwen3vl-8b'] and parameters:
+            precision_params = {
+                'precision': parameters.get('precision', 'auto'),
+                'use_flash_attention': parameters.get('use_flash_attention', False)
+            }
+            debug_log(f"Extracted precision parameters for {model_name}", precision_params)
 
         # Get model instance
         debug_log(f"Loading/getting model: {model_name}")
@@ -617,11 +696,16 @@ def generate_batch():
         except:
             parameters = {}
 
-        # Extract precision parameters for R-4B
+        # Extract precision parameters for models that support it
         precision_params = None
         if model_name == 'r4b' and parameters:
             precision_params = {
                 'precision': parameters.get('precision', 'float32'),
+                'use_flash_attention': parameters.get('use_flash_attention', False)
+            }
+        elif model_name in ['qwen3vl-4b', 'qwen3vl-8b'] and parameters:
+            precision_params = {
+                'precision': parameters.get('precision', 'auto'),
                 'use_flash_attention': parameters.get('use_flash_attention', False)
             }
 
