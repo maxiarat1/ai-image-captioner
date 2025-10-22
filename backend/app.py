@@ -3,6 +3,7 @@ import base64
 import json
 import zipfile
 import os
+import logging
 from datetime import datetime
 from pathlib import Path
 from flask import Flask, request, jsonify, send_file
@@ -24,17 +25,22 @@ from models.blip_adapter import BlipAdapter
 from models.r4b_adapter import R4BAdapter
 from models.qwen3vl_adapter import Qwen3VLAdapter
 from utils.image_utils import process_uploaded_image, validate_image_format
+from utils.logging_utils import setup_logging, compact_json
 
-# Debug mode - set to True to enable detailed logging
-DEBUG_MODE = True
+# Configure logging early
+setup_logging()
+logger = logging.getLogger(__name__)
+
+# Debug mode via env (default: off)
+DEBUG_MODE = os.environ.get("TAGGER_DEBUG", "0") == "1"
 
 def debug_log(message, data=None):
-    """Print debug information if DEBUG_MODE is enabled"""
+    """Debug helper that logs a single compact line when TAGGER_DEBUG=1."""
     if DEBUG_MODE:
-        print(f"DEBUG: {message}")
         if data is not None:
-            print(f"    Data: {json.dumps(data, indent=2, default=str)}")
-        print("=" * 50)
+            logger.debug("%s | data=%s", message, compact_json(data))
+        else:
+            logger.debug("%s", message)
 
 app = Flask(__name__)
 CORS(app)
@@ -56,8 +62,8 @@ def init_models():
     global models
 
     # Note: All models are now loaded on-demand to save memory and startup time
-    print("Model registry initialized. Models will be loaded on-demand when first used.")
-    print("Available models: BLIP (fast), R-4B (advanced reasoning), Qwen3-VL-4B, Qwen3-VL-8B (vision-language)")
+    logger.info("Model registry ready. Models load on first use.")
+    logger.info("Available models: BLIP (fast), R-4B (reasoning), Qwen3-VL-4B/8B (vision-language)")
 
 def get_model(model_name, precision_params=None, force_reload=False):
     """Get or load a specific model with optional precision parameters"""
@@ -69,7 +75,7 @@ def get_model(model_name, precision_params=None, force_reload=False):
     # IMPORTANT: Unload other models to free VRAM when switching models
     for other_model_name in models.keys():
         if other_model_name != model_name and models[other_model_name] is not None:
-            print(f"Switching from {other_model_name} to {model_name}, unloading {other_model_name}...")
+            logger.info("Switching model %s -> %s (unloading %s)", other_model_name, model_name, other_model_name)
             models[other_model_name].unload()
             models[other_model_name] = None
 
@@ -80,7 +86,7 @@ def get_model(model_name, precision_params=None, force_reload=False):
         current_adapter = models[model_name]
         if hasattr(current_adapter, 'current_precision_params'):
             if current_adapter.current_precision_params != precision_params:
-                print(f"Model settings changed, reloading {model_name} model...")
+                logger.info("Model settings changed, reloading %s…", model_name)
                 should_reload = True
         else:
             # First time with parameters, need to track them
@@ -89,8 +95,8 @@ def get_model(model_name, precision_params=None, force_reload=False):
     if models[model_name] is None or should_reload:
         if model_name == 'blip':
             try:
-                action = "Reloading" if should_reload else "Loading"
-                print(f"{action} BLIP model on-demand...")
+                action = "reloading" if should_reload else "loading"
+                logger.info("%s BLIP model on-demand…", action.capitalize())
 
                 # Clear existing model if reloading
                 if should_reload and models['blip'] is not None:
@@ -100,13 +106,13 @@ def get_model(model_name, precision_params=None, force_reload=False):
                 models['blip'] = BlipAdapter()
                 models['blip'].load_model()
             except Exception as e:
-                print(f"Failed to load BLIP model: {e}")
+                logger.exception("Failed to load BLIP model: %s", e)
                 raise
 
         elif model_name == 'r4b':
             try:
-                action = "Reloading" if should_reload else "Loading"
-                print(f"{action} R-4B model on-demand...")
+                action = "reloading" if should_reload else "loading"
+                logger.info("%s R-4B model on-demand…", action.capitalize())
 
                 # Clear existing model if reloading
                 if should_reload and models['r4b'] is not None:
@@ -130,13 +136,13 @@ def get_model(model_name, precision_params=None, force_reload=False):
                         'use_flash_attention': False
                     }
             except Exception as e:
-                print(f"Failed to load R-4B model: {e}")
+                logger.exception("Failed to load R-4B model: %s", e)
                 raise
 
         elif model_name == 'qwen3vl-4b':
             try:
-                action = "Reloading" if should_reload else "Loading"
-                print(f"{action} Qwen3-VL-4B model on-demand...")
+                action = "reloading" if should_reload else "loading"
+                logger.info("%s Qwen3-VL-4B model on-demand…", action.capitalize())
 
                 # Clear existing model if reloading
                 if should_reload and models['qwen3vl-4b'] is not None:
@@ -160,13 +166,13 @@ def get_model(model_name, precision_params=None, force_reload=False):
                         'use_flash_attention': False
                     }
             except Exception as e:
-                print(f"Failed to load Qwen3-VL-4B model: {e}")
+                logger.exception("Failed to load Qwen3-VL-4B model: %s", e)
                 raise
 
         elif model_name == 'qwen3vl-8b':
             try:
-                action = "Reloading" if should_reload else "Loading"
-                print(f"{action} Qwen3-VL-8B model on-demand...")
+                action = "reloading" if should_reload else "loading"
+                logger.info("%s Qwen3-VL-8B model on-demand…", action.capitalize())
 
                 # Clear existing model if reloading
                 if should_reload and models['qwen3vl-8b'] is not None:
@@ -190,7 +196,7 @@ def get_model(model_name, precision_params=None, force_reload=False):
                         'use_flash_attention': False
                     }
             except Exception as e:
-                print(f"Failed to load Qwen3-VL-8B model: {e}")
+                logger.exception("Failed to load Qwen3-VL-8B model: %s", e)
                 raise
 
     return models[model_name]
@@ -231,7 +237,7 @@ def load_user_config():
             save_user_config(default_config)
             return default_config
     except Exception as e:
-        print(f"Error loading user config: {e}")
+        logger.exception("Error loading user config: %s", e)
         return {"savedConfigurations": {}, "customPrompts": [], "lastModified": None}
 
 def save_user_config(config_data):
@@ -247,10 +253,10 @@ def save_user_config(config_data):
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
             json.dump(config_data, f, indent=2, ensure_ascii=False)
 
-        print(f"User config saved to: {CONFIG_FILE}")
+        logger.info("User config saved to: %s", CONFIG_FILE)
         return True
     except Exception as e:
-        print(f"Error saving user config: {e}")
+        logger.exception("Error saving user config: %s", e)
         return False
 
 @app.route('/health', methods=['GET'])
@@ -350,7 +356,7 @@ def unload_model():
             # Use the model's unload method for proper cleanup
             models[model_name].unload()
             models[model_name] = None
-            print(f"{model_name} model unloaded successfully")
+            logger.info("%s model unloaded successfully", model_name)
 
         return jsonify({
             "success": True,
@@ -467,7 +473,7 @@ def scan_folder():
         })
 
     except Exception as e:
-        print(f"Error scanning folder: {e}")
+        logger.exception("Error scanning folder: %s", e)
         return jsonify({"error": str(e)}), 500
 
 @app.route('/image/thumbnail', methods=['GET'])
@@ -502,7 +508,7 @@ def get_thumbnail():
         })
 
     except Exception as e:
-        print(f"Error generating thumbnail: {e}")
+        logger.exception("Error generating thumbnail: %s", e)
         return jsonify({"error": str(e)}), 500
 
 @app.route('/generate', methods=['POST'])
@@ -550,12 +556,17 @@ def generate_caption():
         model_name = request.form.get('model', 'blip')
         parameters_str = request.form.get('parameters', '{}')
         prompt = request.form.get('prompt', '')
+        # Optional client-provided identifiers for tracing
+        req_image_id = request.form.get('image_id', '')
+        req_image_filename = request.form.get('image_filename', '')
 
         debug_log("Raw request data", {
             "model_name": model_name,
             "parameters_str": parameters_str,
             "prompt": prompt,
-            "prompt_length": len(prompt) if prompt else 0
+            "prompt_length": len(prompt) if prompt else 0,
+            "req_image_id": req_image_id,
+            "req_image_filename": req_image_filename
         })
 
         try:
@@ -662,11 +673,15 @@ def generate_caption():
             "caption": caption,
             "image_preview": f"data:image/jpeg;base64,{img_str}",
             "model": model_adapter.model_name,
-            "parameters_used": parameters
+            "parameters_used": parameters,
+            # Echo identifiers back to the client for robust pairing
+            "image_id": req_image_id,
+            # Prefer the server-derived filename when available
+            "image_filename": filename or req_image_filename
         })
 
     except Exception as e:
-        print(f"Error in generate_caption: {e}")
+        logger.exception("Error in generate_caption: %s", e)
         return jsonify({"error": str(e)}), 500
 
 @app.route('/generate/batch', methods=['POST'])
@@ -862,7 +877,7 @@ def export_with_metadata():
         )
 
     except Exception as e:
-        print(f"Error in export_with_metadata: {e}")
+        logger.exception("Error in export_with_metadata: %s", e)
         return jsonify({"error": str(e)}), 500
 
 @app.errorhandler(413)
@@ -880,5 +895,6 @@ if __name__ == '__main__':
     # Initialize models
     init_models()
 
-    # Run app
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Run app (Flask debug mode can cause double logging via reloader)
+    flask_debug = os.environ.get("FLASK_DEBUG", "0") == "1"
+    app.run(debug=flask_debug, host='0.0.0.0', port=5000)

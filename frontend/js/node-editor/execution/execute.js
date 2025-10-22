@@ -25,10 +25,11 @@
             return;
         }
 
-        // Optional: ensure last AI model connects to output (best-effort, not hard-fail)
+        // Optional: ensure last AI model connects to output (directly or via Conjunction)
         const last = chain[chain.length - 1];
-        const connectedToOutput = NodeEditor.connections.some(c => c.from === last.id && c.to === outputNode.id);
-        if (!connectedToOutput) {
+        const directOut = NodeEditor.connections.some(c => c.from === last.id && c.to === outputNode.id);
+        const viaConjOut = !!NEExec._findOutputConjunction(last, outputNode);
+        if (!directOut && !viaConjOut) {
             // Non-blocking warning to keep UX simple
             console.warn('Last AI Model is not connected to Output node');
         }
@@ -63,13 +64,40 @@
         // Follow chain forward via captions (0) -> prompt (1)
         const chain = [start];
         let current = start;
+        const visited = new Set([start.id]);
         while (true) {
-            // Find connection from current captions to another aimodel prompt
-            const link = NodeEditor.connections.find(c => c.from === current.id && c.fromPort === 0);
-            if (!link) break;
-            const next = NodeEditor.nodes.find(n => n.id === link.to && n.type === 'aimodel' && link.toPort === 1);
+            // Find connections from current captions (port 0)
+            const outgoing = NodeEditor.connections.filter(c => c.from === current.id && c.fromPort === 0);
+            if (!outgoing || outgoing.length === 0) break;
+
+            // 1) Prefer direct connection to next AI model prompt (port 1)
+            let nextConn = outgoing.find(c => {
+                const toNode = NodeEditor.nodes.find(n => n.id === c.to);
+                return toNode && toNode.type === 'aimodel' && c.toPort === 1;
+            });
+
+            // 2) Otherwise, allow a Conjunction node in between: current(captions)->conjunction(text) -> nextAI(prompt)
+            if (!nextConn) {
+                const conjConn = outgoing.find(c => {
+                    const toNode = NodeEditor.nodes.find(n => n.id === c.to);
+                    return toNode && toNode.type === 'conjunction';
+                });
+                if (conjConn) {
+                    // Find from this conjunction to an AI model prompt
+                    const toAi = NodeEditor.connections.find(cc => cc.from === conjConn.to && (() => {
+                        const nn = NodeEditor.nodes.find(n => n.id === cc.to);
+                        return nn && nn.type === 'aimodel' && cc.toPort === 1;
+                    })());
+                    if (toAi) nextConn = toAi;
+                }
+            }
+
+            if (!nextConn) break;
+            const next = NodeEditor.nodes.find(n => n.id === nextConn.to && n.type === 'aimodel');
             if (!next) break;
+            if (visited.has(next.id)) break; // safety against unexpected cycles
             chain.push(next);
+            visited.add(next.id);
             current = next;
         }
         return chain;
@@ -84,7 +112,7 @@
         const processingControls = document.getElementById('processingControls');
         const paginationControls = document.getElementById('paginationControls');
 
-        if (resultsGrid) resultsGrid.innerHTML = '';
+    if (resultsGrid) resultsGrid.innerHTML = '';
         if (paginationControls) paginationControls.style.display = 'none';
         if (downloadBtn) downloadBtn.style.display = 'none';
         if (processingControls) processingControls.style.display = 'flex';
@@ -94,7 +122,9 @@
         AppState.currentPage = 1;
         isProcessing = true;
 
-        const totalImages = AppState.uploadQueue.length;
+    // Snapshot the current queue to prevent index mixups if the queue changes mid-run
+    const workQueue = AppState.uploadQueue.slice();
+    const totalImages = workQueue.length;
         let stageIndex = 0;
         // Holds per-image prompt for next stage (captions from previous stage)
         let prevCaptions = new Array(totalImages).fill('');
@@ -104,6 +134,13 @@
         if (outputNode && typeof resetOutputStats === 'function') {
             resetOutputStats(outputNode.id);
         }
+
+        // Clear recent outputs history on all Conjunction nodes before a new run
+        const conjNodes = NodeEditor.nodes.filter(n => n.type === 'conjunction');
+        conjNodes.forEach(cn => {
+            cn.data.history = [];
+            if (typeof updateConjunctionPreview === 'function') updateConjunctionPreview(cn.id);
+        });
 
         // Track overall statistics
         let totalSuccess = 0;
@@ -120,17 +157,21 @@
             // Compute any static prompt connected directly into this AI node
             const basePrompt = NEExec._buildPromptForNode(aiNode);
 
-            for (let idx = 0; idx < AppState.uploadQueue.length; idx++) {
+            for (let idx = 0; idx < workQueue.length; idx++) {
                 if (shouldStop) break;
                 while (isPaused && !shouldStop) {
                     await new Promise(r => setTimeout(r, 100));
                 }
 
-                const item = AppState.uploadQueue[idx];
+                const item = workQueue[idx];
 
                 const formData = new FormData();
                 if (item.file) formData.append('image', item.file);
                 else if (item.path) formData.append('image_path', item.path);
+
+                // Attach stable identifiers for robust tracking/debugging (ignored by backend if unused)
+                if (item.id !== undefined) formData.append('image_id', String(item.id));
+                if (item.filename) formData.append('image_filename', item.filename);
 
                 formData.append('model', aiNode.data.model);
                 formData.append('parameters', JSON.stringify(aiNode.data.parameters || {}));
@@ -142,8 +183,22 @@
                     const fromNode = NodeEditor.nodes.find(nn => nn.id === c.from);
                     return c.to === aiNode.id && c.toPort === 1 && fromNode && fromNode.type === 'aimodel';
                 });
+                // Check if a Conjunction feeds this AI node
+                const conjFeedConn = NodeEditor.connections.find(c => {
+                    if (c.to !== aiNode.id) return false;
+                    const fromNode = NodeEditor.nodes.find(nn => nn.id === c.from);
+                    return !!fromNode && fromNode.type === 'conjunction';
+                });
+
                 let promptToUse = '';
-                if (fedByPrevAi) {
+                if (conjFeedConn) {
+                    const conjNode = NodeEditor.nodes.find(n => n.id === conjFeedConn.from);
+                    const resolved = NEExec._resolveConjunctionForImage(conjNode, prevCaptions, idx);
+                    promptToUse = resolved || '';
+                    // Log per-image resolved prompt for this conjunction, annotated with filename
+                    const nameTag = item && (item.filename || item.path) ? `[${item.filename || item.path}] ` : '';
+                    NEExec._appendConjunctionHistory(conjNode.id, nameTag + (resolved || ''));
+                } else if (fedByPrevAi) {
                     promptToUse = prevCaptions[idx] || '';
                 } else {
                     promptToUse = basePrompt || '';
@@ -175,6 +230,9 @@
                         if (conjunctionNode) {
                             // Resolve conjunction template with AI model outputs
                             finalCaption = NEExec._resolveConjunctionForImage(conjunctionNode, prevCaptions, idx);
+                            // Record recent resolved texts (max 5) for live preview, annotated with filename
+                            const nameTag = item && (item.filename || item.path) ? `[${item.filename || item.path}] ` : '';
+                            NEExec._appendConjunctionHistory(conjunctionNode.id, nameTag + (finalCaption || ''));
                         }
 
                         AppState.allResults.push({ queueItem: item, data: { ...data, caption: finalCaption } });
@@ -328,6 +386,24 @@
         });
 
         return resolved;
+    };
+
+    // Append resolved conjunction text to a node's history (keeps last 5)
+    NEExec._appendConjunctionHistory = function(conjunctionNodeId, text) {
+        const node = NodeEditor.nodes.find(n => n.id === conjunctionNodeId && n.type === 'conjunction');
+        if (!node) return;
+        if (!node.data) node.data = {};
+        if (!Array.isArray(node.data.history)) node.data.history = [];
+
+        node.data.history.push(text || '');
+        if (node.data.history.length > 5) {
+            node.data.history = node.data.history.slice(-5);
+        }
+
+        // Update UI if preview is rendered
+        if (typeof updateConjunctionPreview === 'function') {
+            updateConjunctionPreview(conjunctionNodeId);
+        }
     };
 
     // Build prompt string for a specific AI node based on connected Prompt or Conjunction nodes

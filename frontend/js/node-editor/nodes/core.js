@@ -385,6 +385,8 @@
                 <div class="conjunction-preview ${showPreview ? '' : 'hidden'}" id="preview-${node.id}">
                     <div class="conjunction-preview-label">Resolved Text:</div>
                     <div class="conjunction-preview-content">${preview || '<em style="color: var(--text-secondary);">Empty template</em>'}</div>
+                    <div class="conjunction-preview-label" style="margin-top: 8px;">Recent outputs:</div>
+                    <div class="conjunction-preview-history" id="preview-${node.id}-history"></div>
                 </div>
             `;
         }
@@ -569,6 +571,20 @@
 
         const preview = NENodes.resolveConjunctionTemplate(node);
         previewContent.innerHTML = preview || '<em style="color: var(--text-secondary);">Empty template</em>';
+
+        // Update recent outputs history (last 5)
+        const historyEl = document.getElementById(`preview-${nodeId}-history`);
+        if (historyEl) {
+            const hist = Array.isArray(node.data.history) ? node.data.history.slice(-5) : [];
+            if (hist.length === 0) {
+                historyEl.innerHTML = '<div style="color: var(--text-secondary); font-size: 0.85rem;">No recent outputs</div>';
+            } else {
+                const escape = (s) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+                // Show newest first
+                const items = hist.slice().reverse().map(t => `<li class="conjunction-history-item" style="margin: 4px 0; line-height: 1.2;">${escape(t)}</li>`).join('');
+                historyEl.innerHTML = `<ul class="conjunction-history-list" style="padding-left: 16px; margin: 4px 0 0 0;">${items}</ul>`;
+            }
+        }
     };
 
     // Update output node statistics

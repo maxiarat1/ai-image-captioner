@@ -3,6 +3,9 @@ from utils.torch_utils import pick_device, force_cpu_mode
 from PIL import Image
 from transformers import Qwen3VLForConditionalGeneration, AutoProcessor, BitsAndBytesConfig
 from .base_adapter import BaseModelAdapter
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Qwen3VLAdapter(BaseModelAdapter):
     """Qwen3-VL model adapter for advanced vision-language tasks (supports 4B and 8B variants)"""
@@ -44,17 +47,17 @@ class Qwen3VLAdapter(BaseModelAdapter):
     def load_model(self, precision="auto", use_flash_attention=False) -> None:
         """Load Qwen3-VL model and processor with configurable precision and optimizations"""
         try:
-            print(f"Loading {self.model_id} model on {self.device} with {precision} precision...")
+            logger.info("Loading %s on %s (precision=%s)…", self.model_id, self.device, precision)
 
             # Create quantization config for 4bit/8bit precision
             self.quantization_config = self._create_quantization_config(precision)
 
             # Load processor
-            print("Loading processor...")
+            logger.debug("Loading processor…")
             self.processor = AutoProcessor.from_pretrained(self.model_id)
             if self.processor is None:
                 raise RuntimeError("Processor loading failed - AutoProcessor.from_pretrained returned None")
-            print("Processor loaded successfully")
+            logger.debug("Processor loaded")
 
             # Prepare model loading arguments
             model_kwargs = {
@@ -78,26 +81,26 @@ class Qwen3VLAdapter(BaseModelAdapter):
                     # Override dtype to bfloat16 for flash attention (recommended by Qwen)
                     if precision not in ["4bit", "8bit"]:
                         model_kwargs["torch_dtype"] = torch.bfloat16
-                    print("Using Flash Attention 2 for improved performance (dtype: bfloat16)")
+                    logger.info("Using Flash Attention 2 (dtype=bfloat16)")
                 except ImportError:
-                    print("Flash Attention not available, using default attention")
+                    logger.debug("Flash Attention not available; using default attention")
 
             # Load model
-            print("Loading model...")
+            logger.info("Loading model weights…")
             self.model = Qwen3VLForConditionalGeneration.from_pretrained(
                 self.model_id,
                 **model_kwargs
             )
             if self.model is None:
                 raise RuntimeError("Model loading failed - Qwen3VLForConditionalGeneration.from_pretrained returned None")
-            print("Model loaded successfully")
+            logger.info("Model loaded")
 
             self.model.eval()
 
-            print(f"{self.model_id} model loaded successfully! (Precision: {precision})")
+            logger.info("%s ready (precision=%s)", self.model_id, precision)
 
         except Exception as e:
-            print(f"Error loading Qwen3-VL model: {e}")
+            logger.exception("Error loading Qwen3-VL model: %s", e)
             raise
 
     def generate_caption(self, image: Image.Image, prompt: str = None, parameters: dict = None) -> str:
@@ -107,9 +110,7 @@ class Qwen3VLAdapter(BaseModelAdapter):
 
         try:
             # Debug logging
-            print(f"Qwen3VL Adapter: generate_caption called")
-            print(f"   Prompt: '{prompt}'")
-            print(f"   Parameters received: {parameters}")
+            logger.debug("Qwen3VL.generate_caption | prompt=%s | params=%s", (prompt or ""), parameters)
 
             # Convert to RGB if necessary
             if image.mode != 'RGB':
@@ -120,7 +121,7 @@ class Qwen3VLAdapter(BaseModelAdapter):
 
             # Process parameters - only include what was explicitly set
             if parameters:
-                print(f"   Processing parameters...")
+                logger.debug("Processing provided parameters…")
 
                 # Get all generation param keys (excluding special params like precision, use_flash_attention)
                 generation_param_keys = [p['param_key'] for p in self.get_available_parameters()
@@ -131,10 +132,9 @@ class Qwen3VLAdapter(BaseModelAdapter):
                     if param_key in parameters:
                         gen_params[param_key] = parameters[param_key]
             else:
-                print(f"   No parameters provided, using model defaults...")
+                logger.debug("No parameters provided, using defaults")
 
-            print(f"   Generation parameters: {gen_params if gen_params else 'Using library defaults'}")
-            print("=" * 60)
+            logger.debug("Generation parameters: %s", gen_params if gen_params else "defaults")
 
             # Prepare prompt
             if not prompt:
@@ -181,7 +181,7 @@ class Qwen3VLAdapter(BaseModelAdapter):
             return caption.strip() if caption else "Unable to generate description."
 
         except Exception as e:
-            print(f"Error generating caption with Qwen3-VL: {e}")
+            logger.exception("Error generating caption with Qwen3-VL: %s", e)
             return f"Error: {str(e)}"
 
     def is_loaded(self) -> bool:

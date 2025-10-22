@@ -3,6 +3,9 @@ from utils.torch_utils import pick_device
 from PIL import Image
 from transformers import BlipProcessor, BlipForConditionalGeneration
 from .base_adapter import BaseModelAdapter
+import logging
+
+logger = logging.getLogger(__name__)
 
 class BlipAdapter(BaseModelAdapter):
     """BLIP model adapter for image captioning"""
@@ -14,14 +17,14 @@ class BlipAdapter(BaseModelAdapter):
     def load_model(self) -> None:
         """Load BLIP model and processor"""
         try:
-            print(f"Loading BLIP model on {self.device}...")
+            logger.info("Loading BLIP model on %s…", self.device)
             self.processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base", use_fast=True)
             self.model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
             self.model.to(self.device)
             self.model.eval()
-            print("BLIP model loaded successfully!")
+            logger.info("BLIP model loaded successfully")
         except Exception as e:
-            print(f"Error loading BLIP model: {e}")
+            logger.exception("Error loading BLIP model: %s", e)
             raise
 
     def generate_caption(self, image: Image.Image, prompt: str = None, parameters: dict = None) -> str:
@@ -31,10 +34,7 @@ class BlipAdapter(BaseModelAdapter):
 
         try:
             # Debug logging
-            print(f"BLIP Adapter: generate_caption called")
-            print(f"   Prompt: '{prompt}'")
-            print(f"   Parameters: {parameters}")
-            print("=" * 60)
+            logger.debug("BLIP.generate_caption | prompt=%s | params=%s", (prompt or ""), parameters)
 
             # Convert to RGB if necessary
             if image.mode != 'RGB':
@@ -43,11 +43,11 @@ class BlipAdapter(BaseModelAdapter):
             # Process image with optional text prompt
             if prompt and prompt.strip():
                 # Use text-guided image captioning
-                print(f"   Using text-guided captioning with prompt: '{prompt.strip()}'")
+                logger.debug("Using text-guided captioning")
                 inputs = self.processor(image, prompt.strip(), return_tensors="pt").to(self.device)
             else:
                 # Use unconditional image captioning
-                print(f"   Using unconditional captioning (no prompt)")
+                logger.debug("Using unconditional captioning (no prompt)")
                 inputs = self.processor(image, return_tensors="pt").to(self.device)
 
             # Build generation parameters - only include what user explicitly provided
@@ -61,7 +61,7 @@ class BlipAdapter(BaseModelAdapter):
                     if param_key in parameters:
                         gen_params[param_key] = parameters[param_key]
 
-            print(f"   Generation parameters: {gen_params if gen_params else 'Using library defaults'}")
+            logger.debug("Generation parameters: %s", gen_params if gen_params else "defaults")
 
             # Generate caption - library will use its own defaults for unspecified params
             with torch.no_grad():
@@ -72,7 +72,7 @@ class BlipAdapter(BaseModelAdapter):
             return caption
 
         except Exception as e:
-            print(f"Error generating caption: {e}")
+            logger.exception("Error generating caption: %s", e)
             return f"Error: {str(e)}"
 
     def is_loaded(self) -> bool:

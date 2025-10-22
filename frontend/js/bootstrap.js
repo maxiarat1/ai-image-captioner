@@ -29,5 +29,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initDownloadButton();
     initToastHoverBehavior();
 
-    console.log('AI Image Tagger with Node Editor initialized');
+    if (window.Logger) {
+        Logger.info('AI Image Tagger with Node Editor initialized');
+    }
 });

@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict
 from PIL import Image
+import logging
+
+logger = logging.getLogger(__name__)
 
 class BaseModelAdapter(ABC):
     """Base class for all model adapters"""
@@ -48,7 +51,7 @@ class BaseModelAdapter(ABC):
         This method should be called before reloading with different parameters.
         """
         if hasattr(self, 'model') and self.model is not None:
-            print(f"Unloading {self.model_name} model...")
+            logger.info("Unloading %s model…", self.model_name)
             # Delete model to free GPU memory
             del self.model
             self.model = None
