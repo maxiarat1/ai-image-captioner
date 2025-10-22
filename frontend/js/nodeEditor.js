@@ -51,6 +51,62 @@ function initNodeEditor() {
             ]);
         });
     }
+
+    // If editor is empty on first init, scaffold a basic graph: Input + Prompt → AI Model → Output
+    try {
+        if (NodeEditor.nodes.length === 0) {
+            // Create nodes
+            const beforeCount = NodeEditor.nodes.length;
+            if (typeof addNode === 'function') {
+                addNode('input');
+                const inputNode = NodeEditor.nodes[NodeEditor.nodes.length - 1];
+
+                addNode('prompt');
+                const promptNode = NodeEditor.nodes[NodeEditor.nodes.length - 1];
+
+                addNode('aimodel');
+                const aiNode = NodeEditor.nodes[NodeEditor.nodes.length - 1];
+
+                addNode('output');
+                const outputNode = NodeEditor.nodes[NodeEditor.nodes.length - 1];
+
+                // Lay them out in a simple left-to-right arrangement around canvas center
+                const { wrapper } = NEUtils.getElements();
+                const rect = wrapper.getBoundingClientRect();
+                const center = NEUtils.wrapperToCanvas(rect.width / 2, rect.height / 2);
+                const rowY = center.y - 20;
+
+                const layout = [
+                    { node: inputNode, x: center.x - 520, y: rowY },
+                    { node: promptNode, x: center.x - 520, y: rowY + 260 },
+                    { node: aiNode, x: center.x - 120, y: rowY + 100 },
+                    { node: outputNode, x: center.x + 320, y: rowY + 117 }
+                ];
+                layout.forEach(({ node, x, y }) => {
+                    node.x = x; node.y = y;
+                    const el = document.getElementById('node-' + node.id);
+                    if (el) { el.style.left = x + 'px'; el.style.top = y + 'px'; }
+                });
+
+                // Connect: Input(images:0) → AI(images:0)
+                //          Prompt(text:0) → AI(prompt:1)
+                //          AI(captions:0) → Output(data:0)
+                if (typeof NEConnections !== 'undefined' && typeof NEConnections.addConnection === 'function') {
+                    NEConnections.addConnection(inputNode.id, 0, aiNode.id, 0);
+                    NEConnections.addConnection(promptNode.id, 0, aiNode.id, 1);
+                    NEConnections.addConnection(aiNode.id, 0, outputNode.id, 0);
+                }
+
+                // Ensure minimap and connections reflect initial graph
+                if (typeof NEMinimap !== 'undefined') NEMinimap.updateMinimap();
+                if (typeof NEConnections !== 'undefined' && typeof NEConnections.updateConnections === 'function') {
+                    NEConnections.updateConnections();
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('Failed to scaffold default graph:', e);
+    }
 }
 
 // Fullscreen functions moved to NEFullscreen
