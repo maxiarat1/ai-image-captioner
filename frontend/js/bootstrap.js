@@ -3,6 +3,11 @@
 // ============================================================================
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // Fetch available models from backend
+    if (typeof fetchAvailableModels === 'function') {
+        await fetchAvailableModels();
+    }
+
     // UI
     initTabNavigation();
     initThemeToggle();

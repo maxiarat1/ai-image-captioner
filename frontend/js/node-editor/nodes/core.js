@@ -392,12 +392,30 @@
         }
         if (node.type === 'aimodel') {
             const showAdvanced = node.data.showAdvanced || false;
-            let html = `
-                <select id="node-${node.id}-model" name="model-${node.id}" data-key="model" class="model-select">
+
+            // Build model options dynamically from AppState.availableModels
+            const availableModels = AppState.availableModels || [];
+            const modelOptions = availableModels.length > 0
+                ? availableModels.map(model => {
+                    const displayName = typeof getModelDisplayName === 'function'
+                        ? getModelDisplayName(model.name)
+                        : model.name.toUpperCase();
+                    const selected = node.data.model === model.name ? 'selected' : '';
+                    const tooltip = model.description || '';
+                    return `<option value="${model.name}" ${selected} title="${tooltip}">${displayName}</option>`;
+                }).join('\n                    ')
+                : `
                     <option value="blip" ${node.data.model === 'blip' ? 'selected' : ''}>BLIP</option>
                     <option value="r4b" ${node.data.model === 'r4b' ? 'selected' : ''}>R-4B</option>
                     <option value="qwen3vl-4b" ${node.data.model === 'qwen3vl-4b' ? 'selected' : ''}>Qwen3-VL 4B</option>
                     <option value="qwen3vl-8b" ${node.data.model === 'qwen3vl-8b' ? 'selected' : ''}>Qwen3-VL 8B</option>
+                    <option value="wdvit" ${node.data.model === 'wdvit' ? 'selected' : ''}>WD-ViT v3</option>
+                    <option value="wdeva02" ${node.data.model === 'wdeva02' ? 'selected' : ''}>WD-EVA02 v3</option>
+                `;
+
+            let html = `
+                <select id="node-${node.id}-model" name="model-${node.id}" data-key="model" class="model-select">
+                    ${modelOptions}
                 </select>
                 <button class="btn-advanced" data-node-id="${node.id}">
                     ${showAdvanced ? '▼ Hide Advanced' : '▶ Show Advanced'}

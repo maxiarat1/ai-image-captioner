@@ -24,6 +24,7 @@ if os.environ.get("TAGGER_FORCE_CPU", "0") == "1":
 from models.blip_adapter import BlipAdapter
 from models.r4b_adapter import R4BAdapter
 from models.qwen3vl_adapter import Qwen3VLAdapter
+from models.wdvit_adapter import WdVitAdapter
 from utils.image_utils import process_uploaded_image, validate_image_format
 from utils.logging_utils import setup_logging, compact_json
 
@@ -53,7 +54,9 @@ models = {
     'blip': None,
     'r4b': None,
     'qwen3vl-4b': None,
-    'qwen3vl-8b': None
+    'qwen3vl-8b': None,
+    'wdvit': None,
+    'wdeva02': None
 }
 current_model = 'blip'
 
@@ -63,7 +66,7 @@ def init_models():
 
     # Note: All models are now loaded on-demand to save memory and startup time
     logger.info("Model registry ready. Models load on first use.")
-    logger.info("Available models: BLIP (fast), R-4B (reasoning), Qwen3-VL-4B/8B (vision-language)")
+    logger.info("Available models: BLIP (fast), R-4B (reasoning), Qwen3-VL-4B/8B (vision-language), WD-ViT/EVA02 (anime tagging)")
 
 def get_model(model_name, precision_params=None, force_reload=False):
     """Get or load a specific model with optional precision parameters"""
@@ -199,6 +202,38 @@ def get_model(model_name, precision_params=None, force_reload=False):
                 logger.exception("Failed to load Qwen3-VL-8B model: %s", e)
                 raise
 
+        elif model_name == 'wdvit':
+            try:
+                action = "reloading" if should_reload else "loading"
+                logger.info("%s WD-ViT tagger model on-demand…", action.capitalize())
+
+                # Clear existing model if reloading
+                if should_reload and models['wdvit'] is not None:
+                    models['wdvit'].unload()  # Properly unload the model
+                    models['wdvit'] = None
+
+                models['wdvit'] = WdVitAdapter(model_id="SmilingWolf/wd-vit-large-tagger-v3")
+                models['wdvit'].load_model()
+            except Exception as e:
+                logger.exception("Failed to load WD-ViT model: %s", e)
+                raise
+
+        elif model_name == 'wdeva02':
+            try:
+                action = "reloading" if should_reload else "loading"
+                logger.info("%s WD-EVA02 tagger model on-demand…", action.capitalize())
+
+                # Clear existing model if reloading
+                if should_reload and models['wdeva02'] is not None:
+                    models['wdeva02'].unload()  # Properly unload the model
+                    models['wdeva02'] = None
+
+                models['wdeva02'] = WdVitAdapter(model_id="SmilingWolf/wd-eva02-large-tagger-v3")
+                models['wdeva02'].load_model()
+            except Exception as e:
+                logger.exception("Failed to load WD-EVA02 model: %s", e)
+                raise
+
     return models[model_name]
 
 def load_user_config():
@@ -268,7 +303,9 @@ def health_check():
         "blip_loaded": models['blip'] is not None and models['blip'].is_loaded(),
         "r4b_loaded": models['r4b'] is not None and models['r4b'].is_loaded(),
         "qwen3vl_4b_loaded": models['qwen3vl-4b'] is not None and models['qwen3vl-4b'].is_loaded(),
-        "qwen3vl_8b_loaded": models['qwen3vl-8b'] is not None and models['qwen3vl-8b'].is_loaded()
+        "qwen3vl_8b_loaded": models['qwen3vl-8b'] is not None and models['qwen3vl-8b'].is_loaded(),
+        "wdvit_loaded": models['wdvit'] is not None and models['wdvit'].is_loaded(),
+        "wdeva02_loaded": models['wdeva02'] is not None and models['wdeva02'].is_loaded()
     })
 
 @app.route('/model/info', methods=['GET'])
@@ -290,6 +327,12 @@ def model_info():
         elif model_name == 'qwen3vl-8b':
             from models.qwen3vl_adapter import Qwen3VLAdapter
             adapter = Qwen3VLAdapter(model_id="Qwen/Qwen3-VL-8B-Instruct")
+        elif model_name == 'wdvit':
+            from models.wdvit_adapter import WdVitAdapter
+            adapter = WdVitAdapter(model_id="SmilingWolf/wd-vit-large-tagger-v3")
+        elif model_name == 'wdeva02':
+            from models.wdvit_adapter import WdVitAdapter
+            adapter = WdVitAdapter(model_id="SmilingWolf/wd-eva02-large-tagger-v3")
         else:
             return jsonify({"error": f"Unknown model: {model_name}"}), 400
 
@@ -313,7 +356,9 @@ def list_models():
                 "blip": "Fast, basic image captioning",
                 "r4b": "Advanced reasoning model with configurable parameters",
                 "qwen3vl-4b": "Qwen3-VL 4B - Compact vision-language model with strong performance",
-                "qwen3vl-8b": "Qwen3-VL 8B - Advanced vision-language model with superior image understanding"
+                "qwen3vl-8b": "Qwen3-VL 8B - Advanced vision-language model with superior image understanding",
+                "wdvit": "WD-ViT Large Tagger v3 - Anime-style image tagging model with ViT backbone",
+                "wdeva02": "WD-EVA02 Large Tagger v3 - Anime-style image tagging model with EVA02 backbone (improved accuracy)"
             }.get(model_name, "Unknown model")
         })
 
