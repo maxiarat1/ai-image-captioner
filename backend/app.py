@@ -25,7 +25,7 @@ from models.blip_adapter import BlipAdapter
 from models.r4b_adapter import R4BAdapter
 from models.qwen3vl_adapter import Qwen3VLAdapter
 from models.wdvit_adapter import WdVitAdapter
-from utils.image_utils import process_uploaded_image, validate_image_format
+from utils.image_utils import load_image, image_to_base64
 from utils.logging_utils import setup_logging, compact_json
 
 # Configure logging early
@@ -75,166 +75,104 @@ def get_model(model_name, precision_params=None, force_reload=False):
     if model_name not in models:
         raise ValueError(f"Unknown model: {model_name}")
 
-    # IMPORTANT: Unload other models to free VRAM when switching models
-    for other_model_name in models.keys():
-        if other_model_name != model_name and models[other_model_name] is not None:
-            logger.info("Switching model %s -> %s (unloading %s)", other_model_name, model_name, other_model_name)
-            models[other_model_name].unload()
-            models[other_model_name] = None
+    # Unload other models to free VRAM when switching
+    for other_name, other_model in models.items():
+        if other_name != model_name and other_model is not None:
+            logger.info("Switching model: unloading %s", other_name)
+            other_model.unload()
+            models[other_name] = None
 
-    # Check if we need to reload the model due to precision changes
-    should_reload = force_reload
-    if model_name in ['r4b', 'qwen3vl-4b', 'qwen3vl-8b'] and models[model_name] is not None and precision_params:
-        # Check if current model settings differ from requested settings
-        current_adapter = models[model_name]
-        if hasattr(current_adapter, 'current_precision_params'):
-            if current_adapter.current_precision_params != precision_params:
-                logger.info("Model settings changed, reloading %s…", model_name)
-                should_reload = True
-        else:
-            # First time with parameters, need to track them
-            should_reload = True
-
+    # Check if reload needed due to precision changes
+    should_reload = force_reload or _needs_precision_reload(model_name, precision_params)
+    
     if models[model_name] is None or should_reload:
-        if model_name == 'blip':
-            try:
-                action = "reloading" if should_reload else "loading"
-                logger.info("%s BLIP model on-demand…", action.capitalize())
-
-                # Clear existing model if reloading
-                if should_reload and models['blip'] is not None:
-                    models['blip'].unload()  # Properly unload the model
-                    models['blip'] = None
-
-                models['blip'] = BlipAdapter()
-                models['blip'].load_model()
-            except Exception as e:
-                logger.exception("Failed to load BLIP model: %s", e)
-                raise
-
-        elif model_name == 'r4b':
-            try:
-                action = "reloading" if should_reload else "loading"
-                logger.info("%s R-4B model on-demand…", action.capitalize())
-
-                # Clear existing model if reloading
-                if should_reload and models['r4b'] is not None:
-                    models['r4b'].unload()  # Properly unload the model
-                    models['r4b'] = None
-
-                models['r4b'] = R4BAdapter()
-
-                # Extract precision parameters if provided
-                if precision_params:
-                    models['r4b'].load_model(
-                        precision=precision_params.get('precision', 'float32'),
-                        use_flash_attention=precision_params.get('use_flash_attention', False)
-                    )
-                    # Store current parameters for future comparison
-                    models['r4b'].current_precision_params = precision_params.copy()
-                else:
-                    models['r4b'].load_model()
-                    models['r4b'].current_precision_params = {
-                        'precision': 'float32',
-                        'use_flash_attention': False
-                    }
-            except Exception as e:
-                logger.exception("Failed to load R-4B model: %s", e)
-                raise
-
-        elif model_name == 'qwen3vl-4b':
-            try:
-                action = "reloading" if should_reload else "loading"
-                logger.info("%s Qwen3-VL-4B model on-demand…", action.capitalize())
-
-                # Clear existing model if reloading
-                if should_reload and models['qwen3vl-4b'] is not None:
-                    models['qwen3vl-4b'].unload()  # Properly unload the model
-                    models['qwen3vl-4b'] = None
-
-                models['qwen3vl-4b'] = Qwen3VLAdapter(model_id="Qwen/Qwen3-VL-4B-Instruct")
-
-                # Extract precision parameters if provided
-                if precision_params:
-                    models['qwen3vl-4b'].load_model(
-                        precision=precision_params.get('precision', 'auto'),
-                        use_flash_attention=precision_params.get('use_flash_attention', False)
-                    )
-                    # Store current parameters for future comparison
-                    models['qwen3vl-4b'].current_precision_params = precision_params.copy()
-                else:
-                    models['qwen3vl-4b'].load_model()
-                    models['qwen3vl-4b'].current_precision_params = {
-                        'precision': 'auto',
-                        'use_flash_attention': False
-                    }
-            except Exception as e:
-                logger.exception("Failed to load Qwen3-VL-4B model: %s", e)
-                raise
-
-        elif model_name == 'qwen3vl-8b':
-            try:
-                action = "reloading" if should_reload else "loading"
-                logger.info("%s Qwen3-VL-8B model on-demand…", action.capitalize())
-
-                # Clear existing model if reloading
-                if should_reload and models['qwen3vl-8b'] is not None:
-                    models['qwen3vl-8b'].unload()  # Properly unload the model
-                    models['qwen3vl-8b'] = None
-
-                models['qwen3vl-8b'] = Qwen3VLAdapter(model_id="Qwen/Qwen3-VL-8B-Instruct")
-
-                # Extract precision parameters if provided
-                if precision_params:
-                    models['qwen3vl-8b'].load_model(
-                        precision=precision_params.get('precision', 'auto'),
-                        use_flash_attention=precision_params.get('use_flash_attention', False)
-                    )
-                    # Store current parameters for future comparison
-                    models['qwen3vl-8b'].current_precision_params = precision_params.copy()
-                else:
-                    models['qwen3vl-8b'].load_model()
-                    models['qwen3vl-8b'].current_precision_params = {
-                        'precision': 'auto',
-                        'use_flash_attention': False
-                    }
-            except Exception as e:
-                logger.exception("Failed to load Qwen3-VL-8B model: %s", e)
-                raise
-
-        elif model_name == 'wdvit':
-            try:
-                action = "reloading" if should_reload else "loading"
-                logger.info("%s WD-ViT tagger model on-demand…", action.capitalize())
-
-                # Clear existing model if reloading
-                if should_reload and models['wdvit'] is not None:
-                    models['wdvit'].unload()  # Properly unload the model
-                    models['wdvit'] = None
-
-                models['wdvit'] = WdVitAdapter(model_id="SmilingWolf/wd-vit-large-tagger-v3")
-                models['wdvit'].load_model()
-            except Exception as e:
-                logger.exception("Failed to load WD-ViT model: %s", e)
-                raise
-
-        elif model_name == 'wdeva02':
-            try:
-                action = "reloading" if should_reload else "loading"
-                logger.info("%s WD-EVA02 tagger model on-demand…", action.capitalize())
-
-                # Clear existing model if reloading
-                if should_reload and models['wdeva02'] is not None:
-                    models['wdeva02'].unload()  # Properly unload the model
-                    models['wdeva02'] = None
-
-                models['wdeva02'] = WdVitAdapter(model_id="SmilingWolf/wd-eva02-large-tagger-v3")
-                models['wdeva02'].load_model()
-            except Exception as e:
-                logger.exception("Failed to load WD-EVA02 model: %s", e)
-                raise
+        _load_model(model_name, precision_params, should_reload)
 
     return models[model_name]
+
+def _needs_precision_reload(model_name: str, precision_params: dict) -> bool:
+    """Check if model needs reload due to precision parameter changes"""
+    if not precision_params or model_name not in ['r4b', 'qwen3vl-4b', 'qwen3vl-8b']:
+        return False
+        
+    current_model = models[model_name]
+    if current_model is None:
+        return False
+        
+    if not hasattr(current_model, 'current_precision_params'):
+        return True
+        
+    return current_model.current_precision_params != precision_params
+
+def _load_model(model_name: str, precision_params: dict, is_reload: bool):
+    """Load or reload a model with given parameters"""
+    action = "Reloading" if is_reload else "Loading"
+    
+    # Unload existing model if reloading
+    if is_reload and models[model_name] is not None:
+        models[model_name].unload()
+        models[model_name] = None
+
+    try:
+        # Model configurations
+        model_configs = {
+            'blip': {
+                'adapter': BlipAdapter,
+                'params': {},
+                'log': "BLIP"
+            },
+            'r4b': {
+                'adapter': R4BAdapter,
+                'params': precision_params or {},
+                'defaults': {'precision': 'float32', 'use_flash_attention': False},
+                'log': "R-4B"
+            },
+            'qwen3vl-4b': {
+                'adapter': lambda: Qwen3VLAdapter(model_id="Qwen/Qwen3-VL-4B-Instruct"),
+                'params': precision_params or {},
+                'defaults': {'precision': 'auto', 'use_flash_attention': False},
+                'log': "Qwen3-VL-4B"
+            },
+            'qwen3vl-8b': {
+                'adapter': lambda: Qwen3VLAdapter(model_id="Qwen/Qwen3-VL-8B-Instruct"),
+                'params': precision_params or {},
+                'defaults': {'precision': 'auto', 'use_flash_attention': False},
+                'log': "Qwen3-VL-8B"
+            },
+            'wdvit': {
+                'adapter': lambda: WdVitAdapter(model_id="SmilingWolf/wd-vit-large-tagger-v3"),
+                'params': {},
+                'log': "WD-ViT"
+            },
+            'wdeva02': {
+                'adapter': lambda: WdVitAdapter(model_id="SmilingWolf/wd-eva02-large-tagger-v3"),
+                'params': {},
+                'log': "WD-EVA02"
+            }
+        }
+        
+        config = model_configs[model_name]
+        logger.info("%s %s model on-demand…", action, config['log'])
+        
+        # Create adapter
+        adapter_factory = config['adapter']
+        models[model_name] = adapter_factory() if callable(adapter_factory) else adapter_factory()
+        
+        # Load model with parameters
+        load_params = config['params']
+        if load_params:
+            models[model_name].load_model(**load_params)
+            # Store parameters for future comparison
+            models[model_name].current_precision_params = load_params.copy()
+        else:
+            models[model_name].load_model()
+            if 'defaults' in config:
+                models[model_name].current_precision_params = config['defaults']
+                
+    except Exception as e:
+        logger.exception("Failed to load %s model: %s", model_name, e)
+        models[model_name] = None
+        raise
 
 def load_user_config():
     """Load user configuration from file"""
@@ -526,32 +464,20 @@ def get_thumbnail():
     """Generate thumbnail for an image"""
     try:
         image_path = request.args.get('path', '')
-
         if not image_path:
             return jsonify({"error": "No image path provided"}), 400
 
-        img_file = Path(image_path)
-
-        # Security: Validate path
-        if not img_file.exists() or not img_file.is_file():
-            return jsonify({"error": "Image not found"}), 404
-
-        # Read and create thumbnail
-        image = Image.open(img_file)
-
-        # Create thumbnail (150x150 max, maintain aspect ratio)
+        # Load and create thumbnail
+        image = load_image(image_path)
         image.thumbnail((150, 150), Image.Resampling.LANCZOS)
-
-        # Convert to base64
-        buffered = io.BytesIO()
-        image.save(buffered, format="JPEG", quality=85)
-        img_str = base64.b64encode(buffered.getvalue()).decode()
 
         return jsonify({
             "success": True,
-            "thumbnail": f"data:image/jpeg;base64,{img_str}"
+            "thumbnail": image_to_base64(image)
         })
 
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
     except Exception as e:
         logger.exception("Error generating thumbnail: %s", e)
         return jsonify({"error": str(e)}), 500
@@ -560,174 +486,74 @@ def get_thumbnail():
 def generate_caption():
     """Generate caption for uploaded image or image path"""
     try:
-        debug_log("=== NEW CAPTION GENERATION REQUEST ===")
-
-        # Check if image_path is provided (new method)
+        # Get image source (path or uploaded file)
         image_path = request.form.get('image_path', '')
-
         if image_path:
-            # Read image from filesystem
-            img_file = Path(image_path)
-            if not img_file.exists() or not img_file.is_file():
-                return jsonify({"error": "Image not found"}), 404
-
-            with open(img_file, 'rb') as f:
-                image_data = f.read()
-
-            filename = img_file.name
-            debug_log("Image loaded from path", {
-                "filename": filename,
-                "path": image_path,
-                "size_bytes": len(image_data)
-            })
-        else:
-            # Old method: uploaded file
-            if 'image' not in request.files:
-                return jsonify({"error": "No image file or path provided"}), 400
-
+            image_source = image_path
+            filename = Path(image_path).name
+        elif 'image' in request.files:
             image_file = request.files['image']
-            if image_file.filename == '':
+            if not image_file.filename:
                 return jsonify({"error": "No image file selected"}), 400
-
-            debug_log("Image file received", {
-                "filename": image_file.filename,
-                "size_bytes": len(image_file.read())
-            })
-            image_file.seek(0)
-            image_data = image_file.read()
+            image_source = image_file.read()
             filename = image_file.filename
+        else:
+            return jsonify({"error": "No image file or path provided"}), 400
 
-        # Get model and parameters
+        # Parse request parameters
         model_name = request.form.get('model', 'blip')
-        parameters_str = request.form.get('parameters', '{}')
-        prompt = request.form.get('prompt', '')
-        # Optional client-provided identifiers for tracing
-        req_image_id = request.form.get('image_id', '')
-        req_image_filename = request.form.get('image_filename', '')
-
-        debug_log("Raw request data", {
-            "model_name": model_name,
-            "parameters_str": parameters_str,
-            "prompt": prompt,
-            "prompt_length": len(prompt) if prompt else 0,
-            "req_image_id": req_image_id,
-            "req_image_filename": req_image_filename
-        })
-
+        prompt = request.form.get('prompt', '') or None
+        
         try:
-            parameters = json.loads(parameters_str)
-            debug_log("Parsed parameters successfully", parameters)
-        except json.JSONDecodeError as e:
-            debug_log("Failed to parse parameters", {"error": str(e), "raw": parameters_str})
+            parameters = json.loads(request.form.get('parameters', '{}'))
+        except json.JSONDecodeError:
             parameters = {}
 
-        # Extract precision parameters for models that support it
-        precision_params = None
-        if model_name == 'r4b' and parameters:
-            precision_params = {
-                'precision': parameters.get('precision', 'float32'),
-                'use_flash_attention': parameters.get('use_flash_attention', False)
-            }
-            debug_log("Extracted precision parameters for R-4B", precision_params)
-        elif model_name in ['qwen3vl-4b', 'qwen3vl-8b'] and parameters:
-            precision_params = {
-                'precision': parameters.get('precision', 'auto'),
-                'use_flash_attention': parameters.get('use_flash_attention', False)
-            }
-            debug_log(f"Extracted precision parameters for {model_name}", precision_params)
-
-        # Get model instance
-        debug_log(f"Loading/getting model: {model_name}")
-        try:
-            model_adapter = get_model(model_name, precision_params)
-            debug_log(f"Model {model_name} loaded successfully", {
-                "is_loaded": model_adapter.is_loaded() if model_adapter else False
-            })
-        except Exception as e:
-            debug_log(f"Failed to load model {model_name}", {"error": str(e)})
-            return jsonify({"error": f"Failed to load model {model_name}: {str(e)}"}), 500
-
-        if model_adapter is None or not model_adapter.is_loaded():
-            debug_log(f"Model {model_name} not available or not loaded")
+        # Extract precision parameters for model loading
+        precision_params = _extract_precision_params(model_name, parameters)
+        
+        # Load image and model
+        image = load_image(image_source)
+        model_adapter = get_model(model_name, precision_params)
+        
+        if not model_adapter or not model_adapter.is_loaded():
             return jsonify({"error": f"Model {model_name} not available"}), 500
 
-        # Process image
-        image = process_uploaded_image(image_data)
-
-        debug_log("Image processed", {
-            "mode": image.mode,
-            "size": image.size,
-            "format": image.format
-        })
-
-        # Validate image format
-        if not validate_image_format(image):
-            debug_log("Image format validation failed")
-            return jsonify({"error": "Unsupported image format"}), 400
-
-        # Generate caption with model-specific parameters
-        debug_log("Starting caption generation", {
-            "model_name": model_name,
-            "prompt": prompt,
-            "prompt_is_empty": not bool(prompt),
-            "parameters_count": len(parameters) if parameters else 0
-        })
-
-        if hasattr(model_adapter, 'generate_caption'):
-            if model_name == 'r4b':
-                # R-4B supports parameters
-                debug_log("Calling R-4B generate_caption", {
-                    "parameters_passed": parameters,
-                    "specific_params_of_interest": {
-                        "thinking_mode": parameters.get('thinking_mode'),
-                        "temperature": parameters.get('temperature'),
-                        "max_new_tokens": parameters.get('max_new_tokens')
-                    }
-                })
-                caption = model_adapter.generate_caption(
-                    image,
-                    prompt if prompt else None,
-                    parameters
-                )
-            else:
-                # BLIP also supports parameters
-                debug_log("Calling BLIP generate_caption", {
-                    "prompt": prompt if prompt else "(no prompt)",
-                    "parameters": parameters
-                })
-                caption = model_adapter.generate_caption(
-                    image,
-                    prompt if prompt else None,
-                    parameters
-                )
-
-            debug_log("Caption generated successfully", {
-                "caption_length": len(caption) if caption else 0,
-                "caption_preview": caption[:100] + "..." if caption and len(caption) > 100 else caption
-            })
-        else:
-            debug_log("Model does not support caption generation")
-            return jsonify({"error": "Model does not support caption generation"}), 500
-
-        # Convert image to base64 for frontend display
-        buffered = io.BytesIO()
-        image.save(buffered, format="JPEG")
-        img_str = base64.b64encode(buffered.getvalue()).decode()
-
+        # Generate caption
+        caption = model_adapter.generate_caption(image, prompt, parameters)
+        
+        # Prepare response
         return jsonify({
             "caption": caption,
-            "image_preview": f"data:image/jpeg;base64,{img_str}",
+            "image_preview": image_to_base64(image),
             "model": model_adapter.model_name,
             "parameters_used": parameters,
-            # Echo identifiers back to the client for robust pairing
-            "image_id": req_image_id,
-            # Prefer the server-derived filename when available
-            "image_filename": filename or req_image_filename
+            "image_id": request.form.get('image_id', ''),
+            "image_filename": filename or request.form.get('image_filename', '')
         })
 
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
-        logger.exception("Error in generate_caption: %s", e)
+        logger.exception("Error generating caption: %s", e)
         return jsonify({"error": str(e)}), 500
+
+def _extract_precision_params(model_name: str, parameters: dict) -> dict:
+    """Extract precision parameters for models that support them"""
+    if not parameters:
+        return None
+        
+    if model_name == 'r4b':
+        return {
+            'precision': parameters.get('precision', 'float32'),
+            'use_flash_attention': parameters.get('use_flash_attention', False)
+        }
+    elif model_name in ['qwen3vl-4b', 'qwen3vl-8b']:
+        return {
+            'precision': parameters.get('precision', 'auto'),
+            'use_flash_attention': parameters.get('use_flash_attention', False)
+        }
+    return None
 
 @app.route('/export/metadata', methods=['POST'])
 def export_with_metadata():
