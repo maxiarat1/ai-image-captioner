@@ -51,8 +51,7 @@
 }
 
 .model-select,
-.prompt-input,
-.batch-input {
+.prompt-input {
     width: 100%;
     padding: var(--spacing-sm);
     background: var(--bg-tertiary);
@@ -65,8 +64,7 @@
 }
 
 .model-select:focus,
-.prompt-input:focus,
-.batch-input:focus {
+.prompt-input:focus {
     outline: none;
     border-color: var(--accent-primary);
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
@@ -76,10 +74,6 @@
 .prompt-input {
     min-height: 120px;
     resize: vertical;
-}
-
-.batch-input {
-    width: 100px;
 }
 
 .option-description {

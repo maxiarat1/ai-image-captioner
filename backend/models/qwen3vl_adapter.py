@@ -171,12 +171,12 @@ class Qwen3VLAdapter(BaseModelAdapter):
                 out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
             ]
 
-            # Decode response
-            caption = self.processor.batch_decode(
-                generated_ids_trimmed,
+            # Decode response (single image)
+            caption = self.processor.decode(
+                generated_ids_trimmed[0],
                 skip_special_tokens=True,
                 clean_up_tokenization_spaces=False
-            )[0]  # Get first result since we're processing one image
+            )
 
             return caption.strip() if caption else "Unable to generate description."
 

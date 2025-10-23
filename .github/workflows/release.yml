@@ -288,7 +288,7 @@ jobs:
           cat > release-notes.md << 'EOF'
           ## AI Image Tagger ${{ needs.setup.outputs.release_version }}
 
-          Batch image captioning with BLIP and R-4B models.
+          Image captioning with BLIP and R-4B models.
 
           ### Quick Start
 

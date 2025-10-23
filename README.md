@@ -1,6 +1,6 @@
 # AI Image Tagger
 
-Batch image captioning using BLIP and R-4B models. Generate descriptions for multiple images with customizable prompts.
+Image captioning using BLIP and R-4B models. Generate descriptions for images with customizable prompts.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.10%20%7C%203.12-blue.svg)
@@ -12,7 +12,6 @@ Batch image captioning using BLIP and R-4B models. Generate descriptions for mul
 - **Dual AI Models** - BLIP (fast) & R-4B (detailed reasoning)
 - **Smart Templates** - Combine prompts and AI outputs with Conjunction nodes
 - **Real-time Stats** - Live progress tracking with speed & ETA
-- **Batch Processing** - Handle hundreds of images efficiently
 - **Flexible Export** - ZIP with embedded metadata
 
 ![AI Image Tagger Interface](assets/Image%20Tagger.png)
@@ -117,7 +116,6 @@ print(response.json()['caption'])
 
 **Endpoints:**
 - `POST /generate` - Generate caption
-- `POST /generate/batch` - Batch process images
 - `GET /models` - List models
 - `POST /model/reload` - Reload with new settings
 - `POST /model/unload` - Free memory
