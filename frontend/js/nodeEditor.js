@@ -201,6 +201,19 @@ function buildParameterInput(param, currentValue, nodeId) {
                 </label>
             </div>
         `;
+    } else if (param.type === 'text') {
+        return `
+            <div class="param-group">
+                <label class="param-label" for="${inputId}" title="${param.description}">${param.name}</label>
+                <input type="text"
+                       id="${inputId}"
+                       name="${inputName}"
+                       class="param-input"
+                       data-param-key="${param.param_key}"
+                       value="${value}"
+                       placeholder="${param.description || ''}">
+            </div>
+        `;
     }
     return '';
 }
