@@ -2,7 +2,8 @@
 // Application State
 // ============================================================================
 const AppState = {
-    uploadQueue: [], // Array of {id, filename, size, path, file, thumbnail: null}
+    // NEW: Session-based upload queue (no File objects, just metadata)
+    uploadQueue: [], // Array of {image_id, filename, size, uploaded, width, height}
     apiBaseUrl: 'http://localhost:5000',
     selectedModel: 'blip',
     customPrompt: '',
@@ -12,8 +13,7 @@ const AppState = {
     allResults: [], // All result items for pagination: {queueItem, data}
     currentPage: 1,
     itemsPerPage: 12,
-    thumbnailCache: new Map(), // Cache loaded thumbnails with LRU
-    thumbnailCacheMaxSize: 300, // Max 300 thumbnails total (~45MB) - shared between tabs
+    // REMOVED: thumbnailCache - now handled by backend
     uploadCurrentPage: 1, // Separate pagination for upload grid
     uploadSearchQuery: '', // Search query for upload tab
     resultsSearchQuery: '' // Search query for results tab

@@ -1,11 +1,11 @@
 // ============================================================================
-// Lazy Loading for Grids
+// Lazy Loading for Grids - Simplified session-based version
 // ============================================================================
 
 // Unified lazy loading for both upload and results grids
 function setupLazyLoadingForGrid(gridId) {
     const grid = document.getElementById(gridId);
-    const containers = grid.querySelectorAll('.upload-thumbnail-container[data-item-id]');
+    const containers = grid.querySelectorAll('.upload-thumbnail-container[data-image-id]');
 
     if (containers.length === 0) {
         return;
@@ -14,24 +14,16 @@ function setupLazyLoadingForGrid(gridId) {
     const observer = new IntersectionObserver(async (entries) => {
         for (const entry of entries) {
             const container = entry.target;
-            const itemId = container.dataset.itemId;
+            const image_id = container.dataset.imageId;
 
-            if (!itemId) continue;
+            if (!image_id) continue;
 
-            const item = AppState.uploadQueue.find(i => i.id === itemId);
+            const item = AppState.uploadQueue.find(i => i.image_id === image_id);
             if (!item) continue;
 
             if (entry.isIntersecting) {
-                // LOAD: Element is visible, load thumbnail
-                let thumbnail;
-
-                if (item.file) {
-                    // Load from File object
-                    thumbnail = await loadThumbnailFromFile(item.file);
-                } else if (item.path) {
-                    // Load from filesystem path
-                    thumbnail = await loadThumbnail(item.path);
-                }
+                // LOAD: Element is visible, load thumbnail from backend
+                const thumbnail = await loadThumbnail(image_id);
 
                 if (thumbnail) {
                     container.innerHTML = `<img src="${thumbnail}" alt="Thumbnail" style="width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-md);">`;
@@ -45,7 +37,7 @@ function setupLazyLoadingForGrid(gridId) {
                     }
                 }
             }
-            // Note: No auto-unload - LRU cache handles memory management
+            // Note: Browser HTTP cache handles caching automatically
         }
     }, {
         rootMargin: '500px', // Load well before visible for smoother scrolling

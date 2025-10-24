@@ -6,6 +6,8 @@ __pycache__/*
 CLAUDE*
 RELEASE_SUMMARY.md
 /.serena
+/backend/data
+/backend/temp_uploads
 
 # C extensions
 *.so

@@ -19,12 +19,17 @@ from models.qwen3vl_adapter import Qwen3VLAdapter
 from models.wdvit_adapter import WdVitAdapter
 from utils.image_utils import load_image, image_to_base64
 from utils.logging_utils import setup_logging
+from session_manager import SessionManager
 
 setup_logging()
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)  # Enable debug logging
 
 app = Flask(__name__)
 CORS(app)
+
+# Initialize session manager
+session_manager = SessionManager()
 
 SUPPORTED_IMAGE_FORMATS = {'.jpg', '.jpeg', '.png', '.webp', '.bmp'}
 THUMBNAIL_SIZE = (150, 150)
@@ -201,6 +206,144 @@ def unload_model():
         logger.exception("Error unloading model: %s", e)
         return jsonify({"error": str(e)}), 500
 
+# ============================================================================
+# New Session-based Endpoints
+# ============================================================================
+
+@app.route('/session/register-folder', methods=['POST'])
+def register_folder():
+    """Register all images from a folder path."""
+    try:
+        folder_path = request.get_json().get('folder_path', '')
+        if not folder_path:
+            return jsonify({"error": "No folder path provided"}), 400
+
+        images = session_manager.register_folder(folder_path)
+        return jsonify({
+            "success": True,
+            "images": images,
+            "total": len(images)
+        })
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.exception("Error registering folder: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/session/register-files', methods=['POST'])
+def register_files():
+    """Pre-register files before upload."""
+    try:
+        data = request.get_json()
+        file_metadata_list = data.get('files', [])
+        if not file_metadata_list:
+            return jsonify({"error": "No files provided"}), 400
+
+        image_ids = session_manager.register_files(file_metadata_list)
+        return jsonify({
+            "success": True,
+            "image_ids": image_ids,
+            "total": len(image_ids)
+        })
+    except Exception as e:
+        logger.exception("Error registering files: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/upload/batch', methods=['POST'])
+def upload_batch():
+    """Upload a batch of files."""
+    try:
+        if 'files' not in request.files:
+            return jsonify({"error": "No files provided"}), 400
+
+        files = request.files.getlist('files')
+        image_ids = request.form.getlist('image_ids')
+
+        if len(files) != len(image_ids):
+            return jsonify({"error": "Files and image_ids count mismatch"}), 400
+
+        uploaded = 0
+        failed = 0
+
+        for file, image_id in zip(files, image_ids):
+            if session_manager.save_uploaded_file(image_id, file, file.filename):
+                uploaded += 1
+            else:
+                failed += 1
+
+        return jsonify({
+            "success": True,
+            "uploaded": uploaded,
+            "failed": failed,
+            "image_ids": image_ids
+        })
+    except Exception as e:
+        logger.exception("Error uploading batch: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/images', methods=['GET'])
+def list_images():
+    """Get paginated list of images."""
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 50))
+        search = request.args.get('search', '')
+
+        result = session_manager.list_images(page, per_page, search)
+        return jsonify(result)
+    except Exception as e:
+        logger.exception("Error listing images: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/image/<image_id>/thumbnail', methods=['GET'])
+def get_thumbnail_by_id(image_id):
+    """Get thumbnail for an image by ID."""
+    try:
+        image_path = session_manager.get_image_path(image_id)
+        if not image_path:
+            return jsonify({"error": "Image not found"}), 404
+
+        image = load_image(image_path)
+        image.thumbnail(THUMBNAIL_SIZE, Image.Resampling.LANCZOS)
+
+        # Return as base64 JSON for now (can optimize to binary later)
+        return jsonify({"success": True, "thumbnail": image_to_base64(image)})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+    except Exception as e:
+        logger.exception("Error generating thumbnail: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/image/<image_id>/info', methods=['GET'])
+def get_image_info(image_id):
+    """Get image metadata by ID."""
+    try:
+        metadata = session_manager.get_image_metadata(image_id)
+        if not metadata:
+            return jsonify({"error": "Image not found"}), 404
+        return jsonify(metadata)
+    except Exception as e:
+        logger.exception("Error getting image info: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/session/clear', methods=['DELETE'])
+def clear_session():
+    """Clear all images and temporary files."""
+    try:
+        count = session_manager.clear_all()
+        return jsonify({
+            "success": True,
+            "message": "Session cleared",
+            "deleted_count": count
+        })
+    except Exception as e:
+        logger.exception("Error clearing session: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+# ============================================================================
+# Legacy Endpoints (kept for backward compatibility)
+# ============================================================================
+
 @app.route('/scan-folder', methods=['POST'])
 def scan_folder():
     try:
@@ -244,16 +387,30 @@ def get_thumbnail():
 @app.route('/generate', methods=['POST'])
 def generate_caption():
     try:
-        image_path = request.form.get('image_path', '')
-        if image_path:
+        # Support image_id (new), image_path (legacy), or file upload (legacy)
+        image_id = request.form.get('image_id', '')
+        logger.debug("Generate request - image_id: %s, form keys: %s", image_id, list(request.form.keys()))
+
+        if image_id:
+            # New session-based approach
+            image_path = session_manager.get_image_path(image_id)
+            if not image_path:
+                logger.error("Image not found for image_id: %s", image_id)
+                return jsonify({"error": "Image not found"}), 404
+            image_source, filename = image_path, Path(image_path).name
+        elif request.form.get('image_path', ''):
+            # Legacy path-based approach
+            image_path = request.form.get('image_path')
             image_source, filename = image_path, Path(image_path).name
         elif 'image' in request.files:
+            # Legacy file upload approach
             image_file = request.files['image']
             if not image_file.filename:
                 return jsonify({"error": "No image file selected"}), 400
             image_source, filename = image_file.read(), image_file.filename
         else:
-            return jsonify({"error": "No image file or path provided"}), 400
+            logger.error("No valid image source provided. Form: %s", request.form)
+            return jsonify({"error": "No image_id, image file, or path provided"}), 400
 
         model_name = request.form.get('model', 'blip')
         prompt = request.form.get('prompt', '') or None

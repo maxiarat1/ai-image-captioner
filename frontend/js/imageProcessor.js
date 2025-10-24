@@ -37,18 +37,11 @@ async function processImages() {
             await new Promise(resolve => setTimeout(resolve, 100));
         }
 
-        // Build request
+        // Build request (NEW: using image_id)
         const formData = new FormData();
 
-        // Check if we have a file object (from file browser) or path (from backend scan)
-        if (queueItem.file) {
-            // Use uploaded file
-            formData.append('image', queueItem.file);
-        } else if (queueItem.path) {
-            // Use file path
-            formData.append('image_path', queueItem.path);
-        }
-
+        // NEW: Just send image_id (backend will handle file access)
+        formData.append('image_id', queueItem.image_id);
         formData.append('model', AppState.selectedModel);
         formData.append('parameters', JSON.stringify(parameters));
         if (AppState.customPrompt) {

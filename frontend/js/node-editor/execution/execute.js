@@ -166,11 +166,17 @@
                 const item = workQueue[idx];
 
                 const formData = new FormData();
-                if (item.file) formData.append('image', item.file);
-                else if (item.path) formData.append('image_path', item.path);
+                // NEW: Use image_id from session-based structure
+                if (item.image_id) {
+                    formData.append('image_id', item.image_id);
+                } else if (item.file) {
+                    // Legacy: fallback for old structure
+                    formData.append('image', item.file);
+                } else if (item.path) {
+                    // Legacy: fallback for old structure
+                    formData.append('image_path', item.path);
+                }
 
-                // Attach stable identifiers for robust tracking/debugging (ignored by backend if unused)
-                if (item.id !== undefined) formData.append('image_id', String(item.id));
                 if (item.filename) formData.append('image_filename', item.filename);
 
                 formData.append('model', aiNode.data.model);

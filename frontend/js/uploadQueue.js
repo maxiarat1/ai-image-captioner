@@ -2,14 +2,15 @@
 // Upload Queue Management
 // ============================================================================
 
-function removeFromQueue(id) {
-    AppState.uploadQueue = AppState.uploadQueue.filter(item => item.id !== id);
+function removeFromQueue(image_id) {
+    // NEW: Filter by image_id instead of id
+    AppState.uploadQueue = AppState.uploadQueue.filter(item => item.image_id !== image_id);
     updateUploadGrid();
     updateInputNodes();
     showToast('Image removed from queue');
 }
 
-function clearQueue() {
+async function clearQueue() {
     const gridContainer = document.getElementById('uploadGridContainer');
     const folderBrowser = document.getElementById('folderBrowser');
 
@@ -19,7 +20,16 @@ function clearQueue() {
     gridContainer.style.transform = 'scale(0.95)';
 
     // Wait for animation to complete before clearing
-    setTimeout(() => {
+    setTimeout(async () => {
+        // NEW: Clear session on backend
+        try {
+            await fetch(`${AppState.apiBaseUrl}/session/clear`, {
+                method: 'DELETE'
+            });
+        } catch (error) {
+            console.error('Error clearing session:', error);
+        }
+
         AppState.uploadQueue = [];
         updateUploadGrid();
         updateInputNodes();

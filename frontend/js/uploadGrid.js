@@ -69,14 +69,14 @@ function renderUploadGridPage() {
 function createUploadGridItem(item) {
     const gridItem = document.createElement('div');
     gridItem.className = 'result-item upload-grid-item';
-    gridItem.dataset.itemId = item.id;
+    gridItem.dataset.imageId = item.image_id;  // NEW: use image_id
 
     gridItem.innerHTML = `
         <div class="result-image">
-            <div class="upload-thumbnail-container" data-item-id="${item.id}">
+            <div class="upload-thumbnail-container" data-image-id="${item.image_id}">
                 <div class="thumbnail-placeholder">📷</div>
             </div>
-            <button class="upload-remove-btn" data-id="${item.id}" title="Remove">×</button>
+            <button class="upload-remove-btn" data-image-id="${item.image_id}" title="Remove">×</button>
         </div>
         <div class="result-text upload-item-info">
             <div class="upload-item-name">${item.filename}</div>
@@ -88,7 +88,7 @@ function createUploadGridItem(item) {
     const removeBtn = gridItem.querySelector('.upload-remove-btn');
     removeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        removeFromQueue(item.id);
+        removeFromQueue(item.image_id);  // NEW: use image_id
     });
 
     return gridItem;
