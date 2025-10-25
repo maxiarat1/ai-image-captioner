@@ -1,18 +1,3 @@
-// ============================================================================
-// Node Editor - Simple & Barebone
-// ============================================================================
-
-// State and node types now provided by js/node-editor/core/state.js
-
-// Port creation moved to NENodes.createPort
-
-// sanitizeLabel moved to NEUtils.sanitizeLabel
-
-// ============================================================================
-// Initialization & Setup
-// ============================================================================
-
-// Initialize
 function initNodeEditor() {
     NEToolbar.setupToolbar();
     NEViewport.initCanvasPanning();
@@ -23,7 +8,6 @@ function initNodeEditor() {
     document.getElementById('clearGraphBtn').onclick = clearGraph;
     document.getElementById('fullscreenBtn').onclick = NEFullscreen.openFullscreen;
 
-    // Setup fullscreen modal handlers
     document.getElementById('closeNodeFullscreen').onclick = NEFullscreen.closeFullscreen;
     document.getElementById('nodeFullscreenBackdrop').onclick = (e) => {
         if (e.target.id === 'nodeFullscreenBackdrop') {
@@ -31,7 +15,6 @@ function initNodeEditor() {
         }
     };
 
-    // Close on Esc key
     document.addEventListener('keydown', (e) => {
         const modal = document.getElementById('nodeFullscreenModal');
         if (e.key === 'Escape' && modal.classList.contains('active')) {
@@ -39,11 +22,9 @@ function initNodeEditor() {
         }
     });
 
-    // Context menu on node canvas using generic AppContextMenu
     const { wrapper } = NEUtils.getElements();
     if (wrapper) {
         wrapper.addEventListener('contextmenu', (e) => {
-            // Only open if right-clicking on empty canvas area or inside wrapper
             e.preventDefault();
             if (typeof AppContextMenu === 'undefined' || typeof GridSettings === 'undefined') return;
             AppContextMenu.open(e.pageX, e.pageY, [
@@ -52,10 +33,8 @@ function initNodeEditor() {
         });
     }
 
-    // If editor is empty on first init, scaffold a basic graph: Input + Prompt → AI Model → Output
     try {
         if (NodeEditor.nodes.length === 0) {
-            // Create nodes
             const beforeCount = NodeEditor.nodes.length;
             if (typeof addNode === 'function') {
                 addNode('input');
@@ -70,7 +49,6 @@ function initNodeEditor() {
                 addNode('output');
                 const outputNode = NodeEditor.nodes[NodeEditor.nodes.length - 1];
 
-                // Lay them out in a simple left-to-right arrangement around canvas center
                 const { wrapper } = NEUtils.getElements();
                 const rect = wrapper.getBoundingClientRect();
                 const center = NEUtils.wrapperToCanvas(rect.width / 2, rect.height / 2);

@@ -23,12 +23,11 @@ from session_manager import SessionManager
 
 setup_logging()
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)  # Enable debug logging
+logger.setLevel(logging.DEBUG)
 
 app = Flask(__name__)
 CORS(app)
 
-# Initialize session manager
 session_manager = SessionManager()
 
 SUPPORTED_IMAGE_FORMATS = {'.jpg', '.jpeg', '.png', '.webp', '.bmp'}
@@ -206,10 +205,6 @@ def unload_model():
         logger.exception("Error unloading model: %s", e)
         return jsonify({"error": str(e)}), 500
 
-# ============================================================================
-# New Session-based Endpoints
-# ============================================================================
-
 @app.route('/session/register-folder', methods=['POST'])
 def register_folder():
     """Register all images from a folder path."""
@@ -337,10 +332,6 @@ def clear_session():
         logger.exception("Error clearing session: %s", e)
         return jsonify({"error": str(e)}), 500
 
-# ============================================================================
-# Legacy Endpoints (kept for backward compatibility)
-# ============================================================================
-
 @app.route('/scan-folder', methods=['POST'])
 def scan_folder():
     try:
@@ -384,23 +375,19 @@ def get_thumbnail():
 @app.route('/generate', methods=['POST'])
 def generate_caption():
     try:
-        # Support image_id (new), image_path (legacy), or file upload (legacy)
         image_id = request.form.get('image_id', '')
         logger.debug("Generate request - image_id: %s, form keys: %s", image_id, list(request.form.keys()))
 
         if image_id:
-            # New session-based approach
             image_path = session_manager.get_image_path(image_id)
             if not image_path:
                 logger.error("Image not found for image_id: %s", image_id)
                 return jsonify({"error": "Image not found"}), 404
             image_source, filename = image_path, Path(image_path).name
         elif request.form.get('image_path', ''):
-            # Legacy path-based approach
             image_path = request.form.get('image_path')
             image_source, filename = image_path, Path(image_path).name
         elif 'image' in request.files:
-            # Legacy file upload approach
             image_file = request.files['image']
             if not image_file.filename:
                 return jsonify({"error": "No image file selected"}), 400

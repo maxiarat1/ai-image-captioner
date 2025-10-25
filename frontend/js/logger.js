@@ -1,5 +1,4 @@
 (function () {
-  // Enable via localStorage.APP_DEBUG=1 or ?debug=1
   const params = new URLSearchParams(window.location.search);
   const enableDebug = (localStorage.getItem('APP_DEBUG') === '1') || (params.get('debug') === '1');
 
@@ -22,11 +21,10 @@
         }
       })
       .join(' ')
-      .replace(/\s+/g, ' ') // collapse whitespace/newlines
+      .replace(/\s+/g, ' ')
       .trim();
   }
 
-  // Gate verbose logs
   console.debug = function (...args) {
     if (!enableDebug) return;
     orig.debug(compactArgs(args));
@@ -36,7 +34,6 @@
     orig.log(compactArgs(args));
   };
 
-  // Provide a simple logger API if needed elsewhere
   window.Logger = {
     debug: (...args) => console.debug(...args),
     log: (...args) => console.log(...args),
@@ -45,6 +42,5 @@
     error: (...args) => orig.error(compactArgs(args))
   };
 
-  // Expose flag for quick toggling/inspection
   window.__APP_DEBUG__ = enableDebug;
 })();

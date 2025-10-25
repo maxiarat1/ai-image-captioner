@@ -1,7 +1,3 @@
-// ============================================================================
-// Utility Functions
-// ============================================================================
-
 function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substring(2);
 }
@@ -14,11 +10,6 @@ function formatFileSize(bytes) {
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 }
 
-/**
- * Fetch available models from backend
- * Updates AppState.availableModels with the list
- * @returns {Promise<Array>} List of available models
- */
 async function fetchAvailableModels() {
     try {
         const response = await fetch(`${AppState.apiBaseUrl}/models`);
@@ -27,14 +18,12 @@ async function fetchAvailableModels() {
         }
         const data = await response.json();
 
-        // Store in AppState
         AppState.availableModels = data.models || [];
 
         console.log('Available models loaded:', AppState.availableModels);
         return AppState.availableModels;
     } catch (error) {
         console.error('Error fetching models:', error);
-        // Fallback to hardcoded models if fetch fails
         AppState.availableModels = [
             { name: 'blip', loaded: false, description: 'BLIP - Fast captioning' },
             { name: 'r4b', loaded: false, description: 'R-4B - Advanced reasoning' },
@@ -47,11 +36,6 @@ async function fetchAvailableModels() {
     }
 }
 
-/**
- * Get display name for a model (just the name, no description)
- * @param {string} modelName - Model identifier (e.g., 'blip', 'r4b')
- * @returns {string} Human-readable model name
- */
 function getModelDisplayName(modelName) {
     const displayNames = {
         'blip': 'BLIP',

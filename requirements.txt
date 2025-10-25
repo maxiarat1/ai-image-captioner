@@ -1,31 +1,19 @@
-# Core dependencies for AI Image Tagger
-# Install with: pip install -r requirements.txt
-
-# Web framework
 flask>=2.3.0
 flask-cors>=4.0.0
 
-# Image processing
 pillow>=10.0.0
 
-# AI/ML libraries
-# Note: PyTorch should be installed separately with CUDA support
-# See README.md for installation instructions
 transformers>=4.35.0
 accelerate>=0.24.0
 bitsandbytes>=0.41.0
-# Pin safetensors to avoid compatibility issues
 safetensors>=0.4.3,<0.6.0
 
-# Hugging Face Hub
 huggingface-hub>=0.17.0
 
-# Utilities
 requests>=2.31.0
 tqdm>=4.66.0
 pandas>=2.0.0
 
-# Build tools (for creating executables)
 pyinstaller>=6.0.0
 
 # Optional: Flash Attention (requires compatible GPU)

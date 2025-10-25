@@ -1,7 +1,3 @@
-// ============================================================================
-// Export Functionality
-// ============================================================================
-
 async function exportAsTextZip() {
     const zip = new JSZip();
     AppState.processedResults.forEach((result) => {
@@ -50,11 +46,9 @@ async function exportWithExif() {
     showToast('Preparing images for EXIF embedding...', true);
 
     try {
-        // Check if we have file objects or paths
         const hasFiles = AppState.uploadQueue.some(item => item.file);
 
         if (hasFiles) {
-            // Use old method with file uploads
             const formData = new FormData();
 
             for (const result of AppState.processedResults) {
@@ -79,7 +73,6 @@ async function exportWithExif() {
             downloadBlob(blob, `images_with_metadata_${timestamp}.zip`);
             showToast('Exported images with EXIF metadata');
         } else {
-            // Use new method with paths
             const image_paths = AppState.processedResults.map(r => r.path);
             const captions = AppState.processedResults.map(r => r.caption);
 

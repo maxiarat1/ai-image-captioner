@@ -1,7 +1,3 @@
-"""
-Session manager for handling image metadata and storage.
-Uses SQLite for lightweight persistent storage.
-"""
 import sqlite3
 import uuid
 import shutil
@@ -21,16 +17,13 @@ logger = logging.getLogger(__name__)
 
 
 class SessionManager:
-    """Manages image metadata and file storage using SQLite."""
 
     def __init__(self):
-        """Initialize database connection and create tables."""
         self.db_path = DATABASE_PATH
         self._init_database()
         logger.info("Session manager initialized with database: %s", self.db_path)
 
     def _init_database(self):
-        """Create database tables if they don't exist."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
@@ -51,20 +44,9 @@ class SessionManager:
         conn.close()
 
     def _get_connection(self):
-        """Get a database connection."""
         return sqlite3.connect(self.db_path)
 
     def register_folder(self, folder_path: str) -> List[Dict]:
-        """
-        Scan a folder and register all images.
-        Images are already on disk, so is_uploaded=True.
-
-        Args:
-            folder_path: Filesystem path to folder
-
-        Returns:
-            List of image metadata dicts
-        """
         folder = Path(folder_path).resolve()
         if not folder.exists():
             raise ValueError(f"Folder does not exist: {folder_path}")
@@ -83,7 +65,6 @@ class SessionManager:
                     continue
 
                 try:
-                    # Get image dimensions
                     with Image.open(file_path) as img:
                         width, height = img.size
 
@@ -118,16 +99,6 @@ class SessionManager:
         return images
 
     def register_files(self, file_metadata_list: List[Dict]) -> List[str]:
-        """
-        Pre-register files before upload.
-        Creates database records with is_uploaded=False.
-
-        Args:
-            file_metadata_list: List of {filename, size} dicts
-
-        Returns:
-            List of image_ids
-        """
         image_ids = []
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -138,7 +109,6 @@ class SessionManager:
                 filename = metadata['filename']
                 file_size = metadata.get('size', 0)
 
-                # Store path as future temp path
                 future_path = str(TEMP_UPLOAD_DIR / f"{image_id}{Path(filename).suffix}")
 
                 cursor.execute("""
@@ -158,22 +128,10 @@ class SessionManager:
         return image_ids
 
     def save_uploaded_file(self, image_id: str, file_data, filename: str) -> bool:
-        """
-        Save an uploaded file and mark as uploaded.
-
-        Args:
-            image_id: Image ID from pre-registration
-            file_data: File object or bytes
-            filename: Original filename
-
-        Returns:
-            True if successful
-        """
         conn = self._get_connection()
         cursor = conn.cursor()
 
         try:
-            # Get the stored path
             cursor.execute("SELECT file_path FROM images WHERE image_id = ?", (image_id,))
             row = cursor.fetchone()
             if not row:
@@ -181,17 +139,14 @@ class SessionManager:
 
             file_path = Path(row[0])
 
-            # Save file
             if hasattr(file_data, 'save'):
                 file_data.save(file_path)
             else:
                 file_path.write_bytes(file_data)
 
-            # Get dimensions
             with Image.open(file_path) as img:
                 width, height = img.size
 
-            # Update database
             cursor.execute("""
                 UPDATE images
                 SET is_uploaded = ?, width = ?, height = ?, file_size = ?
@@ -229,17 +184,6 @@ class SessionManager:
             conn.close()
 
     def list_images(self, page: int = 1, per_page: int = 50, search: str = "") -> Dict:
-        """
-        Get paginated list of images.
-
-        Args:
-            page: Page number (1-indexed)
-            per_page: Items per page
-            search: Optional filename search
-
-        Returns:
-            Dict with images, total, page, pages
-        """
         conn = self._get_connection()
         cursor = conn.cursor()
 
@@ -291,12 +235,7 @@ class SessionManager:
             conn.close()
 
     def clear_all(self) -> int:
-        """
-        Clear all images and temporary files.
 
-        Returns:
-            Number of images deleted
-        """
         conn = self._get_connection()
         cursor = conn.cursor()
 
@@ -322,15 +261,6 @@ class SessionManager:
             conn.close()
 
     def get_image_metadata(self, image_id: str) -> Optional[Dict]:
-        """
-        Get full metadata for an image.
-
-        Args:
-            image_id: Image ID
-
-        Returns:
-            Metadata dict or None
-        """
         conn = self._get_connection()
         cursor = conn.cursor()
 

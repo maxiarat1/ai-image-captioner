@@ -1,7 +1,3 @@
-// ============================================================================
-// Processing Controls
-// ============================================================================
-
 function initProcessingControls() {
     const pauseBtn = document.getElementById('pauseBtn');
     const stopBtn = document.getElementById('stopBtn');
@@ -28,7 +24,7 @@ function initProcessingControls() {
             if (!isProcessing) return;
 
             shouldStop = true;
-            isPaused = false; // Unpause if paused so the stop can execute
+            isPaused = false;
 
             const pauseBtnElement = document.getElementById('pauseBtn');
             if (pauseBtnElement) {
@@ -41,7 +37,6 @@ function initProcessingControls() {
 }
 
 function initPaginationControls() {
-    // Results pagination
     const prevBtn = document.getElementById('prevPageBtn');
     const nextBtn = document.getElementById('nextPageBtn');
     const paginationInfo = document.getElementById('paginationInfo');
@@ -61,7 +56,6 @@ function initPaginationControls() {
         });
     }
 
-    // Upload pagination
     const uploadPrevBtn = document.getElementById('uploadPrevPageBtn');
     const uploadNextBtn = document.getElementById('uploadNextPageBtn');
     const uploadPaginationInfo = document.getElementById('uploadPaginationInfo');
