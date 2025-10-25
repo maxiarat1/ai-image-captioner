@@ -121,7 +121,7 @@
 /* Close Button */
 .content-close {
     position: sticky;
-    top: var(--spacing-md);
+    top: 0;
     right: var(--spacing-md);
     float: right;
     width: 40px;
@@ -310,6 +310,7 @@
     color: var(--accent-primary);
     font-weight: 700;
     margin-right: 8px;
+    user-select: none;
 }
 
 /* Performance Matrix */
@@ -460,4 +461,71 @@
     .workflow-arrow {
         transform: rotate(90deg);
     }
+}
+
+/* ============================================================================
+   Light Mode Overrides
+   ============================================================================ */
+
+[data-theme="light"] .docs-sidebar {
+    background: rgba(255, 255, 255, 0.9);
+    border-right: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .docs-nav-item {
+    color: var(--text-secondary);
+}
+
+[data-theme="light"] .docs-nav-item:hover {
+    background: rgba(91, 95, 199, 0.08);
+    color: var(--text-primary);
+}
+
+[data-theme="light"] .content-close {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: var(--border-color);
+    color: var(--text-secondary);
+}
+
+[data-theme="light"] .content-close:hover {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+}
+
+[data-theme="light"] .docs-card {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .docs-card:hover {
+    box-shadow: 0 4px 16px rgba(91, 95, 199, 0.15);
+}
+
+[data-theme="light"] .terminal-block {
+    background: #1a1d2e;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .terminal-header {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="light"] .perf-model-card {
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .perf-model-card:hover {
+    box-shadow: 0 4px 16px rgba(91, 95, 199, 0.15);
+}
+
+[data-theme="light"] .perf-bar {
+    background: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .workflow-example {
+    background: rgba(240, 242, 247, 0.6);
 }

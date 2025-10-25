@@ -127,37 +127,37 @@ function initAboutInterface() {
     if (aboutCloseBtn) {
         aboutCloseBtn.addEventListener('click', closeAbout);
         
-        // Auto-hide close button after 2 seconds
+        // Auto-hide close button after 5 seconds
         let hideTimeout;
         let isButtonHidden = false;
-        
+
         // Function to show the button
         function showCloseBtn() {
             aboutCloseBtn.style.opacity = '1';
             aboutCloseBtn.style.pointerEvents = 'auto';
             isButtonHidden = false;
         }
-        
+
         // Function to hide the button
         function hideCloseBtn() {
             aboutCloseBtn.style.opacity = '0';
             aboutCloseBtn.style.pointerEvents = 'none';
             isButtonHidden = true;
         }
-        
+
         // Add smooth transition
         aboutCloseBtn.style.transition = 'opacity 0.3s ease-in-out';
-        
+
         // Enhanced openAbout to handle button hiding
         window.aboutOpenHandler = function() {
             // Show button initially
             showCloseBtn();
-            
-            // Hide after 2 seconds
+
+            // Hide after 5 seconds
             clearTimeout(hideTimeout);
             hideTimeout = setTimeout(() => {
                 hideCloseBtn();
-            }, 2000);
+            }, 5000);
         };
         
         // Track mouse movement to show button when near

@@ -459,3 +459,54 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* ============================================================================
+   Light Mode Overrides
+   ============================================================================ */
+
+[data-theme="light"] .about-status {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .stat-card {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .stat-card:hover {
+    box-shadow: 0 4px 16px rgba(91, 95, 199, 0.15);
+}
+
+[data-theme="light"] .feature-card {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .feature-card:hover {
+    box-shadow: 0 4px 16px rgba(91, 95, 199, 0.15);
+}
+
+[data-theme="light"] .tech-card {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .tech-card:hover {
+    box-shadow: 0 4px 16px rgba(91, 95, 199, 0.15);
+}
+
+[data-theme="light"] .link-card {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .link-card:hover {
+    box-shadow: 0 4px 16px rgba(91, 95, 199, 0.15);
+}
+
+[data-theme="light"] .about-credits {
+    background: rgba(240, 242, 247, 0.6);
+}
