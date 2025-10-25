@@ -33,9 +33,15 @@
     max-width: 400px;
 }
 
+.search-input-wrapper {
+    position: relative;
+    width: 100%;
+}
+
 .search-input {
     width: 100%;
     padding: var(--spacing-sm) var(--spacing-md);
+    padding-right: calc(var(--spacing-md) + 32px);
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
@@ -52,6 +58,32 @@
 
 .search-input::placeholder {
     color: var(--text-secondary);
+}
+
+.search-clear-btn {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    opacity: 0.4;
+    padding: 0;
+}
+
+.search-clear-btn:hover {
+    opacity: 0.8;
+    color: var(--text-primary);
 }
 
 .toolbar-actions {

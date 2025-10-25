@@ -28,6 +28,8 @@
     <link rel="stylesheet" href="css/components/node-editor.css">
     <link rel="stylesheet" href="css/components/context-menu.css">
     <link rel="stylesheet" href="css/components/animations.css">
+    <link rel="stylesheet" href="css/components/docs.css">
+    <link rel="stylesheet" href="css/components/about.css">
     <link rel="stylesheet" href="css/components/responsive.css">
     <!-- JSZip for creating ZIP files -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -39,8 +41,8 @@
     </div>
     <!-- Theme Curtain Transition -->
     <div class="curtain-overlay" id="curtainOverlay">
-        <div class="curtain curtain-left"><span class="curtain-letter">A</span></div>
-        <div class="curtain curtain-right"><span class="curtain-letter">I</span></div>
+        <div class="curtain curtain-left"></div>
+        <div class="curtain curtain-right"></div>
     </div>
     <!-- Header with Navigation -->
     <header>
@@ -110,7 +112,10 @@
                             </div>
                             <div class="results-toolbar">
                                 <div class="search-box">
-                                    <input type="text" id="uploadSearchInput" class="search-input" placeholder="Search images...">
+                                    <div class="search-input-wrapper">
+                                        <input type="text" id="uploadSearchInput" class="search-input" placeholder="Search images...">
+                                        <button class="search-clear-btn" id="uploadSearchClear" style="display: none;">&times;</button>
+                                    </div>
                                 </div>
                                 <div class="toolbar-actions">
                                     <div class="pagination-controls" id="uploadPaginationControls" style="display: none;">
@@ -164,7 +169,10 @@
                             </div>
                             <div class="results-toolbar">
                                 <div class="search-box">
-                                    <input type="text" id="resultsSearchInput" class="search-input" placeholder="Search descriptions...">
+                                    <div class="search-input-wrapper">
+                                        <input type="text" id="resultsSearchInput" class="search-input" placeholder="Search descriptions...">
+                                        <button class="search-clear-btn" id="resultsSearchClear" style="display: none;">&times;</button>
+                                    </div>
                                 </div>
                                 <div class="toolbar-actions">
                                     <div class="pagination-controls" id="paginationControls" style="display: none;">
@@ -361,6 +369,463 @@
         </div>
     </div>
 
+    <!-- Documentation Overlay -->
+    <div class="docs-overlay" id="docsOverlay">
+        <div class="docs-container">
+            <!-- Docs Content Grid -->
+            <div class="docs-content-grid">
+                <!-- Left Sidebar Navigation -->
+                <nav class="docs-sidebar">
+                    <div class="docs-nav-section">
+                        <button class="docs-nav-item active" data-section="quickstart">
+                            <svg class="docs-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                            </svg>
+                            <span>Quick Start</span>
+                        </button>
+                        <button class="docs-nav-item" data-section="models">
+                            <svg class="docs-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                                <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
+                            </svg>
+                            <span>Models</span>
+                        </button>
+                        <button class="docs-nav-item" data-section="workflow">
+                            <svg class="docs-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="18" cy="5" r="3"/>
+                                <circle cx="6" cy="12" r="3"/>
+                                <circle cx="18" cy="19" r="3"/>
+                                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                            </svg>
+                            <span>Node Workflows</span>
+                        </button>
+                        <button class="docs-nav-item" data-section="export">
+                            <svg class="docs-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            <span>Export</span>
+                        </button>
+                        <button class="docs-nav-item" data-section="api">
+                            <svg class="docs-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="16 18 22 12 16 6"/>
+                                <polyline points="8 6 2 12 8 18"/>
+                            </svg>
+                            <span>API Reference</span>
+                        </button>
+                        <button class="docs-nav-item" data-section="troubleshooting">
+                            <svg class="docs-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                            </svg>
+                            <span>Troubleshooting</span>
+                        </button>
+                    </div>
+                </nav>
+
+                <!-- Main Content Area -->
+                <main class="docs-main">
+                    <button class="content-close" id="docsCloseBtn" aria-label="Close documentation">&times;</button>
+                    <!-- Quick Start Section -->
+                    <section class="docs-section active" id="docs-quickstart">
+                        <h2>Quick Start</h2>
+                        <div class="docs-card">
+                            <h3>Installation</h3>
+                            <div class="terminal-block">
+                                <div class="terminal-header">
+                                    <span class="terminal-title">bash</span>
+                                    <button class="terminal-copy" data-copy="git clone https://github.com/maxiarat1/ai-image-captioner.git
+cd ai-image-captioner
+./setup-tagger-gpu.sh
+conda activate tagger-gpu
+cd backend && python app.py">Copy</button>
+                                </div>
+                                <div class="terminal-content">
+                                    <div class="terminal-line"><span class="terminal-prompt">$</span> git clone https://github.com/maxiarat1/ai-image-captioner.git</div>
+                                    <div class="terminal-line"><span class="terminal-prompt">$</span> cd ai-image-captioner</div>
+                                    <div class="terminal-line"><span class="terminal-prompt">$</span> ./setup-tagger-gpu.sh</div>
+                                    <div class="terminal-line"><span class="terminal-prompt">$</span> conda activate tagger-gpu</div>
+                                    <div class="terminal-line"><span class="terminal-prompt">$</span> cd backend && python app.py</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="docs-card">
+                            <h3>Requirements</h3>
+                            <ul class="docs-list">
+                                <li>NVIDIA GPU with CUDA 12.1+ (RTX 20/30/40 series) or CUDA 12.8+ (RTX 50 series)</li>
+                                <li>Python 3.10 or 3.12</li>
+                                <li>4GB+ VRAM minimum (8GB+ recommended for R-4B)</li>
+                            </ul>
+                        </div>
+                    </section>
+
+                    <!-- Models Section -->
+                    <section class="docs-section" id="docs-models">
+                        <h2>AI Models</h2>
+                        <div class="docs-card">
+                            <h3>Model Comparison</h3>
+                            <div class="performance-matrix">
+                                <div class="perf-model-card">
+                                    <div class="perf-model-header">BLIP</div>
+                                    <div class="perf-metric">
+                                        <span class="perf-label">Speed</span>
+                                        <div class="perf-bar"><div class="perf-fill" style="width: 80%"></div></div>
+                                        <span class="perf-value">Fast</span>
+                                    </div>
+                                    <div class="perf-metric">
+                                        <span class="perf-label">Quality</span>
+                                        <div class="perf-bar"><div class="perf-fill" style="width: 60%"></div></div>
+                                        <span class="perf-value">Good</span>
+                                    </div>
+                                    <div class="perf-metric">
+                                        <span class="perf-label">VRAM</span>
+                                        <div class="perf-bar"><div class="perf-fill" style="width: 25%"></div></div>
+                                        <span class="perf-value">2GB</span>
+                                    </div>
+                                </div>
+                                <div class="perf-model-card">
+                                    <div class="perf-model-header">R-4B (fp16)</div>
+                                    <div class="perf-metric">
+                                        <span class="perf-label">Speed</span>
+                                        <div class="perf-bar"><div class="perf-fill" style="width: 40%"></div></div>
+                                        <span class="perf-value">Medium</span>
+                                    </div>
+                                    <div class="perf-metric">
+                                        <span class="perf-label">Quality</span>
+                                        <div class="perf-bar"><div class="perf-fill" style="width: 95%"></div></div>
+                                        <span class="perf-value">Excellent</span>
+                                    </div>
+                                    <div class="perf-metric">
+                                        <span class="perf-label">VRAM</span>
+                                        <div class="perf-bar"><div class="perf-fill" style="width: 50%"></div></div>
+                                        <span class="perf-value">8GB</span>
+                                    </div>
+                                </div>
+                                <div class="perf-model-card">
+                                    <div class="perf-model-header">R-4B (4bit)</div>
+                                    <div class="perf-metric">
+                                        <span class="perf-label">Speed</span>
+                                        <div class="perf-bar"><div class="perf-fill" style="width: 60%"></div></div>
+                                        <span class="perf-value">Fast</span>
+                                    </div>
+                                    <div class="perf-metric">
+                                        <span class="perf-label">Quality</span>
+                                        <div class="perf-bar"><div class="perf-fill" style="width: 75%"></div></div>
+                                        <span class="perf-value">Very Good</span>
+                                    </div>
+                                    <div class="perf-metric">
+                                        <span class="perf-label">VRAM</span>
+                                        <div class="perf-bar"><div class="perf-fill" style="width: 15%"></div></div>
+                                        <span class="perf-value">2GB</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Workflow Section -->
+                    <section class="docs-section" id="docs-workflow">
+                        <h2>Node Workflows</h2>
+                        <div class="docs-card">
+                            <h3>Basic Pipeline</h3>
+                            <p>Connect nodes to create custom processing workflows:</p>
+                            <div class="workflow-example">
+                                <div class="workflow-step">Input</div>
+                                <div class="workflow-arrow">→</div>
+                                <div class="workflow-step">AI Model</div>
+                                <div class="workflow-arrow">→</div>
+                                <div class="workflow-step">Output</div>
+                            </div>
+                        </div>
+                        <div class="docs-card">
+                            <h3>Advanced with Templates</h3>
+                            <div class="workflow-example">
+                                <div class="workflow-step">Input</div>
+                                <div class="workflow-arrow">→</div>
+                                <div class="workflow-step">Prompt</div>
+                                <div class="workflow-arrow">→</div>
+                                <div class="workflow-step">AI Model</div>
+                                <div class="workflow-arrow">→</div>
+                                <div class="workflow-step">Conjunction</div>
+                                <div class="workflow-arrow">→</div>
+                                <div class="workflow-step">Output</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Export Section -->
+                    <section class="docs-section" id="docs-export">
+                        <h2>Export Formats</h2>
+                        <div class="docs-grid">
+                            <div class="docs-card">
+                                <h3>Text Files (ZIP)</h3>
+                                <p>Individual .txt files for each image with matching filenames.</p>
+                            </div>
+                            <div class="docs-card">
+                                <h3>JSON</h3>
+                                <p>Structured data file with image paths and captions.</p>
+                            </div>
+                            <div class="docs-card">
+                                <h3>CSV</h3>
+                                <p>Spreadsheet-compatible format for data analysis.</p>
+                            </div>
+                            <div class="docs-card">
+                                <h3>Images with EXIF</h3>
+                                <p>Captions embedded directly in image metadata.</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- API Section -->
+                    <section class="docs-section" id="docs-api">
+                        <h2>API Reference</h2>
+                        <div class="docs-card">
+                            <h3>POST /generate</h3>
+                            <p>Generate a caption for a single image.</p>
+                            <div class="terminal-block">
+                                <div class="terminal-header">
+                                    <span class="terminal-title">python</span>
+                                </div>
+                                <div class="terminal-content">
+                                    <div class="terminal-line">import requests</div>
+                                    <div class="terminal-line"></div>
+                                    <div class="terminal-line">with open('image.jpg', 'rb') as f:</div>
+                                    <div class="terminal-line">    response = requests.post(</div>
+                                    <div class="terminal-line">        'http://localhost:5000/generate',</div>
+                                    <div class="terminal-line">        files={'image': f},</div>
+                                    <div class="terminal-line">        data={'model': 'blip', 'prompt': 'Describe this image'}</div>
+                                    <div class="terminal-line">    )</div>
+                                    <div class="terminal-line">print(response.json()['caption'])</div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Troubleshooting Section -->
+                    <section class="docs-section" id="docs-troubleshooting">
+                        <h2>Troubleshooting</h2>
+                        <div class="docs-card">
+                            <h3>Out of Memory Error</h3>
+                            <p>Solutions:</p>
+                            <ul class="docs-list">
+                                <li>Use BLIP model instead of R-4B</li>
+                                <li>Switch R-4B to 8-bit or 4-bit precision</li>
+                                <li>Close other GPU-intensive applications</li>
+                            </ul>
+                        </div>
+                        <div class="docs-card">
+                            <h3>CUDA Version Mismatch</h3>
+                            <p>Ensure you're using the correct build:</p>
+                            <ul class="docs-list">
+                                <li>RTX 20/30/40 series: python310-cuda121</li>
+                                <li>RTX 50 series: python312-cuda128</li>
+                            </ul>
+                        </div>
+                    </section>
+                </main>
+            </div>
+        </div>
+    </div>
+
+    <!-- About Overlay -->
+    <div class="about-overlay" id="aboutOverlay">
+        <!-- SVG Gradient Definitions -->
+        <svg width="0" height="0" style="position: absolute;">
+            <defs>
+                <linearGradient id="statGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+                </linearGradient>
+            </defs>
+        </svg>
+        <div class="about-container">
+            <!-- About Content -->
+            <div class="about-content">
+                <button class="content-close" id="aboutCloseBtn" aria-label="Close about">&times;</button>
+                <!-- Hero Section -->
+                <section class="about-hero">
+                    <h1 class="about-title">AI-Powered Image Captioning</h1>
+                    <p class="about-subtitle">Generate detailed descriptions for your images using state-of-the-art AI models</p>
+                    <div class="about-status">
+                        <span class="status-indicator"></span>
+                        <span>System Operational</span>
+                    </div>
+                </section>
+
+                <!-- Stats Grid -->
+                <section class="about-stats-grid">
+                    <div class="stat-card">
+                        <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                        </svg>
+                        <div class="stat-value" id="statSpeed">1.2</div>
+                        <div class="stat-label">Images/Second</div>
+                    </div>
+                    <div class="stat-card">
+                        <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                            <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
+                        </svg>
+                        <div class="stat-value" id="statModels">2</div>
+                        <div class="stat-label">AI Models</div>
+                    </div>
+                    <div class="stat-card">
+                        <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/>
+                            <line x1="3" y1="9" x2="21" y2="9"/>
+                            <line x1="9" y1="21" x2="9" y2="9"/>
+                        </svg>
+                        <div class="stat-value" id="statVram">2-16</div>
+                        <div class="stat-label">GB VRAM</div>
+                    </div>
+                    <div class="stat-card">
+                        <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        <div class="stat-value" id="statExportFormats">4</div>
+                        <div class="stat-label">Export Formats</div>
+                    </div>
+                </section>
+
+                <!-- Features -->
+                <section class="about-features">
+                    <h2>Key Features</h2>
+                    <div class="feature-grid">
+                        <div class="feature-card">
+                            <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="18" cy="5" r="3"/>
+                                <circle cx="6" cy="12" r="3"/>
+                                <circle cx="18" cy="19" r="3"/>
+                                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                            </svg>
+                            <h3>Visual Node Editor</h3>
+                            <p>Build AI pipelines with drag-and-drop nodes. Create custom workflows tailored to your needs.</p>
+                        </div>
+                        <div class="feature-card">
+                            <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                                <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
+                            </svg>
+                            <h3>Dual AI Models</h3>
+                            <p>Choose between BLIP for speed or R-4B for detailed reasoning and high-quality captions.</p>
+                        </div>
+                        <div class="feature-card">
+                            <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="7" height="7"/>
+                                <rect x="14" y="3" width="7" height="7"/>
+                                <rect x="14" y="14" width="7" height="7"/>
+                                <rect x="3" y="14" width="7" height="7"/>
+                            </svg>
+                            <h3>Smart Templates</h3>
+                            <p>Combine prompts and AI outputs with Conjunction nodes for custom caption formats.</p>
+                        </div>
+                        <div class="feature-card">
+                            <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="20" x2="12" y2="10"/>
+                                <line x1="18" y1="20" x2="18" y2="4"/>
+                                <line x1="6" y1="20" x2="6" y2="16"/>
+                            </svg>
+                            <h3>Real-time Stats</h3>
+                            <p>Live progress tracking with processing speed, success rate, and time estimates.</p>
+                        </div>
+                        <div class="feature-card">
+                            <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            <h3>Flexible Export</h3>
+                            <p>Export as text, JSON, CSV, or embed directly into image EXIF metadata.</p>
+                        </div>
+                        <div class="feature-card">
+                            <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="2" y="3" width="20" height="14" rx="2"/>
+                                <line x1="8" y1="21" x2="16" y2="21"/>
+                                <line x1="12" y1="17" x2="12" y2="21"/>
+                            </svg>
+                            <h3>Local Processing</h3>
+                            <p>No cloud dependency. All processing happens on your machine with your GPU.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Tech Stack -->
+                <section class="about-tech">
+                    <h2>Technology Stack</h2>
+                    <div class="tech-grid">
+                        <div class="tech-card">
+                            <div class="tech-name">Salesforce BLIP</div>
+                            <div class="tech-desc">Fast image captioning</div>
+                        </div>
+                        <div class="tech-card">
+                            <div class="tech-name">R-4B</div>
+                            <div class="tech-desc">Advanced reasoning model</div>
+                        </div>
+                        <div class="tech-card">
+                            <div class="tech-name">PyTorch</div>
+                            <div class="tech-desc">Deep learning framework</div>
+                        </div>
+                        <div class="tech-card">
+                            <div class="tech-name">Flask</div>
+                            <div class="tech-desc">REST API backend</div>
+                        </div>
+                        <div class="tech-card">
+                            <div class="tech-name">Vanilla JavaScript</div>
+                            <div class="tech-desc">No-build frontend</div>
+                        </div>
+                        <div class="tech-card">
+                            <div class="tech-name">CUDA</div>
+                            <div class="tech-desc">GPU acceleration</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Links -->
+                <section class="about-links">
+                    <h2>Resources</h2>
+                    <div class="link-grid">
+                        <a href="https://github.com/maxiarat1/ai-image-captioner" class="link-card" target="_blank" rel="noopener">
+                            <svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+                            </svg>
+                            <div>
+                                <div class="link-title">GitHub Repository</div>
+                                <div class="link-desc">Source code and issues</div>
+                            </div>
+                        </a>
+                        <a href="https://github.com/maxiarat1/ai-image-captioner/releases" class="link-card" target="_blank" rel="noopener">
+                            <svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            <div>
+                                <div class="link-title">Download Releases</div>
+                                <div class="link-desc">Pre-built executables</div>
+                            </div>
+                        </a>
+                    </div>
+                </section>
+
+                <!-- Credits -->
+                <section class="about-credits">
+                    <h2>Credits</h2>
+                    <p>Built with open-source technologies:</p>
+                    <ul class="credits-list">
+                        <li><a href="https://github.com/salesforce/BLIP" target="_blank" rel="noopener">Salesforce BLIP</a></li>
+                        <li><a href="https://huggingface.co/YannQi/R-4B" target="_blank" rel="noopener">YannQi/R-4B</a></li>
+                        <li><a href="https://github.com/huggingface/transformers" target="_blank" rel="noopener">Hugging Face Transformers</a></li>
+                    </ul>
+                    <p class="license">Released under the MIT License</p>
+                </section>
+            </div>
+        </div>
+    </div>
+
     <!-- Core Scripts -->
     <script src="js/logger.js"></script>
     <script src="js/state.js"></script>
@@ -368,6 +833,9 @@
     <script src="js/toast.js"></script>
     <script src="js/modal.js"></script>
     <script src="js/pageTransition.js"></script>
+
+    <!-- API Modules -->
+    <script src="js/api/modelsApi.js"></script>
 
     <!-- Upload Components -->
     <script src="js/folderScanner.js"></script>
@@ -410,9 +878,14 @@
     <script src="js/processingControls.js"></script>
     <script src="js/searchHandlers.js"></script>
 
+    <!-- Utilities -->
+    <script src="js/utils/curtainAnimation.js"></script>
+
     <!-- New modularized UI and bootstrap -->
     <script src="js/ui/tabNavigation.js"></script>
     <script src="js/ui/themeToggle.js"></script>
+    <script src="js/ui/docsInterface.js"></script>
+    <script src="js/ui/aboutInterface.js"></script>
     <script src="js/upload/uploadHandlers.js"></script>
     <script src="js/results/copyFunctionality.js"></script>
     <script src="js/bootstrap.js"></script>

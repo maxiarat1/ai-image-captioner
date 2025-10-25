@@ -165,6 +165,114 @@ def list_models():
     ]
     return jsonify({"models": available_models})
 
+@app.route('/models/metadata', methods=['GET'])
+def models_metadata():
+    """Get comprehensive metadata about all models for documentation."""
+    model_details = {
+        'blip': {
+            'display_name': 'BLIP',
+            'full_name': 'Salesforce BLIP',
+            'description': 'Fast image captioning',
+            'speed_score': 80,  # 0-100
+            'quality_score': 60,
+            'vram_gb': 2,
+            'vram_label': '2GB',
+            'speed_label': 'Fast',
+            'quality_label': 'Good',
+            'features': ['Fast processing', 'Low VRAM usage', 'General-purpose captions'],
+            'use_cases': ['Batch processing', 'Quick previews', 'Resource-constrained systems']
+        },
+        'r4b': {
+            'display_name': 'R-4B',
+            'full_name': 'R-4B Advanced Reasoning',
+            'description': 'Advanced reasoning model with configurable parameters',
+            'speed_score': 40,
+            'quality_score': 95,
+            'vram_gb': 8,
+            'vram_label': '8GB (fp16)',
+            'speed_label': 'Medium',
+            'quality_label': 'Excellent',
+            'features': ['Advanced reasoning', 'Configurable precision', 'Detailed captions'],
+            'use_cases': ['High-quality descriptions', 'Complex scenes', 'Fine-grained control'],
+            'precision_variants': [
+                {'name': 'fp16', 'vram_gb': 8, 'speed_score': 40, 'quality_score': 95},
+                {'name': '4bit', 'vram_gb': 2, 'speed_score': 60, 'quality_score': 75}
+            ]
+        },
+        'qwen3vl-4b': {
+            'display_name': 'Qwen3-VL 4B',
+            'full_name': 'Qwen3-VL 4B Instruct',
+            'description': 'Compact vision-language model with strong performance',
+            'speed_score': 55,
+            'quality_score': 80,
+            'vram_gb': 6,
+            'vram_label': '6GB',
+            'speed_label': 'Fast',
+            'quality_label': 'Very Good',
+            'features': ['Vision-language understanding', 'Instruction following', 'Multilingual support'],
+            'use_cases': ['Detailed descriptions', 'Scene understanding', 'Custom prompts']
+        },
+        'qwen3vl-8b': {
+            'display_name': 'Qwen3-VL 8B',
+            'full_name': 'Qwen3-VL 8B Instruct',
+            'description': 'Advanced vision-language model with superior image understanding',
+            'speed_score': 35,
+            'quality_score': 92,
+            'vram_gb': 12,
+            'vram_label': '12GB',
+            'speed_label': 'Medium',
+            'quality_label': 'Excellent',
+            'features': ['Superior image understanding', 'Complex reasoning', 'Rich context'],
+            'use_cases': ['Professional captioning', 'Complex scenes', 'High accuracy needs']
+        },
+        'wdvit': {
+            'display_name': 'WD-ViT',
+            'full_name': 'WD-ViT Large Tagger v3',
+            'description': 'Anime-style image tagging model with ViT backbone',
+            'speed_score': 70,
+            'quality_score': 85,
+            'vram_gb': 3,
+            'vram_label': '3GB',
+            'speed_label': 'Fast',
+            'quality_label': 'Very Good',
+            'features': ['Anime/manga specialized', 'Tag-based output', 'Character recognition'],
+            'use_cases': ['Anime artwork', 'Tag generation', 'Booru-style tags']
+        },
+        'wdeva02': {
+            'display_name': 'WD-EVA02',
+            'full_name': 'WD-EVA02 Large Tagger v3',
+            'description': 'Anime-style image tagging model with EVA02 backbone (improved accuracy)',
+            'speed_score': 65,
+            'quality_score': 90,
+            'vram_gb': 4,
+            'vram_label': '4GB',
+            'speed_label': 'Fast',
+            'quality_label': 'Excellent',
+            'features': ['Enhanced accuracy', 'Anime/manga specialized', 'Advanced tagging'],
+            'use_cases': ['Professional anime tagging', 'Dataset creation', 'High-accuracy needs']
+        }
+    }
+
+    available_models = [name for name in MODEL_METADATA.keys()]
+    active_models = {name: details for name, details in model_details.items() if name in available_models}
+
+    return jsonify({
+        'model_count': len(active_models),
+        'models': active_models,
+        'export_formats': 4,
+        'vram_range': f"{min(m['vram_gb'] for m in active_models.values())}-{max(m['vram_gb'] for m in active_models.values())}",
+        'tech_stack': [
+            {'name': 'Salesforce BLIP', 'description': 'Fast image captioning'},
+            {'name': 'R-4B', 'description': 'Advanced reasoning model'},
+            {'name': 'Qwen3-VL', 'description': 'Vision-language models'},
+            {'name': 'WD Taggers', 'description': 'Anime-style tagging'},
+            {'name': 'PyTorch', 'description': 'Deep learning framework'},
+            {'name': 'Flask', 'description': 'REST API backend'},
+            {'name': 'Vanilla JavaScript', 'description': 'No-build frontend'},
+            {'name': 'CUDA', 'description': 'GPU acceleration'}
+        ]
+    })
+
 @app.route('/model/reload', methods=['POST'])
 def reload_model():
     try:

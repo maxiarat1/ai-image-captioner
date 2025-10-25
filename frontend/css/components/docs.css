@@ -1,0 +1,463 @@
+/* ============================================================================
+   Documentation Overlay - Bleeding Edge Design
+   ============================================================================ */
+
+/* Overlay Container */
+.docs-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+    z-index: 9998;
+    opacity: 0;
+    visibility: hidden;
+    transition: none;
+    overflow: hidden;
+}
+
+.docs-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Animated grid pattern background */
+.docs-overlay::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image:
+        linear-gradient(rgba(99, 102, 241, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99, 102, 241, 0.05) 1px, transparent 1px);
+    background-size: 50px 50px;
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+.docs-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    animation: slideInFromTop 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Content Grid */
+.docs-content-grid {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 0;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Sidebar Navigation */
+.docs-sidebar {
+    background: rgba(26, 31, 58, 0.4);
+    backdrop-filter: blur(10px);
+    border-right: 1px solid var(--border-color);
+    padding: var(--spacing-lg);
+    overflow-y: auto;
+}
+
+/* Hide scrollbar for docs sidebar */
+.docs-sidebar::-webkit-scrollbar {
+    display: none;
+}
+
+.docs-sidebar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+.docs-nav-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.docs-nav-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-smooth);
+    text-align: left;
+}
+
+.docs-nav-item:hover {
+    background: rgba(99, 102, 241, 0.1);
+    border-color: var(--accent-primary);
+    color: var(--text-primary);
+    transform: translateX(4px);
+}
+
+.docs-nav-item.active {
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    border-color: var(--accent-primary);
+    color: white;
+    box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+.docs-nav-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Close Button */
+.content-close {
+    position: sticky;
+    top: var(--spacing-md);
+    right: var(--spacing-md);
+    float: right;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(26, 31, 58, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    color: var(--text-secondary);
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: all var(--transition-smooth);
+    z-index: 100;
+    margin-bottom: var(--spacing-md);
+}
+
+.content-close:hover {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+    transform: scale(1.1);
+    box-shadow: 0 4px 16px var(--accent-glow);
+}
+
+/* Main Content */
+.docs-main {
+    padding: var(--spacing-xl);
+    padding-right: calc(var(--spacing-xl) * 2);
+    overflow-y: auto;
+    position: relative;
+    max-width: 1560px;
+}
+
+/* Hide scrollbar for docs main */
+.docs-main::-webkit-scrollbar {
+    display: none;
+}
+
+.docs-main {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+/* Sections */
+.docs-section {
+    display: none;
+    animation: fadeInUp 0.4s ease;
+}
+
+.docs-section.active {
+    display: block;
+}
+
+.docs-section h2 {
+    font-size: 2rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: var(--spacing-lg);
+}
+
+.docs-section h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-md);
+}
+
+.docs-section p {
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: var(--spacing-md);
+}
+
+/* Cards */
+.docs-card {
+    background: rgba(26, 31, 58, 0.5);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    transition: all var(--transition-smooth);
+}
+
+.docs-card:hover {
+    border-color: var(--accent-primary);
+    box-shadow: 0 8px 24px rgba(99, 102, 241, 0.2);
+    transform: translateY(-2px);
+}
+
+.docs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.docs-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.docs-list li {
+    padding: var(--spacing-sm) 0;
+    padding-left: var(--spacing-lg);
+    color: var(--text-secondary);
+    position: relative;
+}
+
+.docs-list li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: var(--accent-primary);
+    font-weight: 700;
+}
+
+/* Terminal Block */
+.terminal-block {
+    background: #0a0e1a;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin: var(--spacing-md) 0;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.terminal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.terminal-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.terminal-copy {
+    padding: 4px 12px;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.terminal-copy:hover {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+    box-shadow: 0 2px 8px var(--accent-glow);
+}
+
+.terminal-content {
+    padding: var(--spacing-md);
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    line-height: 1.8;
+    color: #e8eaf6;
+}
+
+.terminal-line {
+    display: block;
+    margin: 2px 0;
+}
+
+.terminal-prompt {
+    color: var(--accent-primary);
+    font-weight: 700;
+    margin-right: 8px;
+}
+
+/* Performance Matrix */
+.performance-matrix {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--spacing-md);
+    margin: var(--spacing-md) 0;
+}
+
+.perf-model-card {
+    background: rgba(37, 43, 74, 0.6);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-md);
+    transition: all var(--transition-smooth);
+}
+
+.perf-model-card:hover {
+    border-color: var(--accent-primary);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(99, 102, 241, 0.2);
+}
+
+.perf-model-header {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 2px solid var(--accent-primary);
+}
+
+.perf-metric {
+    display: grid;
+    grid-template-columns: 60px 1fr 70px;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
+.perf-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.perf-bar {
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.perf-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    border-radius: 4px;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 8px var(--accent-glow);
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.perf-value {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--accent-primary);
+    text-align: right;
+}
+
+/* Workflow Example */
+.workflow-example {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-lg);
+    background: rgba(37, 43, 74, 0.4);
+    border-radius: var(--radius-lg);
+    margin: var(--spacing-md) 0;
+    flex-wrap: wrap;
+}
+
+.workflow-step {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    border-radius: var(--radius-md);
+    color: white;
+    font-weight: 600;
+    font-size: 0.9rem;
+    box-shadow: 0 4px 12px var(--accent-glow);
+    transition: all var(--transition-smooth);
+}
+
+.workflow-step:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px var(--accent-glow);
+}
+
+.workflow-arrow {
+    font-size: 1.5rem;
+    color: var(--accent-primary);
+    font-weight: 700;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .docs-content-grid {
+        grid-template-columns: 200px 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .docs-content-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .docs-sidebar {
+        display: none;
+    }
+
+    .docs-main {
+        padding: var(--spacing-md);
+    }
+
+    .content-close {
+        width: 36px;
+        height: 36px;
+        font-size: 1.25rem;
+    }
+
+    .performance-matrix {
+        grid-template-columns: 1fr;
+    }
+
+    .workflow-example {
+        flex-direction: column;
+    }
+
+    .workflow-arrow {
+        transform: rotate(90deg);
+    }
+}

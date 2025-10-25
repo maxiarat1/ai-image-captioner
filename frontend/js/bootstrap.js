@@ -63,6 +63,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     initTabNavigation();
     initThemeToggle();
+    initDocsInterface();
+    initAboutInterface();
+
+    // Navigation link handlers
+    const docsLink = document.querySelector('a[href="#docs"]');
+    const aboutLink = document.querySelector('a[href="#about"]');
+
+    if (docsLink) {
+        docsLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (window.openDocs) {
+                window.openDocs();
+            }
+        });
+    }
+
+    if (aboutLink) {
+        aboutLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (window.openAbout) {
+                window.openAbout();
+            }
+        });
+    }
 
     initUploadHandlers();
 
