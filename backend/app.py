@@ -269,7 +269,8 @@ def models_metadata():
             {'name': 'PyTorch', 'description': 'Deep learning framework'},
             {'name': 'Flask', 'description': 'REST API backend'},
             {'name': 'Vanilla JavaScript', 'description': 'No-build frontend'},
-            {'name': 'CUDA', 'description': 'GPU acceleration'}
+            {'name': 'CUDA', 'description': 'GPU acceleration'},
+            {'name': 'DuckDB', 'description': 'Embedded analytics database'}
         ]
     })
 
