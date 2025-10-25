@@ -15,6 +15,12 @@ MAX_FILE_SIZE = 16 * 1024 * 1024
 IMAGE_CACHE_MAX_SIZE = 30
 THUMBNAIL_CACHE_MAX_SIZE = 100
 
+PRECISION_DEFAULTS = {
+    'r4b': {'precision': 'float32', 'use_flash_attention': False},
+    'qwen3vl-4b': {'precision': 'auto', 'use_flash_attention': False},
+    'qwen3vl-8b': {'precision': 'auto', 'use_flash_attention': False}
+}
+
 DATA_DIR.mkdir(exist_ok=True)
 TEMP_UPLOAD_DIR.mkdir(exist_ok=True)
 THUMBNAIL_DIR.mkdir(exist_ok=True)

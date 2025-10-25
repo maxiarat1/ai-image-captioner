@@ -20,6 +20,12 @@ from models.wdvit_adapter import WdVitAdapter
 from utils.image_utils import load_image, image_to_base64
 from utils.logging_utils import setup_logging
 from session_manager import SessionManager
+from config import (
+    SUPPORTED_IMAGE_FORMATS,
+    THUMBNAIL_SIZE,
+    MAX_FILE_SIZE,
+    PRECISION_DEFAULTS,
+)
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -29,16 +35,6 @@ app = Flask(__name__)
 CORS(app)
 
 session_manager = SessionManager()
-
-SUPPORTED_IMAGE_FORMATS = {'.jpg', '.jpeg', '.png', '.webp', '.bmp'}
-THUMBNAIL_SIZE = (150, 150)
-MAX_FILE_SIZE = 16 * 1024 * 1024
-
-PRECISION_DEFAULTS = {
-    'r4b': {'precision': 'float32', 'use_flash_attention': False},
-    'qwen3vl-4b': {'precision': 'auto', 'use_flash_attention': False},
-    'qwen3vl-8b': {'precision': 'auto', 'use_flash_attention': False}
-}
 
 MODEL_METADATA = {
     'blip': {
