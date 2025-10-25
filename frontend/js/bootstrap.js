@@ -11,6 +11,29 @@ async function autoResumeSession() {
         if (data.total > 0) {
             AppState.uploadQueue = data.images;
 
+            const imagesWithCaptions = data.images.filter(img => img.caption);
+            if (imagesWithCaptions.length > 0) {
+                AppState.allResults = imagesWithCaptions.map(img => ({
+                    queueItem: img,
+                    data: { caption: img.caption }
+                }));
+
+                AppState.processedResults = imagesWithCaptions.map(img => ({
+                    filename: img.filename,
+                    caption: img.caption,
+                    path: img.filename
+                }));
+
+                if (typeof renderCurrentPage === 'function') {
+                    renderCurrentPage();
+                }
+
+                const downloadBtn = document.getElementById('downloadAllBtn');
+                if (downloadBtn) {
+                    downloadBtn.style.display = 'inline-flex';
+                }
+            }
+
             const totalSize = data.images.reduce((sum, img) => sum + (img.size || 0), 0);
             const sizeText = formatFileSize(totalSize);
 
@@ -21,9 +44,10 @@ async function autoResumeSession() {
                 updateInputNodes();
             }
 
-            showToast(`Session resumed: ${data.total} images (${sizeText})`, false);
+            const captionText = imagesWithCaptions.length > 0 ? ` (${imagesWithCaptions.length} with captions)` : '';
+            showToast(`Session resumed: ${data.total} images (${sizeText})${captionText}`, false);
 
-            console.log(`Auto-resumed session with ${data.total} images`);
+            console.log(`Auto-resumed session with ${data.total} images, ${imagesWithCaptions.length} with captions`);
         }
     } catch (error) {
         console.error('Error auto-resuming session:', error);

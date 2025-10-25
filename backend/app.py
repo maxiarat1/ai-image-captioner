@@ -409,6 +409,9 @@ def generate_caption():
 
         caption = model_adapter.generate_caption(image, prompt, parameters)
 
+        if image_id:
+            session_manager.save_caption(image_id, caption)
+
         return jsonify({
             "caption": caption,
             "model": model_adapter.model_name,

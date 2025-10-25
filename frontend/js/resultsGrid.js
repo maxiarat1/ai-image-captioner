@@ -57,8 +57,9 @@ function getFilteredResults() {
     }
 
     const query = AppState.resultsSearchQuery.toLowerCase();
-    return AppState.allResults.filter(({ data }) =>
-        data.caption.toLowerCase().includes(query)
+    return AppState.allResults.filter(({ queueItem, data }) =>
+        data.caption.toLowerCase().includes(query) ||
+        (queueItem.filename && queueItem.filename.toLowerCase().includes(query))
     );
 }
 

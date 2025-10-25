@@ -7,7 +7,7 @@ function openImagePreview(imageSrc, captionText, fileName) {
     const currentTab = activeTab?.id;
 
     modalImage.src = imageSrc;
-    modalInfo.textContent = captionText || fileName;
+    modalInfo.innerHTML = captionText ? `${captionText}<br><small style="opacity: 0.7; margin-top: 8px; display: block;">${fileName}</small>` : fileName;
     backdrop.className = `modal-backdrop ${currentTab}`;
     modal.classList.add('active');
 

@@ -36,9 +36,16 @@ class SessionManager:
                 width INTEGER,
                 height INTEGER,
                 is_uploaded BOOLEAN DEFAULT 0,
+                caption TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+
+        cursor.execute("PRAGMA table_info(images)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if 'caption' not in columns:
+            logger.info("Migrating database: adding caption column")
+            cursor.execute("ALTER TABLE images ADD COLUMN caption TEXT")
 
         conn.commit()
         conn.close()
@@ -202,7 +209,7 @@ class SessionManager:
             # Get page of results
             offset = (page - 1) * per_page
             query = f"""
-                SELECT image_id, filename, file_size, width, height, is_uploaded
+                SELECT image_id, filename, file_size, width, height, is_uploaded, caption
                 FROM images
                 {where_clause}
                 ORDER BY created_at DESC
@@ -218,7 +225,8 @@ class SessionManager:
                     'size': row[2],
                     'width': row[3],
                     'height': row[4],
-                    'uploaded': bool(row[5])
+                    'uploaded': bool(row[5]),
+                    'caption': row[6]
                 })
 
             pages = (total + per_page - 1) // per_page
@@ -257,6 +265,36 @@ class SessionManager:
             logger.info("Cleared %d images and temp files", count)
             return count
 
+        finally:
+            conn.close()
+
+    def save_caption(self, image_id: str, caption: str) -> bool:
+        """
+        Save a generated caption for an image.
+
+        Args:
+            image_id: Image ID
+            caption: Generated caption text
+
+        Returns:
+            True if successful, False otherwise
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute("""
+                UPDATE images
+                SET caption = ?
+                WHERE image_id = ?
+            """, (caption, image_id))
+
+            conn.commit()
+            return cursor.rowcount > 0
+
+        except Exception as e:
+            logger.error("Failed to save caption for %s: %s", image_id, e)
+            return False
         finally:
             conn.close()
 
