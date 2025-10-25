@@ -89,32 +89,49 @@ async function scanFolderFromFileList(files) {
 
         const { image_ids } = await registerResponse.json();
 
-        // Step 2: Upload files in batches (5 at a time to avoid size limits)
-        const BATCH_SIZE = 5;
+        // Step 2: Upload files in parallel batches for speed
+        const BATCH_SIZE = 10;  // Files per batch
+        const PARALLEL_BATCHES = 3;  // Number of batches to upload simultaneously
         let totalUploaded = 0;
 
+        // Create all batches
+        const batches = [];
         for (let i = 0; i < imageFiles.length; i += BATCH_SIZE) {
-            const batchFiles = imageFiles.slice(i, i + BATCH_SIZE);
-            const batchIds = image_ids.slice(i, i + BATCH_SIZE);
+            batches.push({
+                files: imageFiles.slice(i, i + BATCH_SIZE),
+                ids: image_ids.slice(i, i + BATCH_SIZE),
+                index: i
+            });
+        }
 
-            const progress = 0.3 + (i / imageFiles.length) * 0.6;
-            showToast(`Uploading ${i + 1}-${Math.min(i + BATCH_SIZE, imageFiles.length)}/${imageFiles.length}...`, true, progress);
+        // Upload batches in parallel chunks
+        for (let chunkStart = 0; chunkStart < batches.length; chunkStart += PARALLEL_BATCHES) {
+            const chunk = batches.slice(chunkStart, chunkStart + PARALLEL_BATCHES);
 
-            const formData = new FormData();
-            batchFiles.forEach(file => formData.append('files', file));
-            batchIds.forEach(id => formData.append('image_ids', id));
+            const progress = 0.3 + (chunkStart / batches.length) * 0.6;
+            const uploadedSoFar = chunkStart * BATCH_SIZE;
+            showToast(`Uploading ${uploadedSoFar + 1}-${Math.min(uploadedSoFar + PARALLEL_BATCHES * BATCH_SIZE, imageFiles.length)}/${imageFiles.length}...`, true, progress);
 
-            const uploadResponse = await fetch(`${AppState.apiBaseUrl}/upload/batch`, {
-                method: 'POST',
-                body: formData
+            // Upload this chunk's batches in parallel
+            const uploadPromises = chunk.map(async (batch) => {
+                const formData = new FormData();
+                batch.files.forEach(file => formData.append('files', file));
+                batch.ids.forEach(id => formData.append('image_ids', id));
+
+                const uploadResponse = await fetch(`${AppState.apiBaseUrl}/upload/batch`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!uploadResponse.ok) {
+                    throw new Error(`Failed to upload batch`);
+                }
+
+                return await uploadResponse.json();
             });
 
-            if (!uploadResponse.ok) {
-                throw new Error(`Failed to upload batch ${i / BATCH_SIZE + 1}`);
-            }
-
-            const uploadResult = await uploadResponse.json();
-            totalUploaded += uploadResult.uploaded;
+            const results = await Promise.all(uploadPromises);
+            totalUploaded += results.reduce((sum, r) => sum + r.uploaded, 0);
         }
 
         // Step 3: Update queue with image metadata
