@@ -114,9 +114,12 @@
                                 </div>
                                 <div class="toolbar-actions">
                                     <div class="pagination-controls" id="uploadPaginationControls" style="display: none;">
-                                        <button class="pagination-btn" id="uploadPrevPageBtn">◀ Previous</button>
-                                        <span class="pagination-info" id="uploadPaginationInfo">Page 1 of 1</span>
-                                        <button class="pagination-btn" id="uploadNextPageBtn">Next ▶</button>
+                                        <button class="pagination-btn" id="uploadPrevPageBtn">◀</button>
+                                        <div class="pagination-info-wrapper">
+                                            <span class="pagination-info clickable" id="uploadPaginationInfo">Page 1 of 1</span>
+                                            <div class="page-selector-dropdown" id="uploadPageSelector"></div>
+                                        </div>
+                                        <button class="pagination-btn" id="uploadNextPageBtn">▶</button>
                                     </div>
                                     <button class="btn-secondary" id="clearQueueBtn">Clear</button>
                                 </div>
@@ -165,9 +168,12 @@
                                 </div>
                                 <div class="toolbar-actions">
                                     <div class="pagination-controls" id="paginationControls" style="display: none;">
-                                        <button class="pagination-btn" id="prevPageBtn">◀ Previous</button>
-                                        <span class="pagination-info" id="paginationInfo">Page 1 of 1</span>
-                                        <button class="pagination-btn" id="nextPageBtn">Next ▶</button>
+                                        <button class="pagination-btn" id="prevPageBtn">◀</button>
+                                        <div class="pagination-info-wrapper">
+                                            <span class="pagination-info clickable" id="paginationInfo">Page 1 of 1</span>
+                                            <div class="page-selector-dropdown" id="resultsPageSelector"></div>
+                                        </div>
+                                        <button class="pagination-btn" id="nextPageBtn">▶</button>
                                     </div>
                                     <!-- Processing Controls (shown during processing) -->
                                     <div class="processing-controls" id="processingControls" style="display: none;">
@@ -400,6 +406,7 @@
     <script src="js/promptManagement.js"></script>
 
     <!-- UI Controls -->
+    <script src="js/paginationSelector.js"></script>
     <script src="js/processingControls.js"></script>
     <script src="js/searchHandlers.js"></script>
 

@@ -44,6 +44,7 @@ function initPaginationControls() {
     // Results pagination
     const prevBtn = document.getElementById('prevPageBtn');
     const nextBtn = document.getElementById('nextPageBtn');
+    const paginationInfo = document.getElementById('paginationInfo');
 
     if (prevBtn) {
         prevBtn.addEventListener('click', prevPage);
@@ -53,9 +54,17 @@ function initPaginationControls() {
         nextBtn.addEventListener('click', nextPage);
     }
 
+    if (paginationInfo) {
+        paginationInfo.addEventListener('click', (e) => {
+            e.stopPropagation();
+            togglePageSelector('results');
+        });
+    }
+
     // Upload pagination
     const uploadPrevBtn = document.getElementById('uploadPrevPageBtn');
     const uploadNextBtn = document.getElementById('uploadNextPageBtn');
+    const uploadPaginationInfo = document.getElementById('uploadPaginationInfo');
 
     if (uploadPrevBtn) {
         uploadPrevBtn.addEventListener('click', () => {
@@ -74,6 +83,13 @@ function initPaginationControls() {
                 AppState.uploadCurrentPage++;
                 renderUploadGridPage();
             }
+        });
+    }
+
+    if (uploadPaginationInfo) {
+        uploadPaginationInfo.addEventListener('click', (e) => {
+            e.stopPropagation();
+            togglePageSelector('upload');
         });
     }
 }
