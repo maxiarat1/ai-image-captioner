@@ -295,23 +295,20 @@ def list_images():
         logger.exception("Error listing images: %s", e)
         return jsonify({"error": str(e)}), 500
 
-@app.route('/image/<image_id>/thumbnail', methods=['GET'])
-def get_thumbnail_by_id(image_id):
-    """Get thumbnail for an image by ID."""
+@app.route('/image/<image_id>', methods=['GET'])
+def get_image_by_id(image_id):
+    """Get full-resolution image by ID."""
     try:
         image_path = session_manager.get_image_path(image_id)
         if not image_path:
             return jsonify({"error": "Image not found"}), 404
 
         image = load_image(image_path)
-        image.thumbnail(THUMBNAIL_SIZE, Image.Resampling.LANCZOS)
-
-        # Return as base64 JSON for now (can optimize to binary later)
-        return jsonify({"success": True, "thumbnail": image_to_base64(image)})
+        return jsonify({"success": True, "image": image_to_base64(image)})
     except ValueError as e:
         return jsonify({"error": str(e)}), 404
     except Exception as e:
-        logger.exception("Error generating thumbnail: %s", e)
+        logger.exception("Error loading image: %s", e)
         return jsonify({"error": str(e)}), 500
 
 @app.route('/image/<image_id>/info', methods=['GET'])
@@ -431,7 +428,6 @@ def generate_caption():
 
         return jsonify({
             "caption": caption,
-            "image_preview": image_to_base64(image),
             "model": model_adapter.model_name,
             "parameters_used": parameters,
             "image_id": request.form.get('image_id', ''),

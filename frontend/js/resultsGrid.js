@@ -2,7 +2,7 @@
 // Results Grid Management
 // ============================================================================
 
-async function addResultItemToCurrentPage(queueItem, data) {
+function addResultItemToCurrentPage(queueItem, data) {
     const resultsGrid = document.getElementById('resultsGrid');
     const paginationControls = document.getElementById('paginationControls');
 
@@ -16,13 +16,16 @@ async function addResultItemToCurrentPage(queueItem, data) {
 
         // Only add if we haven't exceeded the page limit
         if (currentPageItemCount < AppState.itemsPerPage) {
-            const resultDiv = await createResultElement(queueItem, data);
+            const resultDiv = createResultElement(queueItem, data);
 
             // Add staggered animation delay
             const delayMs = currentPageItemCount * 80;
             resultDiv.style.animationDelay = `${delayMs}ms`;
 
             resultsGrid.appendChild(resultDiv);
+
+            // Setup lazy loading for the new item
+            setupLazyLoadingForGrid('resultsGrid');
         }
     }
 
@@ -30,55 +33,30 @@ async function addResultItemToCurrentPage(queueItem, data) {
     updatePaginationControls();
 }
 
-async function createResultElement(queueItem, data) {
+function createResultElement(queueItem, data) {
     const resultDiv = document.createElement('div');
     resultDiv.className = 'result-item';
+    resultDiv.dataset.imageId = queueItem.image_id;
 
-    // Get thumbnail
-    let thumbnail;
-    if (queueItem.file) {
-        // Load from File object
-        thumbnail = await loadThumbnailFromFile(queueItem.file);
-    } else if (queueItem.path) {
-        // Load from filesystem path
-        thumbnail = await loadThumbnail(queueItem.path);
-    } else {
-        // Fallback: use data.image_preview from backend response
-        thumbnail = data.image_preview || '';
-    }
-
+    // Create placeholder for lazy-loaded image (same approach as Upload tab)
     resultDiv.innerHTML = `
         <div class="result-image">
-            <img src="${thumbnail}" alt="${queueItem.filename}">
+            <div class="result-thumbnail-container" data-image-id="${queueItem.image_id}">
+                <div class="thumbnail-placeholder">📷</div>
+            </div>
         </div>
         <div class="result-text">
             <p>${data.caption}</p>
         </div>
     `;
 
-    const img = resultDiv.querySelector('.result-image img');
-
-    // Check image aspect ratio and add class for stretched images
-    if (thumbnail) {
-        img.addEventListener('load', () => {
-            const aspectRatio = img.naturalWidth / img.naturalHeight;
-            if (aspectRatio > 2.5) {
-                resultDiv.classList.add('stretched-image');
-            }
-        });
-    }
-
-    // Add click handler with Ctrl modifier support
-    const resultImage = resultDiv.querySelector('.result-image');
-    resultImage.addEventListener('click', (e) => {
+    // Add Ctrl-click handler on result text for caption copying
+    const resultText = resultDiv.querySelector('.result-text');
+    resultText.addEventListener('click', (e) => {
         if (e.ctrlKey || e.metaKey) {
             navigator.clipboard.writeText(data.caption)
                 .then(() => showToast('Caption copied!'))
                 .catch(() => showToast('Copy failed'));
-        } else {
-            // Use the current thumbnail for preview
-            const currentThumbnail = thumbnail || img.src;
-            openImagePreview(currentThumbnail, data.caption, queueItem.filename);
         }
     });
 
@@ -96,7 +74,7 @@ function getFilteredResults() {
     );
 }
 
-async function renderCurrentPage() {
+function renderCurrentPage() {
     const resultsGrid = document.getElementById('resultsGrid');
 
     // Get filtered results
@@ -110,9 +88,12 @@ async function renderCurrentPage() {
     // Clear and render items for current page
     resultsGrid.innerHTML = '';
     for (const { queueItem, data } of pageItems) {
-        const resultDiv = await createResultElement(queueItem, data);
+        const resultDiv = createResultElement(queueItem, data);
         resultsGrid.appendChild(resultDiv);
     }
+
+    // Setup lazy loading for this page
+    setupLazyLoadingForGrid('resultsGrid');
 
     // Update pagination controls
     updatePaginationControls();

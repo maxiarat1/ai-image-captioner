@@ -247,7 +247,7 @@
                             caption: finalCaption,
                             path: item.path || item.filename
                         });
-                        await addResultItemToCurrentPage(item, { ...data, caption: finalCaption });
+                        addResultItemToCurrentPage(item, { ...data, caption: finalCaption });
                         totalSuccess++;
                     }
                 } catch (err) {

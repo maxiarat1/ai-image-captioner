@@ -72,7 +72,7 @@ async function processImages() {
             });
 
             // Only add new item if it's on the current page (don't re-render everything)
-            await addResultItemToCurrentPage(queueItem, data);
+            addResultItemToCurrentPage(queueItem, data);
 
         } catch (error) {
             console.error(`Error processing ${queueItem.filename}:`, error);

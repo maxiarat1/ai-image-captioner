@@ -1,18 +1,18 @@
 // ============================================================================
-// Thumbnail Loading - Simplified session-based version
+// Image Loading - Unified session-based version
 // ============================================================================
 
-async function loadThumbnail(image_id) {
-    // NEW: Simple endpoint using image_id
+async function loadFullImage(image_id) {
+    // Load full-resolution image for grid display and modal preview
     // Browser HTTP cache will handle caching automatically
     try {
-        const response = await fetch(`${AppState.apiBaseUrl}/image/${image_id}/thumbnail`);
-        if (!response.ok) throw new Error('Failed to load thumbnail');
+        const response = await fetch(`${AppState.apiBaseUrl}/image/${image_id}`);
+        if (!response.ok) throw new Error('Failed to load image');
 
         const data = await response.json();
-        return data.thumbnail;
+        return data.image;
     } catch (error) {
-        console.error('Error loading thumbnail:', error);
+        console.error('Error loading image:', error);
         return null;
     }
 }
