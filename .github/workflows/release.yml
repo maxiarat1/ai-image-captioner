@@ -290,7 +290,17 @@ jobs:
 
           ### Quick Start
 
-          **Option 1: Executable (Recommended)**
+          **Option 1: Docker (Recommended)**
+
+          ```bash
+          # RTX 20/30/40 series
+          docker run --gpus all -p 5000:5000 ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python310-cuda121
+
+          # RTX 50 series
+          docker run --gpus all -p 5000:5000 ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python312-cuda128
+          ```
+
+          **Option 2: Executable**
 
           1. Download the appropriate file for your GPU:
              - **Windows RTX 20/30/40:** `ai-image-captioner-windows-python310-cuda121.zip`
@@ -302,17 +312,6 @@ jobs:
              - **Windows:** Double-click `ai-image-captioner.exe` (extract with 7-Zip if split)
              - **Linux:** `tar -xzf ai-image-captioner-linux-*.tar.gz && ./ai-image-captioner/ai-image-captioner`
 
-          3. API backend runs at `http://localhost:5000`
-
-          **Option 2: Docker**
-
-          ```bash
-          # RTX 20/30/40 series
-          docker run --gpus all -p 5000:5000 ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python310-cuda121
-
-          # RTX 50 series
-          docker run --gpus all -p 5000:5000 ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python312-cuda128
-          ```
 
           API runs at `http://localhost:5000`
 

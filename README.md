@@ -19,19 +19,24 @@ Build and test image captioning pipelines with diverse AI models using a flexibl
 
 ## Quick Start
 
-### Option 1: Download Executable (Recommended)
+### Option 1: Docker (Recommended)
+
+```bash
+CUDA 12.1
+docker run --gpus all -p 5000:5000 ghcr.io/maxiarat1/ai-image-captioner:latest-python310-cuda121
+
+CUDA 12.8
+docker run --gpus all -p 5000:5000 ghcr.io/maxiarat1/ai-image-captioner:latest-python312-cuda128
+```
+Note: It needs [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+
+### Option 2: Download Executable
 
 1. Download from [Releases](https://github.com/maxiarat1/ai-image-captioner/releases)
 2. Run the executable:
    - Windows: `ai-image-captioner.exe`
    - Linux: `./ai-image-captioner`
 3. Open `http://localhost:5000` in your browser
-
-### Option 2: Docker
-
-```bash
-docker run --gpus all -p 5000:5000 ghcr.io/maxiarat1/ai-image-captioner:latest-python310-cuda121
-```
 
 ### Option 3: From Source
 
