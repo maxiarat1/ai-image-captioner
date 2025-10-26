@@ -10,10 +10,21 @@ REM Detect CUDA version from nvidia-smi if available
 set CUDA_VERSION=12.1
 where nvidia-smi >nul 2>&1
 if %errorlevel% equ 0 (
-    for /f "tokens=*" %%i in ('nvidia-smi --query-gpu=driver_version --format=csv,noheader 2^>nul') do (
-        echo Detected NVIDIA driver version: %%i
-        REM Use CUDA 12.8 for newer drivers (arbitrary cutoff)
-        set CUDA_VERSION=12.1
+    for /f "tokens=4" %%i in ('nvidia-smi ^| findstr "CUDA Version"') do (
+        echo Detected CUDA driver version: %%i
+        REM Extract major.minor version and compare
+        for /f "tokens=1,2 delims=." %%a in ("%%i") do (
+            set MAJOR=%%a
+            set MINOR=%%b
+        )
+        REM Use CUDA 12.8 for version >= 12.4
+        if !MAJOR! gtr 12 (
+            set CUDA_VERSION=12.8
+        ) else if !MAJOR! equ 12 (
+            if !MINOR! geq 4 (
+                set CUDA_VERSION=12.8
+            )
+        )
     )
 )
 
@@ -62,7 +73,7 @@ echo Installing project dependencies...
 pip install -r requirements.txt
 
 echo.
-echo Setup complete!
+echo ✅ Setup complete!
 echo.
 echo To activate the environment, run:
 echo   conda activate captioner-gpu

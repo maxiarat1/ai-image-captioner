@@ -57,7 +57,7 @@ class R4BAdapter(BaseModelAdapter):
                     model_kwargs["attn_implementation"] = "flash_attention_2"
                     logger.info("Using Flash Attention 2")
                 except ImportError:
-                    logger.info("Flash Attention not available, using default")
+                    logger.info("Flash Attention not available, using default. You can install it via 'pip install flash-attn --no-build-isolation' if GPU is compatible.")
 
             self.model = AutoModel.from_pretrained("YannQi/R-4B", **model_kwargs)
             if not self.model:

@@ -741,6 +741,11 @@
     flex: 1;
 }
 
+/* Hide fullscreen button when already in fullscreen mode */
+#fullscreenCanvasContainer .fullscreen-btn {
+    display: none;
+}
+
 /* Custom scrollbar styling */
 #fullscreenCanvasContainer::-webkit-scrollbar {
     width: 6px;

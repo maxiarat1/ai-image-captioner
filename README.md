@@ -36,7 +36,7 @@ Note: It needs [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/clo
 2. Run the executable:
    - Windows: `ai-image-captioner.exe`
    - Linux: `./ai-image-captioner`
-3. Open `http://localhost:5000` in your browser
+3. Open `frontend/index.html` in your browser
 
 ### Option 3: From Source
 
@@ -60,6 +60,16 @@ cd backend && python app.py
 ```
 Input → Prompt → BLIP → Conjunction → Output
 ```
+
+## [Flash Attention Instalation](https://github.com/Dao-AILab/flash-attention)
+```
+conda activate captioner-gpu 
+sudo apt install nvidia-cuda-toolkit
+nvcc --version
+pip install flash-attn --use-pep517 --no-build-isolation
+```
+Building flash-attn from source can take a long time, typically 30–60 minutes on mid-range hardware.
+If you want a much faster installation, use a prebuilt wheel matching your CUDA and PyTorch version (recommended when available).
 
 ## Troubleshooting
 
