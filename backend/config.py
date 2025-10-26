@@ -10,7 +10,7 @@ DATABASE_PATH = DATA_DIR / "images.duckdb"
 
 SUPPORTED_IMAGE_FORMATS = {'.jpg', '.jpeg', '.png', '.webp', '.bmp'}
 THUMBNAIL_SIZE = (150, 150)
-MAX_FILE_SIZE = 16 * 1024 * 1024
+MAX_FILE_SIZE = None  # No limit for local application
 
 IMAGE_CACHE_MAX_SIZE = 30
 THUMBNAIL_CACHE_MAX_SIZE = 100

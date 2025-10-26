@@ -173,6 +173,117 @@ class WdVitAdapter(BaseModelAdapter):
             logger.exception("Error generating tags: %s", e)
             return f"Error: {str(e)}"
 
+    def generate_captions_batch(self, images: list, prompts: list = None, parameters: dict = None) -> list:
+        """Generate tags for multiple images using batch processing"""
+        if not self.is_loaded():
+            raise RuntimeError("Model not loaded. Call load_model() first.")
+
+        try:
+            # Convert all images to RGB
+            processed_images = []
+            for image in images:
+                if image.mode != 'RGB':
+                    image = image.convert('RGB')
+                processed_images.append(image)
+
+            # Parse parameters with defaults
+            params = parameters or {}
+            threshold = params.get('threshold', 0.3)
+            character_threshold = params.get('character_threshold', threshold)
+            exclude_tags = params.get('exclude_tags', '')
+            use_character_tags = params.get('use_character_tags', True)
+            use_rating_tags = params.get('use_rating_tags', False)
+            replace_underscores = params.get('replace_underscores', False)
+            add_confidence = params.get('add_confidence', False)
+            sort_by = params.get('sort_by', 'confidence')
+            limit = params.get('limit', 0)
+            tag_separator = params.get('tag_separator', ', ')
+
+            # Parse exclude_tags into a set
+            excluded_set = set()
+            if exclude_tags and exclude_tags.strip():
+                excluded_set = {tag.strip().lower() for tag in exclude_tags.split(',')}
+
+            # Process all images in batch
+            inputs = self.processor(images=processed_images, return_tensors="pt").to(self.device)
+
+            # Run inference for batch
+            with torch.no_grad():
+                logits = self.model(**inputs).logits
+                probs = torch.sigmoid(logits).cpu()
+
+            # Process each image's results
+            results = []
+            for img_probs in probs:
+                # Build tags dict with category information
+                tags = {}
+                for i in range(len(img_probs)):
+                    if i not in self.id2tag:
+                        continue
+
+                    tag_name = self.id2tag[i]
+                    confidence = img_probs[i].item()
+
+                    # Get tag category from dataframe if available
+                    category = 'general'
+                    if self.tags_df is not None and i < len(self.tags_df):
+                        category_col = self.tags_df.iloc[i].get('category', 'general')
+                        if pd.notna(category_col):
+                            category = str(category_col).lower()
+
+                    # Apply category filters
+                    if category == 'character' and not use_character_tags:
+                        continue
+                    if category == 'rating' and not use_rating_tags:
+                        continue
+
+                    # Apply appropriate threshold based on category
+                    tag_threshold = character_threshold if category == 'character' else threshold
+                    if confidence <= tag_threshold:
+                        continue
+
+                    # Apply exclude filter
+                    if tag_name.lower() in excluded_set:
+                        continue
+
+                    tags[tag_name] = {
+                        'confidence': confidence,
+                        'category': category
+                    }
+
+                # Sort tags
+                if sort_by == 'alphabetical':
+                    sorted_tags = sorted(tags.items(), key=lambda x: x[0])
+                elif sort_by == 'category':
+                    category_order = {'rating': 0, 'character': 1, 'general': 2}
+                    sorted_tags = sorted(tags.items(),
+                                       key=lambda x: (category_order.get(x[1]['category'], 999), -x[1]['confidence']))
+                else:  # confidence (default)
+                    sorted_tags = sorted(tags.items(), key=lambda x: x[1]['confidence'], reverse=True)
+
+                # Apply limit
+                if limit > 0:
+                    sorted_tags = sorted_tags[:limit]
+
+                # Format output tags
+                output_tags = []
+                for tag_name, tag_info in sorted_tags:
+                    display_name = tag_name.replace('_', ' ') if replace_underscores else tag_name
+                    if add_confidence:
+                        output_tags.append(f"{display_name}:{tag_info['confidence']:.2f}")
+                    else:
+                        output_tags.append(display_name)
+
+                # Join with separator
+                result = tag_separator.join(output_tags)
+                results.append(result if result else "No tags detected above threshold")
+
+            return results
+
+        except Exception as e:
+            logger.exception("Error generating tags in batch: %s", e)
+            return [f"Error: {str(e)}"] * len(images)
+
     def is_loaded(self) -> bool:
         """Check if model is loaded"""
         return (self.model is not None and
@@ -255,6 +366,15 @@ class WdVitAdapter(BaseModelAdapter):
                 "param_key": "tag_separator",
                 "type": "text",
                 "description": "String to use for separating tags in output (default: ', ')"
+            },
+            {
+                "name": "Batch Size",
+                "param_key": "batch_size",
+                "type": "number",
+                "min": 1,
+                "max": 32,
+                "step": 1,
+                "description": "Number of images to process simultaneously (higher = faster but more VRAM)"
             }
         ]
 

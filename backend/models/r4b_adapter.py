@@ -129,6 +129,102 @@ class R4BAdapter(BaseModelAdapter):
             logger.exception("Error generating caption with R-4B: %s", e)
             return f"Error: {str(e)}"
 
+    def generate_captions_batch(self, images: list, prompts: list = None, parameters: dict = None) -> list:
+        """Generate captions for multiple images using batch processing"""
+        if not self.is_loaded():
+            raise RuntimeError("Model not loaded. Call load_model() first.")
+
+        try:
+            # Ensure we have prompts for all images
+            if prompts is None:
+                prompts = ["Describe this image."] * len(images)
+            elif len(prompts) != len(images):
+                raise ValueError(f"Number of prompts ({len(prompts)}) must match number of images ({len(images)})")
+
+            # Convert all images to RGB
+            processed_images = []
+            for image in images:
+                if image.mode != 'RGB':
+                    image = image.convert('RGB')
+                processed_images.append(image)
+
+            # Build generation parameters
+            gen_params = {}
+            thinking_mode = 'auto'
+
+            if parameters:
+                if 'thinking_mode' in parameters:
+                    thinking_mode_value = parameters.get('thinking_mode')
+                    if thinking_mode_value in ['auto', 'short', 'long']:
+                        thinking_mode = thinking_mode_value
+
+                generation_param_keys = [p['param_key'] for p in self.get_available_parameters()
+                                        if p['type'] == 'number' and p['param_key'] not in
+                                        ['precision', 'use_flash_attention', 'thinking_mode', 'batch_size']]
+
+                for param_key in generation_param_keys:
+                    if param_key in parameters:
+                        gen_params[param_key] = parameters[param_key]
+
+            # Ensure pad token is set
+            if not self.processor.tokenizer.pad_token:
+                self.processor.tokenizer.pad_token = self.processor.tokenizer.eos_token
+
+            # Build batch messages
+            batch_messages = []
+            batch_texts = []
+            for i in range(len(processed_images)):
+                messages = [{
+                    "role": "user",
+                    "content": [
+                        {"type": "image", "image": processed_images[i]},
+                        {"type": "text", "text": prompts[i]}
+                    ]
+                }]
+                text = self.processor.apply_chat_template(messages, tokenize=False,
+                                                         add_generation_prompt=True, thinking_mode=thinking_mode)
+                batch_texts.append(text)
+
+            # Process batch with padding
+            inputs = self.processor(
+                images=processed_images,
+                text=batch_texts,
+                return_tensors="pt",
+                padding=True
+            )
+
+            # Move inputs to device with proper dtype
+            model_dtype = next(self.model.parameters()).dtype
+            inputs = {k: (v.to(self.device, dtype=model_dtype) if torch.is_floating_point(v) else v.to(self.device))
+                     for k, v in inputs.items()}
+
+            # Generate for batch
+            generated_ids = self.model.generate(**inputs, **gen_params)
+
+            # Trim input tokens from outputs
+            generated_ids_trimmed = [
+                out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs["input_ids"], generated_ids)
+            ]
+
+            # Batch decode
+            captions = self.processor.batch_decode(
+                generated_ids_trimmed,
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=False
+            )
+
+            # Extract final results (remove thinking tags)
+            results = []
+            for caption in captions:
+                final_result = self._extract_final_result(caption)
+                results.append(final_result if final_result else "Unable to generate description.")
+
+            return results
+
+        except Exception as e:
+            logger.exception("Error generating captions in batch with R-4B: %s", e)
+            return [f"Error: {str(e)}"] * len(images)
+
     def is_loaded(self) -> bool:
         return self.model is not None and self.processor is not None
 
@@ -199,6 +295,15 @@ class R4BAdapter(BaseModelAdapter):
                 "param_key": "use_flash_attention",
                 "type": "checkbox",
                 "description": "Enable Flash Attention for better performance (requires flash-attn package)"
+            },
+            {
+                "name": "Batch Size",
+                "param_key": "batch_size",
+                "type": "number",
+                "min": 1,
+                "max": 8,
+                "step": 1,
+                "description": "Number of images to process simultaneously (higher = faster but more VRAM)"
             }
         ]
 

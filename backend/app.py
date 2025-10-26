@@ -694,7 +694,7 @@ def internal_error(e):
     return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == '__main__':
-    app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
+    app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE  # None = no limit
     init_models()
     flask_debug = os.environ.get("FLASK_DEBUG", "0") == "1"
     app.run(debug=flask_debug, host='0.0.0.0', port=5000)
