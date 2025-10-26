@@ -24,10 +24,12 @@ show_usage() {
     echo ""
     echo "Options:"
     echo "  -v, --version VERSION    Set release version (e.g., 1.0.2) [REQUIRED]"
+    echo "  -f, --force              Force: delete existing tag/release if exists"
     echo "  -h, --help               Show this help message"
     echo ""
     echo "Examples:"
-    echo "  ./release.sh -v 1.0.2    # Build all configs and release as v1.0.2"
+    echo "  ./release.sh -v 1.0.2           # Build all configs and release as v1.0.2"
+    echo "  ./release.sh -v 1.0.2 --force   # Delete existing v1.0.2 and recreate"
     echo ""
     echo "All configurations from version.json will be built:"
     jq -r '.build_configs | to_entries[] | "  - \(.key): Python \(.value.python), CUDA \(.value.cuda_version_display)"' version.json
@@ -39,14 +41,39 @@ show_usage() {
     exit 0
 }
 
+# Function to delete existing tag
+delete_existing_tag() {
+    local tag=$1
+    echo -e "${YELLOW}Deleting existing tag $tag...${NC}"
+
+    # Delete local tag
+    if git rev-parse "$tag" >/dev/null 2>&1; then
+        git tag -d "$tag"
+        echo "  ✓ Local tag deleted"
+    fi
+
+    # Delete remote tag
+    if git ls-remote --tags origin | grep -q "refs/tags/$tag"; then
+        git push --delete origin "$tag" 2>/dev/null || true
+        echo "  ✓ Remote tag deleted"
+    fi
+
+    echo ""
+}
+
 # Parse arguments
 VERSION=""
+FORCE=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         -v|--version)
             VERSION="$2"
             shift 2
+            ;;
+        -f|--force)
+            FORCE=true
+            shift
             ;;
         -h|--help)
             show_usage
@@ -103,9 +130,27 @@ fi
 
 # Check if tag already exists
 if git rev-parse "$TAG" >/dev/null 2>&1; then
-    echo -e "${RED}Error: Tag $TAG already exists${NC}"
-    echo "To delete: git tag -d $TAG && git push origin :refs/tags/$TAG"
-    exit 1
+    if [ "$FORCE" = true ]; then
+        delete_existing_tag "$TAG"
+    else
+        echo -e "${RED}Error: Tag $TAG already exists${NC}"
+        echo ""
+        echo "Options:"
+        echo "  1. Use --force flag to automatically delete and recreate:"
+        echo "     ./release.sh -v $VERSION --force"
+        echo ""
+        echo "  2. Manually delete the tag:"
+        echo "     git tag -d $TAG && git push --delete origin $TAG"
+        echo ""
+        read -p "Delete tag $TAG and continue? (y/N) " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            delete_existing_tag "$TAG"
+        else
+            echo -e "${RED}Release cancelled${NC}"
+            exit 1
+        fi
+    fi
 fi
 
 echo -e "${GREEN}Step 1/4: Committing changes...${NC}"
