@@ -437,6 +437,26 @@ def clear_session():
         logger.exception("Error clearing session: %s", e)
         return jsonify({"error": str(e)}), 500
 
+@app.route('/session/remove/<image_id>', methods=['DELETE'])
+def remove_image(image_id):
+    """Remove a single image from the session."""
+    try:
+        success = session_manager.delete_image(image_id)
+        if success:
+            return jsonify({
+                "success": True,
+                "message": "Image removed",
+                "image_id": image_id
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Image not found"
+            }), 404
+    except Exception as e:
+        logger.exception("Error removing image %s: %s", image_id, e)
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/scan-folder', methods=['POST'])
 def scan_folder():
     try:
@@ -481,7 +501,7 @@ def get_thumbnail():
 def generate_caption():
     try:
         image_id = request.form.get('image_id', '')
-        logger.debug("Generate request - image_id: %s, form keys: %s", image_id, list(request.form.keys()))
+        logger.debug("Generate request - image_id: %s")
 
         if image_id:
             image_path = session_manager.get_image_path(image_id)

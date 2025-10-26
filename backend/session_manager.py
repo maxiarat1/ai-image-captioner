@@ -268,6 +268,51 @@ class SessionManager:
         finally:
             conn.close()
 
+    def delete_image(self, image_id: str) -> bool:
+        """
+        Delete a single image from database and filesystem.
+
+        Args:
+            image_id: Image ID to delete
+
+        Returns:
+            True if deleted successfully, False if not found or error
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        try:
+            # Get file path before deleting record
+            cursor.execute("SELECT file_path, is_uploaded FROM images WHERE image_id = ?", (image_id,))
+            row = cursor.fetchone()
+            if not row:
+                logger.warning("Image ID not found for deletion: %s", image_id)
+                return False
+
+            file_path = Path(row[0])
+            is_uploaded = bool(row[1])
+
+            # Delete database record
+            cursor.execute("DELETE FROM images WHERE image_id = ?", (image_id,))
+            conn.commit()
+
+            # Delete physical file if it was uploaded (in temp directory)
+            if is_uploaded and file_path.exists() and TEMP_UPLOAD_DIR in file_path.parents:
+                try:
+                    file_path.unlink()
+                    logger.debug("Deleted file: %s", file_path)
+                except Exception as e:
+                    logger.warning("Failed to delete file %s: %s", file_path, e)
+
+            logger.info("Deleted image: %s", image_id)
+            return True
+
+        except Exception as e:
+            logger.error("Error deleting image %s: %s", image_id, e)
+            return False
+        finally:
+            conn.close()
+
     def save_caption(self, image_id: str, caption: str) -> bool:
         """
         Save a generated caption for an image.

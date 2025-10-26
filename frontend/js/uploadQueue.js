@@ -1,8 +1,26 @@
-function removeFromQueue(image_id) {
-    AppState.uploadQueue = AppState.uploadQueue.filter(item => item.image_id !== image_id);
-    updateUploadGrid();
-    updateInputNodes();
-    showToast('Image removed from queue');
+async function removeFromQueue(image_id) {
+    try {
+        // Remove from backend database
+        const response = await fetch(`${AppState.apiBaseUrl}/session/remove/${image_id}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            console.error('Error removing image:', error);
+            showToast('Failed to remove image', 'error');
+            return;
+        }
+
+        // Remove from frontend state
+        AppState.uploadQueue = AppState.uploadQueue.filter(item => item.image_id !== image_id);
+        updateUploadGrid();
+        updateInputNodes();
+        showToast('Image removed from queue');
+    } catch (error) {
+        console.error('Error removing image:', error);
+        showToast('Failed to remove image', 'error');
+    }
 }
 
 async function clearQueue() {

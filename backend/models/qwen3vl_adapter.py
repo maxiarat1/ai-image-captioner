@@ -32,7 +32,7 @@ class Qwen3VLAdapter(BaseModelAdapter):
             )
         return None
 
-    def _get_torch_dtype(self, precision):
+    def _get_dtype(self, precision):
         """Get torch dtype from precision parameter"""
         if precision == "auto":
             return "auto"
@@ -67,11 +67,11 @@ class Qwen3VLAdapter(BaseModelAdapter):
 
             # Set dtype based on precision
             if precision not in ["4bit", "8bit"]:
-                dtype = self._get_torch_dtype(precision)
+                dtype = self._get_dtype(precision)
                 if dtype == "auto" or force_cpu_mode():
-                    model_kwargs["torch_dtype"] = "auto"
+                    model_kwargs["dtype"] = "auto"
                 else:
-                    model_kwargs["torch_dtype"] = dtype
+                    model_kwargs["dtype"] = dtype
 
             # Add Flash Attention support if available and requested
             if use_flash_attention and not force_cpu_mode() and torch.cuda.is_available():
@@ -80,7 +80,7 @@ class Qwen3VLAdapter(BaseModelAdapter):
                     model_kwargs["attn_implementation"] = "flash_attention_2"
                     # Override dtype to bfloat16 for flash attention (recommended by Qwen)
                     if precision not in ["4bit", "8bit"]:
-                        model_kwargs["torch_dtype"] = torch.bfloat16
+                        model_kwargs["dtype"] = torch.bfloat16
                     logger.info("Using Flash Attention 2 (dtype=bfloat16)")
                 except ImportError:
                     logger.debug("Flash Attention not available; using default attention")

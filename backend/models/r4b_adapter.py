@@ -21,7 +21,7 @@ class R4BAdapter(BaseModelAdapter):
             return BitsAndBytesConfig(load_in_8bit=True, llm_int8_enable_fp32_cpu_offload=True)
         return None
 
-    def _get_torch_dtype(self, precision):
+    def _get_dtype(self, precision):
         precision_map = {"float32": torch.float32, "float16": torch.float16, "bfloat16": torch.bfloat16}
         return precision_map.get(precision, torch.float32)
 
@@ -49,7 +49,7 @@ class R4BAdapter(BaseModelAdapter):
             model_kwargs = {"trust_remote_code": True, "quantization_config": self.quantization_config}
 
             if precision not in ["4bit", "8bit"]:
-                model_kwargs["torch_dtype"] = self._get_torch_dtype(precision)
+                model_kwargs["dtype"] = self._get_dtype(precision)
 
             if use_flash_attention and not force_cpu_mode() and torch.cuda.is_available():
                 try:
