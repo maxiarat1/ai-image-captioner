@@ -6,7 +6,7 @@ DATA_DIR = BASE_DIR / "data"
 TEMP_UPLOAD_DIR = BASE_DIR / "temp_uploads"
 THUMBNAIL_DIR = BASE_DIR / "thumbnails"
 
-DATABASE_PATH = DATA_DIR / "images.db"
+DATABASE_PATH = DATA_DIR / "images.duckdb"
 
 SUPPORTED_IMAGE_FORMATS = {'.jpg', '.jpeg', '.png', '.webp', '.bmp'}
 THUMBNAIL_SIZE = (150, 150)

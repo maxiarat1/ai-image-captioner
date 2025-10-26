@@ -1,4 +1,4 @@
-import sqlite3
+import duckdb
 import uuid
 import shutil
 from pathlib import Path
@@ -24,7 +24,7 @@ class SessionManager:
         logger.info("Session manager initialized with database: %s", self.db_path)
 
     def _init_database(self):
-        conn = sqlite3.connect(self.db_path)
+        conn = duckdb.connect(str(self.db_path))
         cursor = conn.cursor()
 
         cursor.execute("""
@@ -41,8 +41,8 @@ class SessionManager:
             )
         """)
 
-        cursor.execute("PRAGMA table_info(images)")
-        columns = [row[1] for row in cursor.fetchall()]
+        cursor.execute("DESCRIBE images")
+        columns = [row[0] for row in cursor.fetchall()]
         if 'caption' not in columns:
             logger.info("Migrating database: adding caption column")
             cursor.execute("ALTER TABLE images ADD COLUMN caption TEXT")
@@ -51,7 +51,7 @@ class SessionManager:
         conn.close()
 
     def _get_connection(self):
-        return sqlite3.connect(self.db_path)
+        return duckdb.connect(str(self.db_path))
 
     def register_folder(self, folder_path: str) -> List[Dict]:
         folder = Path(folder_path).resolve()

@@ -92,6 +92,9 @@ hidden_imports = [
     'safetensors',
     'sentencepiece',
     'tokenizers',
+
+    # DuckDB
+    'duckdb',
 ]
 
 # Collect all submodules for transformers (it has many dynamic imports)
@@ -105,6 +108,7 @@ datas += collect_data_files('accelerate')
 datas += collect_data_files('bitsandbytes')
 datas += collect_data_files('torch', include_py_files=True)
 datas += collect_data_files('torchvision', include_py_files=True)
+datas += collect_data_files('duckdb')
 
 # Add the frontend directory (optional - include if you want a single package)
 # Uncomment the line below to bundle frontend with backend
