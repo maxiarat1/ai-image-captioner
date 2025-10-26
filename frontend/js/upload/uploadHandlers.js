@@ -27,6 +27,9 @@ function initUploadHandlers() {
             // Unfortunately, browsers don't expose the full filesystem path for security
             // So we'll scan using the FileList directly
             scanFolderFromFileList(e.target.files);
+
+            // Reset the input value to allow re-uploading the same files
+            e.target.value = '';
         }
     });
 

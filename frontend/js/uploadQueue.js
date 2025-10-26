@@ -14,9 +14,21 @@ async function removeFromQueue(image_id) {
 
         // Remove from frontend state
         AppState.uploadQueue = AppState.uploadQueue.filter(item => item.image_id !== image_id);
+
+        // Also remove from results if it was processed
+        AppState.allResults = AppState.allResults.filter(
+            result => result.queueItem.image_id !== image_id
+        );
+
         updateUploadGrid();
         updateInputNodes();
-        showToast('Image removed from queue');
+
+        // Refresh results grid if on results tab
+        if (typeof renderCurrentPage === 'function') {
+            renderCurrentPage();
+        }
+
+        showToast('Image Removed');
     } catch (error) {
         console.error('Error removing image:', error);
         showToast('Failed to remove image', 'error');
@@ -41,8 +53,16 @@ async function clearQueue() {
         }
 
         AppState.uploadQueue = [];
+        AppState.allResults = [];
+
         updateUploadGrid();
         updateInputNodes();
+
+        // Refresh results grid
+        if (typeof renderCurrentPage === 'function') {
+            renderCurrentPage();
+        }
+
         showToast('Queue cleared');
 
         folderBrowser.value = '';
