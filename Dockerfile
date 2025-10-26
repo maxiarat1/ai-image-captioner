@@ -1,4 +1,4 @@
-# AI Image Tagger - Production Dockerfile
+# AI Image Captioner - Production Dockerfile
 # Built on NVIDIA CUDA base image for GPU support
 
 # Build arguments for base image selection

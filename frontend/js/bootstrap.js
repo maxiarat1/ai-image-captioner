@@ -105,6 +105,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     initToastHoverBehavior();
 
     if (window.Logger) {
-        Logger.info('AI Image Tagger with Node Editor initialized');
+        Logger.info('AI Image Captioner with Node Editor initialized');
     }
 });

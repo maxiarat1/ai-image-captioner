@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build script for AI Image Tagger
+# Build script for AI Image Captioner
 
 set -e
 
@@ -18,14 +18,14 @@ PYTHON_VER=$(jq -r ".build_configs.${BUILD_CONFIG}.python" version.json)
 CUDA_VER=$(jq -r ".build_configs.${BUILD_CONFIG}.cuda" version.json)
 CUDA_DISPLAY=$(jq -r ".build_configs.${BUILD_CONFIG}.cuda_version_display" version.json)
 
-echo "Building AI Image Tagger v${APP_VERSION}"
+echo "Building AI Image Captioner v${APP_VERSION}"
 echo "Config: ${BUILD_CONFIG} (Python ${PYTHON_VER}, CUDA ${CUDA_DISPLAY})"
 echo ""
 
 # Activate conda environment
 if command -v conda &> /dev/null; then
     source "$(conda info --base)/etc/profile.d/conda.sh"
-    conda activate tagger-gpu
+    conda activate captioner-gpu
 fi
 
 # Install PyInstaller if needed
@@ -34,10 +34,10 @@ pip install -q pyinstaller
 # Clean and build
 rm -rf dist build
 cd backend
-pyinstaller tagger.spec --distpath ../dist --workpath ../build
+pyinstaller captioner.spec --distpath ../dist --workpath ../build
 cd ..
 
-echo "✅ Build complete: dist/ai-image-tagger/"
+echo "✅ Build complete: dist/ai-image-captioner/"
 echo ""
-echo "To run: ./dist/ai-image-tagger/ai-image-tagger"
-echo "To package: tar -czf ai-image-tagger.tar.gz -C dist ai-image-tagger"
+echo "To run: ./dist/ai-image-captioner/ai-image-captioner"
+echo "To package: tar -czf ai-image-captioner.tar.gz -C dist ai-image-captioner"

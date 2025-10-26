@@ -26,7 +26,7 @@ class WdVitAdapter(BaseModelAdapter):
     def load_model(self) -> None:
         """Load WD Tagger model, processor, and tags CSV"""
         try:
-            logger.info("Loading %s tagger model on %s…", self.model_name, self.device)
+            logger.info("Loading %s model on %s…", self.model_name, self.device)
 
             # Load tags CSV
             logger.info("Loading tags from CSV…")
@@ -51,7 +51,7 @@ class WdVitAdapter(BaseModelAdapter):
             self.model.to(self.device)
             self.model.eval()
 
-            logger.info("%s tagger model loaded successfully", self.model_name)
+            logger.info("%s model loaded successfully", self.model_name)
 
         except Exception as e:
             logger.exception("Error loading %s model: %s", self.model_name, e)

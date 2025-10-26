@@ -1,12 +1,12 @@
 version: '3.8'
 
 services:
-  ai-image-tagger:
+  ai-image-captioner:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ai-image-tagger:latest
-    container_name: ai-image-tagger
+    image: ai-image-captioner:latest
+    container_name: ai-image-captioner
 
     # GPU support - requires nvidia-docker
     deploy:

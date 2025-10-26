@@ -1,7 +1,7 @@
 import os
 
 def force_cpu_mode() -> bool:
-    return os.environ.get("TAGGER_FORCE_CPU", "0") == "1"
+    return os.environ.get("CAPTIONER_FORCE_CPU", "0") == "1"
 
 
 def pick_device(torch):

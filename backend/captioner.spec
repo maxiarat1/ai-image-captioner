@@ -1,6 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
-PyInstaller spec file for AI Image Tagger Backend
+PyInstaller spec file for AI Image Captioner Backend
 
 This builds a standalone executable that includes:
 - Flask backend server
@@ -9,11 +9,11 @@ This builds a standalone executable that includes:
 - All required dependencies
 
 Build command:
-    pyinstaller backend/tagger.spec
+    pyinstaller backend/captioner.spec
 
 Output directories:
     - Build artifacts: build-output/build/
-    - Final executable: build-output/dist/ai-image-tagger/
+    - Final executable: build-output/dist/ai-image-captioner/
 
 Note: The executable will be large (~3-5GB) due to PyTorch and CUDA libraries.
 Models will be downloaded on first run to ~/.cache/huggingface/
@@ -156,7 +156,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='ai-image-tagger',
+    name='ai-image-captioner',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -178,7 +178,7 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='ai-image-tagger',
+    name='ai-image-captioner',
 )
 
 # Override default paths

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Automated Release Script for AI Image Tagger
+# Automated Release Script for AI Image Captioner
 # Builds ALL configurations from version.json for a single release
 
 set -e
@@ -12,7 +12,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}AI Image Tagger - Release Manager${NC}"
+echo -e "${BLUE}AI Image Captioner - Release Manager${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
@@ -33,8 +33,8 @@ show_usage() {
     jq -r '.build_configs | to_entries[] | "  - \(.key): Python \(.value.python), CUDA \(.value.cuda_version_display)"' version.json
     echo ""
     echo "This creates executables like:"
-    echo "  - ai-image-tagger-windows-python310-cuda118.zip"
-    echo "  - ai-image-tagger-linux-python310-cuda124.tar.gz"
+    echo "  - ai-image-captioner-windows-python310-cuda118.zip"
+    echo "  - ai-image-captioner-linux-python310-cuda124.tar.gz"
     echo "  - etc. (all configs × 2 platforms)"
     exit 0
 }

@@ -27,9 +27,9 @@ def compact_json(data) -> str:
 
 
 def setup_logging() -> None:
-    level_name = os.getenv("TAGGER_LOG_LEVEL", "INFO").upper()
+    level_name = os.getenv("CAPTIONER_LOG_LEVEL", "INFO").upper()
     level = getattr(logging, level_name, logging.INFO)
-    max_len_env = os.getenv("TAGGER_LOG_MAX_LEN", "0")
+    max_len_env = os.getenv("CAPTIONER_LOG_MAX_LEN", "0")
     try:
         max_len = int(max_len_env) if max_len_env else 0
     except ValueError:

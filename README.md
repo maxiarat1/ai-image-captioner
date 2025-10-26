@@ -1,4 +1,4 @@
-# AI Image Tagger
+# AI Image Captioner
 
 Build and test image captioning pipelines with diverse AI models using a flexible, node-based visual interface.
 
@@ -7,7 +7,7 @@ Build and test image captioning pipelines with diverse AI models using a flexibl
 ![CUDA](https://img.shields.io/badge/CUDA-12.1%20%7C%2012.8-*.svg)
 
 
-![AI Image Tagger Interface](assets/Image%20Tagger.png)
+![AI Image Captioner Interface](assets/Image%20Tagger.png)
 
 ## Features
 
@@ -23,8 +23,8 @@ Build and test image captioning pipelines with diverse AI models using a flexibl
 
 1. Download from [Releases](https://github.com/maxiarat1/ai-image-captioner/releases)
 2. Run the executable:
-   - Windows: `ai-image-tagger.exe`
-   - Linux: `./ai-image-tagger`
+   - Windows: `ai-image-captioner.exe`
+   - Linux: `./ai-image-captioner`
 3. Open `http://localhost:5000` in your browser
 
 ### Option 2: Docker
@@ -38,8 +38,8 @@ docker run --gpus all -p 5000:5000 ghcr.io/maxiarat1/ai-image-captioner:latest-p
 ```bash
 git clone https://github.com/maxiarat1/ai-image-captioner.git
 cd ai-image-captioner
-./setup-tagger-gpu.sh
-conda activate tagger-gpu
+./setup-captioner-gpu.sh
+conda activate captioner-gpu
 cd backend && python app.py
 ```
 

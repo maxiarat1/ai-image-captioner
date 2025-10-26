@@ -117,7 +117,7 @@ jobs:
         shell: bash
         run: |
           cd backend
-          pyinstaller tagger.spec --distpath ../dist --workpath ../build
+          pyinstaller captioner.spec --distpath ../dist --workpath ../build
 
       - name: Clean up build artifacts
         shell: bash
@@ -131,25 +131,25 @@ jobs:
         if: steps.platform.outputs.name == 'windows'
         shell: bash
         run: |
-          BASE_NAME="ai-image-tagger-${{ steps.platform.outputs.name }}-${{ matrix.config.name }}"
+          BASE_NAME="ai-image-captioner-${{ steps.platform.outputs.name }}-${{ matrix.config.name }}"
           mkdir -p artifacts
           # Create split archives if size > 2GB, otherwise single archive
-          7z a -tzip -v2000m "${BASE_NAME}.zip" ./dist/ai-image-tagger
+          7z a -tzip -v2000m "${BASE_NAME}.zip" ./dist/ai-image-captioner
           # Move all parts to artifacts folder
           mv ${BASE_NAME}.zip* artifacts/
 
       - name: Package (Linux)
         if: steps.platform.outputs.name == 'linux'
         run: |
-          BASE_NAME="ai-image-tagger-${{ steps.platform.outputs.name }}-${{ matrix.config.name }}"
+          BASE_NAME="ai-image-captioner-${{ steps.platform.outputs.name }}-${{ matrix.config.name }}"
           mkdir -p artifacts
           # Check size first
-          SIZE=$(du -sb dist/ai-image-tagger | cut -f1)
+          SIZE=$(du -sb dist/ai-image-captioner | cut -f1)
           if [ $SIZE -gt 2000000000 ]; then
             # Split if > 2GB
-            tar -czf - -C dist ai-image-tagger | split -b 2000m - "artifacts/${BASE_NAME}.tar.gz.part"
+            tar -czf - -C dist ai-image-captioner | split -b 2000m - "artifacts/${BASE_NAME}.tar.gz.part"
           else
-            tar -czf "artifacts/${BASE_NAME}.tar.gz" -C dist ai-image-tagger
+            tar -czf "artifacts/${BASE_NAME}.tar.gz" -C dist ai-image-captioner
           fi
 
       - name: Final cleanup before upload
@@ -286,25 +286,23 @@ jobs:
         id: notes
         run: |
           cat > release-notes.md << 'EOF'
-          ## AI Image Tagger ${{ needs.setup.outputs.release_version }}
-
-          Image captioning with BLIP and R-4B models.
+          ## AI Image Captioner ${{ needs.setup.outputs.release_version }}
 
           ### Quick Start
 
           **Option 1: Executable (Recommended)**
 
           1. Download the appropriate file for your GPU:
-             - **Windows RTX 20/30/40:** `ai-image-tagger-windows-python310-cuda121.zip`
-             - **Windows RTX 50:** `ai-image-tagger-windows-python312-cuda128.zip`
-             - **Linux RTX 20/30/40:** `ai-image-tagger-linux-python310-cuda121.tar.gz`
-             - **Linux RTX 50:** `ai-image-tagger-linux-python312-cuda128.tar.gz`
+             - **Windows RTX 20/30/40:** `ai-image-captioner-windows-python310-cuda121.zip`
+             - **Windows RTX 50:** `ai-image-captioner-windows-python312-cuda128.zip`
+             - **Linux RTX 20/30/40:** `ai-image-captioner-linux-python310-cuda121.tar.gz`
+             - **Linux RTX 50:** `ai-image-captioner-linux-python312-cuda128.tar.gz`
 
           2. Extract and run:
-             - **Windows:** Double-click `ai-image-tagger.exe` (extract with 7-Zip if split)
-             - **Linux:** `tar -xzf ai-image-tagger-linux-*.tar.gz && ./ai-image-tagger/ai-image-tagger`
+             - **Windows:** Double-click `ai-image-captioner.exe` (extract with 7-Zip if split)
+             - **Linux:** `tar -xzf ai-image-captioner-linux-*.tar.gz && ./ai-image-captioner/ai-image-captioner`
 
-          3. API runs at `http://localhost:5000`
+          3. API backend runs at `http://localhost:5000`
 
           **Option 2: Docker**
 
@@ -320,15 +318,15 @@ jobs:
 
           **Frontend UI:**
 
-          Clone the repository and serve the `frontend/` directory, or open `frontend/index.html` directly. Point it to `http://localhost:5000`.
+          Clone the repository and serve the `frontend/` directory, or open `frontend/index.html` directly.
 
           ### Requirements
 
-          - NVIDIA GPU with 4GB+ VRAM (8GB+ for R-4B)
+          - NVIDIA GPU with 4GB+ VRAM (8GB+ for AI models)
           - CUDA 12.1+ drivers (RTX 20/30/40) or CUDA 12.8+ (RTX 50)
           - Docker users: `nvidia-container-toolkit` (see README if you get GPU errors)
 
-          Models (500MB-2GB) download automatically on first use.
+          (AI models are not baked in. They are downloaded on first run from the Hugging Face Hub.)
           EOF
 
       - name: Create Release
