@@ -66,6 +66,7 @@ Input → Prompt → BLIP → Conjunction → Output
 conda activate captioner-gpu 
 sudo apt install nvidia-cuda-toolkit
 nvcc --version
+pip install ninja
 pip install flash-attn --use-pep517 --no-build-isolation
 ```
 Building flash-attn from source can take a long time, typically 30–60 minutes on mid-range hardware.
