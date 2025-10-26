@@ -18,7 +18,6 @@
     <link rel="stylesheet" href="css/components/tabs.css">
     <link rel="stylesheet" href="css/components/upload-card.css">
     <link rel="stylesheet" href="css/components/upload-grid.css">
-    <link rel="stylesheet" href="css/components/options-card.css">
     <link rel="stylesheet" href="css/components/results-card.css">
     <link rel="stylesheet" href="css/components/pagination.css">
     <link rel="stylesheet" href="css/components/toast.css">
@@ -224,84 +223,6 @@
             <div class="modal-content">
                 <img src="" alt="Preview" class="modal-image" id="modalImage">
                 <div class="modal-info" id="modalInfo"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Load Configuration Modal -->
-    <div class="config-modal" id="loadConfigModal">
-        <div class="config-modal-backdrop">
-            <div class="config-modal-content">
-                <div class="config-modal-header">
-                    <h3>Load Configuration</h3>
-                    <button class="config-modal-close" id="closeLoadConfig">&times;</button>
-                </div>
-                <div class="config-modal-body">
-                    <div class="config-list" id="configList">
-                        <p style="text-align: center; color: var(--text-secondary);">Loading configurations...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Save Configuration Modal -->
-    <div class="config-modal" id="saveConfigModal">
-        <div class="config-modal-backdrop">
-            <div class="config-modal-content">
-                <div class="config-modal-header">
-                    <h3>Save Configuration</h3>
-                    <button class="config-modal-close" id="closeSaveConfig">&times;</button>
-                </div>
-                <div class="config-modal-body">
-                    <div class="save-config-form">
-                        <label for="configName">Configuration Name</label>
-                        <input type="text" id="configName" class="config-input" placeholder="Enter a name for this configuration">
-                        <div class="save-config-actions">
-                            <button class="btn-secondary" id="cancelSaveConfig">Cancel</button>
-                            <button class="btn-primary" id="confirmSaveConfig">Save</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Load Prompt Modal -->
-    <div class="config-modal" id="loadPromptModal">
-        <div class="config-modal-backdrop">
-            <div class="config-modal-content">
-                <div class="config-modal-header">
-                    <h3>Load Prompt</h3>
-                    <button class="config-modal-close" id="closeLoadPrompt">&times;</button>
-                </div>
-                <div class="config-modal-body">
-                    <div class="config-list" id="promptList">
-                        <p style="text-align: center; color: var(--text-secondary);">Loading prompts...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Save Prompt Modal -->
-    <div class="config-modal" id="savePromptModal">
-        <div class="config-modal-backdrop">
-            <div class="config-modal-content">
-                <div class="config-modal-header">
-                    <h3>Save Prompt</h3>
-                    <button class="config-modal-close" id="closeSavePrompt">&times;</button>
-                </div>
-                <div class="config-modal-body">
-                    <div class="save-config-form">
-                        <label for="promptName">Prompt Name</label>
-                        <input type="text" id="promptName" class="config-input" placeholder="Enter a name for this prompt">
-                        <div class="save-config-actions">
-                            <button class="btn-secondary" id="cancelSavePrompt">Cancel</button>
-                            <button class="btn-primary" id="confirmSavePrompt">Save</button>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -866,17 +787,11 @@ cd backend && python app.py">Copy</button>
     <script src="js/node-editor/graph/ops.js"></script>
     <script src="js/node-editor/execution/execute.js"></script>
     <script src="js/nodeEditor.js"></script>
-    <script src="js/imageProcessor.js"></script>
 
     <!-- Results Components -->
     <script src="js/resultsGrid.js"></script>
     <script src="js/resultsPagination.js"></script>
     <script src="js/exportFunctions.js"></script>
-
-    <!-- Configuration Components -->
-    <script src="js/configManagement.js"></script>
-    <script src="js/configModals.js"></script>
-    <script src="js/promptManagement.js"></script>
 
     <!-- UI Controls -->
     <script src="js/paginationSelector.js"></script>

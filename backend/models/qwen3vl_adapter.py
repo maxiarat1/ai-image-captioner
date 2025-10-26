@@ -123,9 +123,9 @@ class Qwen3VLAdapter(BaseModelAdapter):
             if parameters:
                 logger.debug("Processing provided parameters…")
 
-                # Get all generation param keys (excluding special params like precision, use_flash_attention)
+                # Get all generation param keys (excluding special params like precision, use_flash_attention, batch_size)
                 generation_param_keys = [p['param_key'] for p in self.get_available_parameters()
-                                        if p['type'] in ['number'] and p['param_key'] not in ['precision', 'use_flash_attention']]
+                                        if p['type'] in ['number'] and p['param_key'] not in ['precision', 'use_flash_attention', 'batch_size']]
 
                 # Only pass parameters that were explicitly set by the user
                 for param_key in generation_param_keys:
@@ -183,6 +183,83 @@ class Qwen3VLAdapter(BaseModelAdapter):
         except Exception as e:
             logger.exception("Error generating caption with Qwen3-VL: %s", e)
             return f"Error: {str(e)}"
+
+    def generate_captions_batch(self, images: list, prompts: list = None, parameters: dict = None) -> list:
+        """Generate captions for multiple images using batch processing"""
+        if not self.is_loaded():
+            raise RuntimeError("Model not loaded. Call load_model() first.")
+
+        try:
+            # Ensure we have prompts for all images
+            if prompts is None:
+                prompts = ["Describe this image."] * len(images)
+            elif len(prompts) != len(images):
+                raise ValueError(f"Number of prompts ({len(prompts)}) must match number of images ({len(images)})")
+
+            # Convert all images to RGB
+            processed_images = []
+            for image in images:
+                if image.mode != 'RGB':
+                    image = image.convert('RGB')
+                processed_images.append(image)
+
+            # Build generation parameters
+            gen_params = {}
+            if parameters:
+                generation_param_keys = [p['param_key'] for p in self.get_available_parameters()
+                                        if p['type'] in ['number'] and p['param_key'] not in
+                                        ['precision', 'use_flash_attention', 'batch_size']]
+                for param_key in generation_param_keys:
+                    if param_key in parameters:
+                        gen_params[param_key] = parameters[param_key]
+
+            # Build batch messages
+            batch_messages = [
+                [{"role": "user", "content": [
+                    {"type": "image", "image": processed_images[i]},
+                    {"type": "text", "text": prompts[i]}
+                ]}]
+                for i in range(len(processed_images))
+            ]
+
+            # Ensure pad token is set
+            if not self.processor.tokenizer.pad_token:
+                self.processor.tokenizer.pad_token = self.processor.tokenizer.eos_token
+
+            # Process batch with padding
+            inputs = self.processor.apply_chat_template(
+                batch_messages,
+                tokenize=True,
+                padding=True,
+                add_generation_prompt=True,
+                return_dict=True,
+                return_tensors="pt"
+            )
+
+            # Move inputs to device
+            inputs = inputs.to(self.model.device)
+
+            # Generate for batch
+            generated_ids = self.model.generate(**inputs, **gen_params)
+
+            # Trim input tokens from outputs
+            generated_ids_trimmed = [
+                out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+            ]
+
+            # Batch decode
+            captions = self.processor.batch_decode(
+                generated_ids_trimmed,
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=False
+            )
+
+            result = [caption.strip() if caption else "Unable to generate description." for caption in captions]
+            return result
+
+        except Exception as e:
+            logger.exception("Error generating captions in batch with Qwen3-VL: %s", e)
+            return [f"Error: {str(e)}"] * len(images)
 
     def is_loaded(self) -> bool:
         """Check if model is loaded"""
@@ -244,6 +321,15 @@ class Qwen3VLAdapter(BaseModelAdapter):
                 "max": 2.0,
                 "step": 0.1,
                 "description": "Penalty for using previously used tokens (recommended: 1.5)"
+            },
+            {
+                "name": "Batch Size",
+                "param_key": "batch_size",
+                "type": "number",
+                "min": 1,
+                "max": 8,
+                "step": 1,
+                "description": "Number of images to process simultaneously (higher = faster but more VRAM)"
             },
             {
                 "name": "Precision",

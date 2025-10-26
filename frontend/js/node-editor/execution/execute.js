@@ -157,13 +157,125 @@
             // Compute any static prompt connected directly into this AI node
             const basePrompt = NEExec._buildPromptForNode(aiNode);
 
-            for (let idx = 0; idx < workQueue.length; idx++) {
+            // Get batch size from parameters
+            const batchSize = (aiNode.data.parameters && aiNode.data.parameters.batch_size) || 1;
+            console.log(`[NodeEditor] Processing stage ${stageIndex + 1}/${aiChain.length} with batch_size=${batchSize}`);
+
+            // Process in batches
+            for (let batchStart = 0; batchStart < workQueue.length; batchStart += batchSize) {
                 if (shouldStop) break;
                 while (isPaused && !shouldStop) {
                     await new Promise(r => setTimeout(r, 100));
                 }
 
-                const item = workQueue[idx];
+                const batchEnd = Math.min(batchStart + batchSize, workQueue.length);
+                const batchItems = workQueue.slice(batchStart, batchEnd);
+                const useBatchEndpoint = batchSize > 1 && batchItems.length > 1;
+
+                console.log(`[NodeEditor] Processing batch ${Math.floor(batchStart/batchSize) + 1}, size=${batchItems.length}, using batch endpoint: ${useBatchEndpoint}`);
+
+                if (useBatchEndpoint) {
+                    // Batch processing
+                    const imageIds = batchItems.map(item => item.image_id).filter(id => id);
+                    if (imageIds.length !== batchItems.length) {
+                        console.warn('Some items missing image_id, falling back to single processing');
+                        // Fall back to single processing for this batch
+                        for (let idx = batchStart; idx < batchEnd; idx++) {
+                            await NEExec._processSingleImage(workQueue, idx, aiNode, basePrompt, prevCaptions, aiChain, stageIndex, outputNode, startTime, totalImages, processedInStage, totalProcessed, totalSuccess, totalFailed);
+                            processedInStage++;
+                            totalProcessed++;
+                        }
+                        continue;
+                    }
+
+                    try {
+                        console.log(`[NodeEditor] Sending batch request with ${imageIds.length} images`);
+                        const response = await fetch(`${AppState.apiBaseUrl}/generate/batch`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                image_ids: imageIds,
+                                model: aiNode.data.model,
+                                prompt: basePrompt || undefined,
+                                parameters: aiNode.data.parameters || {}
+                            })
+                        });
+
+                        if (!response.ok) throw new Error(`Batch request failed: ${response.statusText}`);
+
+                        const data = await response.json();
+                        console.log(`[NodeEditor] Received batch response with ${data.results.length} results`);
+
+                        // Process each result
+                        data.results.forEach((result, batchIdx) => {
+                            const idx = batchStart + batchIdx;
+                            const item = batchItems[batchIdx];
+
+                            // Store caption for next stage
+                            prevCaptions[idx] = result.caption || '';
+
+                            // If last stage, record results
+                            const isLastStage = (stageIndex === aiChain.length - 1);
+                            if (isLastStage) {
+                                const conjunctionNode = NEExec._findOutputConjunction(aiNode, outputNode);
+                                let finalCaption = result.caption;
+
+                                if (conjunctionNode) {
+                                    finalCaption = NEExec._resolveConjunctionForImage(conjunctionNode, prevCaptions, idx);
+                                    const nameTag = item && (item.filename || item.path) ? `[${item.filename || item.path}] ` : '';
+                                    NEExec._appendConjunctionHistory(conjunctionNode.id, nameTag + (finalCaption || ''));
+                                }
+
+                                AppState.allResults.push({ queueItem: item, data: { ...result, caption: finalCaption } });
+                                AppState.processedResults.push({
+                                    filename: item.filename,
+                                    caption: finalCaption,
+                                    path: item.path || item.filename
+                                });
+                                addResultItemToCurrentPage(item, { ...result, caption: finalCaption });
+                                totalSuccess++;
+                            }
+                        });
+
+                        processedInStage += batchItems.length;
+                        totalProcessed += batchItems.length;
+
+                    } catch (err) {
+                        console.error('Batch processing error:', err);
+                        totalFailed += batchItems.length;
+                    }
+
+                    // Update progress
+                    const progress = processedInStage / totalImages;
+                    showToast(`Stage ${stageIndex + 1}/${aiChain.length}: ${processedInStage}/${totalImages}`, true, progress);
+
+                    // Update Output node stats
+                    if (outputNode && typeof updateOutputStats === 'function') {
+                        const elapsed = (Date.now() - startTime) / 1000;
+                        const avgSpeed = totalProcessed > 0 ? elapsed / totalProcessed : 0;
+                        const remaining = (totalImages * aiChain.length) - totalProcessed;
+                        const eta = remaining > 0 ? avgSpeed * remaining : 0;
+
+                        const speedText = avgSpeed > 0 ? `~${avgSpeed.toFixed(1)}s/img` : '';
+                        const etaText = eta > 0 ? NEExec._formatTime(eta) : '';
+                        const stageText = aiChain.length > 1 ? `${stageIndex + 1}/${aiChain.length}` : '';
+
+                        updateOutputStats(outputNode.id, {
+                            total: totalImages,
+                            processed: processedInStage,
+                            success: totalSuccess,
+                            failed: totalFailed,
+                            stage: stageText,
+                            speed: speedText,
+                            eta: etaText,
+                            resultsReady: 0
+                        });
+                    }
+
+                } else {
+                    // Single image processing (original logic)
+                    const idx = batchStart;
+                    const item = workQueue[idx];
 
                 const formData = new FormData();
                 // NEW: Use image_id from session-based structure
@@ -285,7 +397,8 @@
                         resultsReady: 0
                     });
                 }
-            }
+                } // End of single-image processing else block
+            } // End of batch loop
 
             // Prepare for next stage: ensure we keep captions from this stage
             if (stageIndex < aiChain.length - 1) {

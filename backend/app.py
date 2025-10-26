@@ -501,7 +501,7 @@ def get_thumbnail():
 def generate_caption():
     try:
         image_id = request.form.get('image_id', '')
-        logger.debug("Generate request - image_id: %s")
+        logger.info("Single generate request - image_id: %s", image_id)
 
         if image_id:
             image_path = session_manager.get_image_path(image_id)
@@ -552,6 +552,69 @@ def generate_caption():
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         logger.exception("Error generating caption: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/generate/batch', methods=['POST'])
+def generate_captions_batch():
+    try:
+        import time
+        start_time = time.time()
+
+        data = request.get_json()
+        image_ids = data.get('image_ids', [])
+        model_name = data.get('model', 'blip')
+        prompt = data.get('prompt', '') or None
+        parameters = data.get('parameters', {})
+
+        if not image_ids:
+            return jsonify({"error": "No image_ids provided"}), 400
+
+        # Load all images
+        images = []
+        filenames = []
+        valid_image_ids = []
+        for image_id in image_ids:
+            image_path = session_manager.get_image_path(image_id)
+            if image_path:
+                images.append(load_image(image_path))
+                filenames.append(Path(image_path).name)
+                valid_image_ids.append(image_id)
+
+        if not images:
+            return jsonify({"error": "No valid images found"}), 404
+
+        # Get model
+        precision_params = _extract_precision_params(model_name, parameters)
+        model_adapter = get_model(model_name, precision_params)
+
+        if not model_adapter or not model_adapter.is_loaded():
+            return jsonify({"error": f"Model {model_name} not available"}), 500
+
+        # Generate captions for batch
+        prompts = [prompt] * len(images) if prompt else None
+        captions = model_adapter.generate_captions_batch(images, prompts, parameters)
+
+        elapsed = time.time() - start_time
+        logger.info("Batch: %d images with %s → %d captions (%.1fs)",
+                   len(images), model_name, len(captions), elapsed)
+
+        # Save captions
+        results = []
+        for image_id, caption, filename in zip(valid_image_ids, captions, filenames):
+            session_manager.save_caption(image_id, caption)
+            results.append({
+                "image_id": image_id,
+                "caption": caption,
+                "image_filename": filename
+            })
+
+        return jsonify({
+            "results": results,
+            "model": model_adapter.model_name,
+            "parameters_used": parameters
+        })
+    except Exception as e:
+        logger.exception("Error generating batch captions: %s", e)
         return jsonify({"error": str(e)}), 500
 
 def _extract_precision_params(model_name: str, parameters: dict) -> dict:

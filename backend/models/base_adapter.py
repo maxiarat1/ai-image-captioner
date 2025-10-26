@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any, Dict, List
 from PIL import Image
 import logging
 
@@ -18,6 +18,15 @@ class BaseModelAdapter(ABC):
     @abstractmethod
     def generate_caption(self, image: Image.Image, prompt: str = None) -> str:
         pass
+
+    def generate_captions_batch(self, images: List[Image.Image], prompts: List[str] = None, parameters: dict = None) -> List[str]:
+        """
+        Generate captions for multiple images. Default implementation processes sequentially.
+        Subclasses can override for optimized batch processing.
+        """
+        if prompts is None:
+            prompts = [None] * len(images)
+        return [self.generate_caption(img, prompt, parameters) for img, prompt in zip(images, prompts)]
 
     @abstractmethod
     def is_loaded(self) -> bool:

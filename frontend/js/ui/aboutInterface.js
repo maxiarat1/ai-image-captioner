@@ -7,7 +7,7 @@ function initAboutInterface() {
     const aboutCloseBtn = document.getElementById('aboutCloseBtn');
     const toolInterface = document.getElementById('tool-interface');
 
-    // Check backend status
+    // Check backend status (only when About page is opened)
     async function checkBackendStatus() {
         const indicator = document.querySelector('.status-indicator');
         const statusText = document.querySelector('.about-status span:last-child');
@@ -32,10 +32,6 @@ function initAboutInterface() {
             statusText.textContent = 'Backend Offline';
         }
     }
-
-    // Check status periodically (every 5 seconds)
-    setInterval(checkBackendStatus, 5000);
-    checkBackendStatus(); // Initial check
 
     // Load dynamic content from backend
     async function loadDynamicContent() {
