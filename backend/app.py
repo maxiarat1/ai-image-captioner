@@ -17,6 +17,7 @@ from models.blip_adapter import BlipAdapter
 from models.r4b_adapter import R4BAdapter
 from models.qwen3vl_adapter import Qwen3VLAdapter
 from models.wdvit_adapter import WdVitAdapter
+from models.janus_adapter import JanusAdapter
 from utils.image_utils import load_image, image_to_base64
 from utils.logging_utils import setup_logging
 from session_manager import SessionManager
@@ -66,6 +67,26 @@ MODEL_METADATA = {
         'description': "WD-EVA02 Large Tagger v3 - Anime-style image tagging model with EVA02 backbone (improved accuracy)",
         'adapter': WdVitAdapter,
         'adapter_args': {'model_id': "SmilingWolf/wd-eva02-large-tagger-v3"}
+    },
+    'janus-1.3b': {
+        'description': "Janus 1.3B - Multimodal vision-language model with efficient architecture",
+        'adapter': JanusAdapter,
+        'adapter_args': {'model_id': "deepseek-ai/Janus-1.3B"}
+    },
+    'janusflow-1.3b': {
+        'description': "JanusFlow 1.3B - Flow-based variant with enhanced generation quality",
+        'adapter': JanusAdapter,
+        'adapter_args': {'model_id': "deepseek-ai/JanusFlow-1.3B"}
+    },
+    'janus-pro-1b': {
+        'description': "Janus Pro 1B - Compact professional-grade vision model",
+        'adapter': JanusAdapter,
+        'adapter_args': {'model_id': "deepseek-ai/Janus-Pro-1B"}
+    },
+    'janus-pro-7b': {
+        'description': "Janus Pro 7B - Advanced multimodal model with superior reasoning capabilities",
+        'adapter': JanusAdapter,
+        'adapter_args': {'model_id': "deepseek-ai/Janus-Pro-7B"}
     }
 }
 

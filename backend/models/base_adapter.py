@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from PIL import Image
 import logging
+import torch
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,102 @@ class BaseModelAdapter(ABC):
         if hasattr(self, 'processor') and self.processor and hasattr(self.processor, 'tokenizer'):
             if not self.processor.tokenizer.pad_token:
                 self.processor.tokenizer.pad_token = self.processor.tokenizer.eos_token
+
+    def _init_device(self, torch_module) -> str:
+        """Initialize and return the appropriate device (cuda/mps/cpu)"""
+        from utils.torch_utils import pick_device
+        return pick_device(torch_module)
+
+    def _create_quantization_config(self, precision: str):
+        """Create quantization configuration for 4bit/8bit precision modes"""
+        try:
+            from transformers import BitsAndBytesConfig
+        except ImportError:
+            logger.warning("BitsAndBytesConfig not available, quantization disabled")
+            return None
+
+        if precision == "4bit":
+            return BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_compute_dtype=torch.float16,
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_quant_type="nf4"
+            )
+        elif precision == "8bit":
+            return BitsAndBytesConfig(
+                load_in_8bit=True,
+                llm_int8_enable_fp32_cpu_offload=True
+            )
+        return None
+
+    def _get_dtype(self, precision: str):
+        """Map precision string to torch dtype"""
+        if precision == "auto":
+            return "auto"
+
+        precision_map = {
+            "float32": torch.float32,
+            "float16": torch.float16,
+            "bfloat16": torch.bfloat16
+        }
+        return precision_map.get(precision, torch.float32)
+
+    def _setup_flash_attention(self, model_kwargs: dict, precision: str, force_bfloat16: bool = False) -> bool:
+        """
+        Setup Flash Attention 2 if available and not in CPU mode.
+
+        Args:
+            model_kwargs: Dictionary to add flash attention config to
+            precision: Current precision mode (skips if 4bit/8bit)
+            force_bfloat16: If True, forces bfloat16 dtype when using flash attention
+
+        Returns:
+            True if flash attention was enabled, False otherwise
+        """
+        from utils.torch_utils import force_cpu_mode
+
+        if force_cpu_mode() or not torch.cuda.is_available():
+            return False
+
+        try:
+            import flash_attn
+            model_kwargs["attn_implementation"] = "flash_attention_2"
+
+            # Optionally force bfloat16 dtype (recommended for some models like Qwen)
+            if force_bfloat16 and precision not in ["4bit", "8bit"]:
+                model_kwargs["dtype"] = torch.bfloat16
+                logger.info("Using Flash Attention 2 (dtype=bfloat16)")
+            else:
+                logger.info("Using Flash Attention 2")
+            return True
+        except ImportError:
+            logger.debug("Flash Attention not available; using default attention. Install via: pip install flash-attn --no-build-isolation")
+            return False
+
+    def _move_inputs_to_device(self, inputs: dict, device: str, model_dtype: Optional[torch.dtype] = None) -> dict:
+        """
+        Move input tensors to the specified device with optional dtype conversion.
+
+        Args:
+            inputs: Dictionary of input tensors
+            device: Target device (cuda/cpu/mps)
+            model_dtype: Optional dtype for floating point tensors
+
+        Returns:
+            Dictionary with moved tensors
+        """
+        if model_dtype is not None:
+            return {
+                k: (v.to(device, dtype=model_dtype) if torch.is_floating_point(v) else v.to(device))
+                for k, v in inputs.items()
+            }
+        else:
+            return {k: v.to(device) for k, v in inputs.items()}
+
+    def _format_batch_error(self, error: Exception, batch_size: int) -> list:
+        """Format an error for batch processing - returns list of error messages"""
+        error_msg = f"Error: {str(error)}"
+        return [error_msg] * batch_size
 
     def unload(self) -> None:
         if hasattr(self, 'model') and self.model is not None:

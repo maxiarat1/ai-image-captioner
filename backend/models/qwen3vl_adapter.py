@@ -1,7 +1,6 @@
 import torch
-from utils.torch_utils import pick_device, force_cpu_mode
 from PIL import Image
-from transformers import Qwen3VLForConditionalGeneration, AutoProcessor, BitsAndBytesConfig
+from transformers import Qwen3VLForConditionalGeneration, AutoProcessor
 from .base_adapter import BaseModelAdapter
 import logging
 
@@ -15,41 +14,15 @@ class Qwen3VLAdapter(BaseModelAdapter):
 
     def __init__(self, model_id="Qwen/Qwen3-VL-8B-Instruct"):
         super().__init__(model_id)
-        self.device = pick_device(torch)
+        self.device = self._init_device(torch)
         self.quantization_config = None
         self.model_id = model_id  # Store for later use
-
-    def _create_quantization_config(self, precision):
-        """Create quantization configuration based on precision parameter"""
-        if precision == "4bit":
-            return BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_compute_dtype=torch.float16,
-                bnb_4bit_use_double_quant=True,
-                bnb_4bit_quant_type="nf4"
-            )
-        elif precision == "8bit":
-            return BitsAndBytesConfig(
-                load_in_8bit=True,
-                llm_int8_enable_fp32_cpu_offload=True
-            )
-        return None
-
-    def _get_dtype(self, precision):
-        """Get torch dtype from precision parameter"""
-        if precision == "auto":
-            return "auto"
-
-        precision_map = {
-            "float32": torch.float32,
-            "float16": torch.float16,
-            "bfloat16": torch.bfloat16
-        }
-        return precision_map.get(precision, "auto")
 
     def load_model(self, precision="auto", use_flash_attention=False) -> None:
         """Load Qwen3-VL model and processor with configurable precision and optimizations"""
         try:
+            from utils.torch_utils import force_cpu_mode
+
             logger.info("Loading %s on %s (precision=%s)…", self.model_id, self.device, precision)
 
             # Create quantization config for 4bit/8bit precision
@@ -78,16 +51,8 @@ class Qwen3VLAdapter(BaseModelAdapter):
                     model_kwargs["dtype"] = dtype
 
             # Add Flash Attention support if available and requested
-            if use_flash_attention and not force_cpu_mode() and torch.cuda.is_available():
-                try:
-                    import flash_attn
-                    model_kwargs["attn_implementation"] = "flash_attention_2"
-                    # Override dtype to bfloat16 for flash attention (recommended by Qwen)
-                    if precision not in ["4bit", "8bit"]:
-                        model_kwargs["dtype"] = torch.bfloat16
-                    logger.info("Using Flash Attention 2 (dtype=bfloat16)")
-                except ImportError:
-                    logger.debug("Flash Attention not available; using default attention")
+            if use_flash_attention:
+                self._setup_flash_attention(model_kwargs, precision, force_bfloat16=True)
 
             # Load model
             logger.info("Loading model weights…")
@@ -230,7 +195,7 @@ class Qwen3VLAdapter(BaseModelAdapter):
 
         except Exception as e:
             logger.exception("Error generating captions in batch with Qwen3-VL: %s", e)
-            return [f"Error: {str(e)}"] * len(images)
+            return self._format_batch_error(e, len(images))
 
     def is_loaded(self) -> bool:
         """Check if model is loaded"""

@@ -1,8 +1,7 @@
 import torch
 import logging
-from utils.torch_utils import pick_device, force_cpu_mode
 from PIL import Image
-from transformers import AutoProcessor, AutoModel, BitsAndBytesConfig
+from transformers import AutoProcessor, AutoModel
 from .base_adapter import BaseModelAdapter
 
 logger = logging.getLogger(__name__)
@@ -13,20 +12,8 @@ class R4BAdapter(BaseModelAdapter):
 
     def __init__(self):
         super().__init__("YannQi/R-4B")
-        self.device = pick_device(torch)
+        self.device = self._init_device(torch)
         self.quantization_config = None
-
-    def _create_quantization_config(self, precision):
-        if precision == "4bit":
-            return BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16,
-                                     bnb_4bit_use_double_quant=True, bnb_4bit_quant_type="nf4")
-        elif precision == "8bit":
-            return BitsAndBytesConfig(load_in_8bit=True, llm_int8_enable_fp32_cpu_offload=True)
-        return None
-
-    def _get_dtype(self, precision):
-        precision_map = {"float32": torch.float32, "float16": torch.float16, "bfloat16": torch.bfloat16}
-        return precision_map.get(precision, torch.float32)
 
     def _extract_final_result(self, caption: str) -> str:
         """Extract final caption from R-4B output (removes thinking tags)"""
@@ -63,13 +50,9 @@ class R4BAdapter(BaseModelAdapter):
             if precision not in ["4bit", "8bit"]:
                 model_kwargs["dtype"] = self._get_dtype(precision)
 
-            if use_flash_attention and not force_cpu_mode() and torch.cuda.is_available():
-                try:
-                    import flash_attn
-                    model_kwargs["attn_implementation"] = "flash_attention_2"
-                    logger.info("Using Flash Attention 2")
-                except ImportError:
-                    logger.info("Flash Attention not available, using default. You can install it via 'pip install flash-attn --no-build-isolation' if GPU is compatible.")
+            # Setup flash attention if requested
+            if use_flash_attention:
+                self._setup_flash_attention(model_kwargs, precision, force_bfloat16=False)
 
             self.model = AutoModel.from_pretrained("YannQi/R-4B", **model_kwargs)
 
@@ -111,9 +94,9 @@ class R4BAdapter(BaseModelAdapter):
 
             inputs = self.processor(images=image, text=text, return_tensors="pt")
 
+            # Move inputs to device with proper dtype
             model_dtype = next(self.model.parameters()).dtype
-            inputs = {k: (v.to(self.device, dtype=model_dtype) if torch.is_floating_point(v) else v.to(self.device))
-                     for k, v in inputs.items()}
+            inputs = self._move_inputs_to_device(inputs, self.device, model_dtype)
 
             generated_ids = self.model.generate(**inputs, **gen_params)
             output_ids = generated_ids[0][len(inputs["input_ids"][0]):]
@@ -172,8 +155,7 @@ class R4BAdapter(BaseModelAdapter):
 
             # Move inputs to device with proper dtype
             model_dtype = next(self.model.parameters()).dtype
-            inputs = {k: (v.to(self.device, dtype=model_dtype) if torch.is_floating_point(v) else v.to(self.device))
-                     for k, v in inputs.items()}
+            inputs = self._move_inputs_to_device(inputs, self.device, model_dtype)
 
             # Generate for batch
             generated_ids = self.model.generate(**inputs, **gen_params)
@@ -200,7 +182,7 @@ class R4BAdapter(BaseModelAdapter):
 
         except Exception as e:
             logger.exception("Error generating captions in batch with R-4B: %s", e)
-            return [f"Error: {str(e)}"] * len(images)
+            return self._format_batch_error(e, len(images))
 
     def is_loaded(self) -> bool:
         return self.model is not None and self.processor is not None

@@ -1,5 +1,4 @@
 import torch
-from utils.torch_utils import pick_device
 from PIL import Image
 from transformers import AutoImageProcessor, AutoModelForImageClassification
 from .base_adapter import BaseModelAdapter
@@ -13,7 +12,7 @@ class WdVitAdapter(BaseModelAdapter):
 
     def __init__(self, model_id="SmilingWolf/wd-vit-large-tagger-v3"):
         super().__init__(model_id)
-        self.device = pick_device(torch)
+        self.device = self._init_device(torch)
         self.dtype = torch.float16 if self.device == "cuda" else torch.float32
         self.id2tag = None
         self.tags_df = None  # Store full tags dataframe for category info
@@ -193,7 +192,7 @@ class WdVitAdapter(BaseModelAdapter):
 
         except Exception as e:
             logger.exception("Error generating tags in batch: %s", e)
-            return [f"Error: {str(e)}"] * len(images)
+            return self._format_batch_error(e, len(images))
 
     def is_loaded(self) -> bool:
         """Check if model is loaded"""

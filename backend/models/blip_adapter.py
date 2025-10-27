@@ -1,5 +1,4 @@
 import torch
-from utils.torch_utils import pick_device
 from PIL import Image
 from transformers import BlipProcessor, BlipForConditionalGeneration
 from .base_adapter import BaseModelAdapter
@@ -13,7 +12,7 @@ class BlipAdapter(BaseModelAdapter):
 
     def __init__(self):
         super().__init__("blip-image-captioning-base")
-        self.device = pick_device(torch)
+        self.device = self._init_device(torch)
 
     def load_model(self) -> None:
         try:
@@ -107,7 +106,7 @@ class BlipAdapter(BaseModelAdapter):
 
         except Exception as e:
             logger.exception("Error generating captions in batch with BLIP: %s", e)
-            return [f"Error: {str(e)}"] * len(images)
+            return self._format_batch_error(e, len(images))
 
     def is_loaded(self) -> bool:
         return self.model is not None and self.processor is not None
