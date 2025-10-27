@@ -8,6 +8,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 class BlipAdapter(BaseModelAdapter):
+    # Parameters that should not be passed to model.generate()
+    SPECIAL_PARAMS = {'batch_size'}
+
     def __init__(self):
         super().__init__("blip-image-captioning-base")
         self.device = pick_device(torch)
@@ -19,6 +22,10 @@ class BlipAdapter(BaseModelAdapter):
             self.model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
             self.model.to(self.device)
             self.model.eval()
+
+            # Setup pad token for batch processing
+            self._setup_pad_token()
+
             logger.info("BLIP model loaded successfully")
         except Exception as e:
             logger.exception("Error loading BLIP model: %s", e)
@@ -29,20 +36,14 @@ class BlipAdapter(BaseModelAdapter):
             raise RuntimeError("Model not loaded. Call load_model() first.")
 
         try:
-            if image.mode != 'RGB':
-                image = image.convert('RGB')
+            image = self._ensure_rgb(image)
 
             if prompt and prompt.strip():
                 inputs = self.processor(image, prompt.strip(), return_tensors="pt").to(self.device)
             else:
                 inputs = self.processor(image, return_tensors="pt").to(self.device)
 
-            gen_params = {}
-            if parameters:
-                supported_params = [p['param_key'] for p in self.get_available_parameters()]
-                for param_key in supported_params:
-                    if param_key in parameters:
-                        gen_params[param_key] = parameters[param_key]
+            gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
 
             logger.debug("BLIP params: %s", gen_params if gen_params else "defaults")
 
@@ -68,24 +69,10 @@ class BlipAdapter(BaseModelAdapter):
                 raise ValueError(f"Number of prompts ({len(prompts)}) must match number of images ({len(images)})")
 
             # Convert all images to RGB
-            processed_images = []
-            for image in images:
-                if image.mode != 'RGB':
-                    image = image.convert('RGB')
-                processed_images.append(image)
+            processed_images = self._ensure_rgb(images)
 
             # Build generation parameters
-            gen_params = {}
-            if parameters:
-                supported_params = [p['param_key'] for p in self.get_available_parameters()
-                                  if p['param_key'] not in ['batch_size']]
-                for param_key in supported_params:
-                    if param_key in parameters:
-                        gen_params[param_key] = parameters[param_key]
-
-            # Ensure pad token is set
-            if not self.processor.tokenizer.pad_token:
-                self.processor.tokenizer.pad_token = self.processor.tokenizer.eos_token
+            gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
 
             # Process batch with padding
             # For BLIP, we can process with or without prompts

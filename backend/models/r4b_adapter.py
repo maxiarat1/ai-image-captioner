@@ -8,6 +8,9 @@ from .base_adapter import BaseModelAdapter
 logger = logging.getLogger(__name__)
 
 class R4BAdapter(BaseModelAdapter):
+    # Parameters that should not be passed to model.generate()
+    SPECIAL_PARAMS = {'precision', 'use_flash_attention', 'thinking_mode', 'batch_size'}
+
     def __init__(self):
         super().__init__("YannQi/R-4B")
         self.device = pick_device(torch)
@@ -26,6 +29,7 @@ class R4BAdapter(BaseModelAdapter):
         return precision_map.get(precision, torch.float32)
 
     def _extract_final_result(self, caption: str) -> str:
+        """Extract final caption from R-4B output (removes thinking tags)"""
         if not caption:
             return caption
         if "</think>" in caption:
@@ -36,6 +40,13 @@ class R4BAdapter(BaseModelAdapter):
             return caption[len("Auto-Thinking Output: "):].strip()
         return caption.strip()
 
+    def _extract_thinking_mode(self, parameters: dict) -> str:
+        """Extract and validate thinking_mode parameter"""
+        if not parameters:
+            return 'auto'
+        thinking_mode = parameters.get('thinking_mode', 'auto')
+        return thinking_mode if thinking_mode in ['auto', 'short', 'long'] else 'auto'
+
     def load_model(self, precision="float32", use_flash_attention=False) -> None:
         try:
             logger.info("Loading R-4B model on %s with %s precision…", self.device, precision)
@@ -43,8 +54,9 @@ class R4BAdapter(BaseModelAdapter):
             self.quantization_config = self._create_quantization_config(precision)
 
             self.processor = AutoProcessor.from_pretrained("YannQi/R-4B", trust_remote_code=True, use_fast=True)
-            if not self.processor:
-                raise RuntimeError("Processor loading failed")
+
+            # Setup pad token for batch processing
+            self._setup_pad_token()
 
             model_kwargs = {"trust_remote_code": True, "quantization_config": self.quantization_config}
 
@@ -60,8 +72,6 @@ class R4BAdapter(BaseModelAdapter):
                     logger.info("Flash Attention not available, using default. You can install it via 'pip install flash-attn --no-build-isolation' if GPU is compatible.")
 
             self.model = AutoModel.from_pretrained("YannQi/R-4B", **model_kwargs)
-            if not self.model:
-                raise RuntimeError("Model loading failed")
 
             if precision not in ["4bit", "8bit"]:
                 self.model.to(self.device)
@@ -78,26 +88,13 @@ class R4BAdapter(BaseModelAdapter):
             raise RuntimeError("Model not loaded. Call load_model() first.")
 
         try:
-            if image.mode != 'RGB':
-                image = image.convert('RGB')
+            image = self._ensure_rgb(image)
 
-            gen_params = {}
-            thinking_mode = 'auto'
+            # Extract special parameters
+            thinking_mode = self._extract_thinking_mode(parameters)
 
-            if parameters:
-                logger.debug("R4B parameters: %s", parameters)
-                if 'thinking_mode' in parameters:
-                    thinking_mode_value = parameters.get('thinking_mode')
-                    if thinking_mode_value in ['auto', 'short', 'long']:
-                        thinking_mode = thinking_mode_value
-
-                generation_param_keys = [p['param_key'] for p in self.get_available_parameters()
-                                        if p['type'] == 'number' and p['param_key'] not in
-                                        ['precision', 'use_flash_attention', 'thinking_mode']]
-
-                for param_key in generation_param_keys:
-                    if param_key in parameters:
-                        gen_params[param_key] = parameters[param_key]
+            # Build generation parameters
+            gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
 
             prompt = prompt or "Describe this image."
 
@@ -142,33 +139,13 @@ class R4BAdapter(BaseModelAdapter):
                 raise ValueError(f"Number of prompts ({len(prompts)}) must match number of images ({len(images)})")
 
             # Convert all images to RGB
-            processed_images = []
-            for image in images:
-                if image.mode != 'RGB':
-                    image = image.convert('RGB')
-                processed_images.append(image)
+            processed_images = self._ensure_rgb(images)
+
+            # Extract special parameters
+            thinking_mode = self._extract_thinking_mode(parameters)
 
             # Build generation parameters
-            gen_params = {}
-            thinking_mode = 'auto'
-
-            if parameters:
-                if 'thinking_mode' in parameters:
-                    thinking_mode_value = parameters.get('thinking_mode')
-                    if thinking_mode_value in ['auto', 'short', 'long']:
-                        thinking_mode = thinking_mode_value
-
-                generation_param_keys = [p['param_key'] for p in self.get_available_parameters()
-                                        if p['type'] == 'number' and p['param_key'] not in
-                                        ['precision', 'use_flash_attention', 'thinking_mode', 'batch_size']]
-
-                for param_key in generation_param_keys:
-                    if param_key in parameters:
-                        gen_params[param_key] = parameters[param_key]
-
-            # Ensure pad token is set
-            if not self.processor.tokenizer.pad_token:
-                self.processor.tokenizer.pad_token = self.processor.tokenizer.eos_token
+            gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
 
             # Build batch messages
             batch_messages = []

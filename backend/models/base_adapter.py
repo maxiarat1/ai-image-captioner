@@ -42,6 +42,25 @@ class BaseModelAdapter(ABC):
     def get_available_parameters(self) -> list:
         return []
 
+    @staticmethod
+    def _ensure_rgb(images):
+        """Convert image(s) to RGB mode if needed"""
+        if isinstance(images, list):
+            return [img.convert('RGB') if img.mode != 'RGB' else img for img in images]
+        return images.convert('RGB') if images.mode != 'RGB' else images
+
+    def _filter_generation_params(self, parameters: dict, exclude_keys: set) -> dict:
+        """Filter parameters to only include generation params (exclude special keys)"""
+        if not parameters:
+            return {}
+        return {k: v for k, v in parameters.items() if k not in exclude_keys}
+
+    def _setup_pad_token(self):
+        """Ensure tokenizer has a pad token set (use EOS token if not set)"""
+        if hasattr(self, 'processor') and self.processor and hasattr(self.processor, 'tokenizer'):
+            if not self.processor.tokenizer.pad_token:
+                self.processor.tokenizer.pad_token = self.processor.tokenizer.eos_token
+
     def unload(self) -> None:
         if hasattr(self, 'model') and self.model is not None:
             logger.info("Unloading %s model…", self.model_name)

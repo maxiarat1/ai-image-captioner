@@ -10,6 +10,9 @@ logger = logging.getLogger(__name__)
 class Qwen3VLAdapter(BaseModelAdapter):
     """Qwen3-VL model adapter for advanced vision-language tasks (supports 4B and 8B variants)"""
 
+    # Parameters that should not be passed to model.generate()
+    SPECIAL_PARAMS = {'precision', 'use_flash_attention', 'batch_size'}
+
     def __init__(self, model_id="Qwen/Qwen3-VL-8B-Instruct"):
         super().__init__(model_id)
         self.device = pick_device(torch)
@@ -55,9 +58,10 @@ class Qwen3VLAdapter(BaseModelAdapter):
             # Load processor
             logger.debug("Loading processor…")
             self.processor = AutoProcessor.from_pretrained(self.model_id)
-            if self.processor is None:
-                raise RuntimeError("Processor loading failed - AutoProcessor.from_pretrained returned None")
             logger.debug("Processor loaded")
+
+            # Setup pad token for batch processing
+            self._setup_pad_token()
 
             # Prepare model loading arguments
             model_kwargs = {
@@ -91,8 +95,6 @@ class Qwen3VLAdapter(BaseModelAdapter):
                 self.model_id,
                 **model_kwargs
             )
-            if self.model is None:
-                raise RuntimeError("Model loading failed - Qwen3VLForConditionalGeneration.from_pretrained returned None")
             logger.info("Model loaded")
 
             self.model.eval()
@@ -113,26 +115,10 @@ class Qwen3VLAdapter(BaseModelAdapter):
             logger.debug("Qwen3VL.generate_caption | prompt=%s | params=%s", (prompt or ""), parameters)
 
             # Convert to RGB if necessary
-            if image.mode != 'RGB':
-                image = image.convert('RGB')
+            image = self._ensure_rgb(image)
 
             # Build generation parameters - only include what user explicitly provided
-            gen_params = {}
-
-            # Process parameters - only include what was explicitly set
-            if parameters:
-                logger.debug("Processing provided parameters…")
-
-                # Get all generation param keys (excluding special params like precision, use_flash_attention, batch_size)
-                generation_param_keys = [p['param_key'] for p in self.get_available_parameters()
-                                        if p['type'] in ['number'] and p['param_key'] not in ['precision', 'use_flash_attention', 'batch_size']]
-
-                # Only pass parameters that were explicitly set by the user
-                for param_key in generation_param_keys:
-                    if param_key in parameters:
-                        gen_params[param_key] = parameters[param_key]
-            else:
-                logger.debug("No parameters provided, using defaults")
+            gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
 
             logger.debug("Generation parameters: %s", gen_params if gen_params else "defaults")
 
@@ -197,21 +183,10 @@ class Qwen3VLAdapter(BaseModelAdapter):
                 raise ValueError(f"Number of prompts ({len(prompts)}) must match number of images ({len(images)})")
 
             # Convert all images to RGB
-            processed_images = []
-            for image in images:
-                if image.mode != 'RGB':
-                    image = image.convert('RGB')
-                processed_images.append(image)
+            processed_images = self._ensure_rgb(images)
 
             # Build generation parameters
-            gen_params = {}
-            if parameters:
-                generation_param_keys = [p['param_key'] for p in self.get_available_parameters()
-                                        if p['type'] in ['number'] and p['param_key'] not in
-                                        ['precision', 'use_flash_attention', 'batch_size']]
-                for param_key in generation_param_keys:
-                    if param_key in parameters:
-                        gen_params[param_key] = parameters[param_key]
+            gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
 
             # Build batch messages
             batch_messages = [
@@ -221,10 +196,6 @@ class Qwen3VLAdapter(BaseModelAdapter):
                 ]}]
                 for i in range(len(processed_images))
             ]
-
-            # Ensure pad token is set
-            if not self.processor.tokenizer.pad_token:
-                self.processor.tokenizer.pad_token = self.processor.tokenizer.eos_token
 
             # Process batch with padding
             inputs = self.processor.apply_chat_template(

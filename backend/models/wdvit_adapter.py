@@ -23,6 +23,89 @@ class WdVitAdapter(BaseModelAdapter):
         else:
             self.tags_csv_url = "https://huggingface.co/SmilingWolf/wd-vit-large-tagger-v3/raw/main/selected_tags.csv"
 
+    def _process_tags(self, probs, parameters: dict) -> str:
+        """Process tag probabilities into formatted output string"""
+        # Parse parameters with defaults
+        params = parameters or {}
+        threshold = params.get('threshold', 0.3)
+        character_threshold = params.get('character_threshold', threshold)
+        exclude_tags = params.get('exclude_tags', '')
+        use_character_tags = params.get('use_character_tags', True)
+        use_rating_tags = params.get('use_rating_tags', False)
+        replace_underscores = params.get('replace_underscores', False)
+        add_confidence = params.get('add_confidence', False)
+        sort_by = params.get('sort_by', 'confidence')
+        limit = params.get('limit', 0)
+        tag_separator = params.get('tag_separator', ', ')
+
+        # Parse exclude_tags into a set
+        excluded_set = set()
+        if exclude_tags and exclude_tags.strip():
+            excluded_set = {tag.strip().lower() for tag in exclude_tags.split(',')}
+
+        # Build tags dict with category information
+        tags = {}
+        for i in range(len(probs)):
+            if i not in self.id2tag:
+                continue
+
+            tag_name = self.id2tag[i]
+            confidence = probs[i].item()
+
+            # Get tag category from dataframe if available
+            category = 'general'
+            if self.tags_df is not None and i < len(self.tags_df):
+                category_col = self.tags_df.iloc[i].get('category', 'general')
+                if pd.notna(category_col):
+                    category = str(category_col).lower()
+
+            # Apply category filters
+            if category == 'character' and not use_character_tags:
+                continue
+            if category == 'rating' and not use_rating_tags:
+                continue
+
+            # Apply appropriate threshold based on category
+            tag_threshold = character_threshold if category == 'character' else threshold
+            if confidence <= tag_threshold:
+                continue
+
+            # Apply exclude filter
+            if tag_name.lower() in excluded_set:
+                continue
+
+            tags[tag_name] = {
+                'confidence': confidence,
+                'category': category
+            }
+
+        # Sort tags
+        if sort_by == 'alphabetical':
+            sorted_tags = sorted(tags.items(), key=lambda x: x[0])
+        elif sort_by == 'category':
+            category_order = {'rating': 0, 'character': 1, 'general': 2}
+            sorted_tags = sorted(tags.items(),
+                               key=lambda x: (category_order.get(x[1]['category'], 999), -x[1]['confidence']))
+        else:  # confidence (default)
+            sorted_tags = sorted(tags.items(), key=lambda x: x[1]['confidence'], reverse=True)
+
+        # Apply limit
+        if limit > 0:
+            sorted_tags = sorted_tags[:limit]
+
+        # Format output tags
+        output_tags = []
+        for tag_name, tag_info in sorted_tags:
+            display_name = tag_name.replace('_', ' ') if replace_underscores else tag_name
+            if add_confidence:
+                output_tags.append(f"{display_name}:{tag_info['confidence']:.2f}")
+            else:
+                output_tags.append(display_name)
+
+        # Join with separator
+        result = tag_separator.join(output_tags)
+        return result if result else "No tags detected above threshold"
+
     def load_model(self) -> None:
         """Load WD Tagger model, processor, and tags CSV"""
         try:
@@ -70,28 +153,7 @@ class WdVitAdapter(BaseModelAdapter):
             logger.debug("WdVit.generate_caption | params=%s", parameters)
 
             # Convert to RGB if necessary
-            if image.mode != 'RGB':
-                image = image.convert('RGB')
-
-            # Parse parameters with defaults
-            params = parameters or {}
-            threshold = params.get('threshold', 0.3)
-            character_threshold = params.get('character_threshold', threshold)
-            exclude_tags = params.get('exclude_tags', '')
-            use_character_tags = params.get('use_character_tags', True)
-            use_rating_tags = params.get('use_rating_tags', False)
-            replace_underscores = params.get('replace_underscores', False)
-            add_confidence = params.get('add_confidence', False)
-            sort_by = params.get('sort_by', 'confidence')
-            limit = params.get('limit', 0)
-            tag_separator = params.get('tag_separator', ', ')
-
-            logger.debug("Using threshold: %.2f, character_threshold: %.2f", threshold, character_threshold)
-
-            # Parse exclude_tags into a set
-            excluded_set = set()
-            if exclude_tags and exclude_tags.strip():
-                excluded_set = {tag.strip().lower() for tag in exclude_tags.split(',')}
+            image = self._ensure_rgb(image)
 
             # Process image
             inputs = self.processor(images=image, return_tensors="pt").to(self.device)
@@ -100,74 +162,8 @@ class WdVitAdapter(BaseModelAdapter):
             with torch.no_grad():
                 probs = torch.sigmoid(self.model(**inputs).logits[0]).cpu()
 
-            # Build tags dict with category information
-            tags = {}
-            for i in range(len(probs)):
-                if i not in self.id2tag:
-                    continue
-
-                tag_name = self.id2tag[i]
-                confidence = probs[i].item()
-
-                # Get tag category from dataframe if available
-                category = 'general'
-                if self.tags_df is not None and i < len(self.tags_df):
-                    category_col = self.tags_df.iloc[i].get('category', 'general')
-                    if pd.notna(category_col):
-                        category = str(category_col).lower()
-
-                # Apply category filters
-                if category == 'character' and not use_character_tags:
-                    continue
-                if category == 'rating' and not use_rating_tags:
-                    continue
-
-                # Apply appropriate threshold based on category
-                tag_threshold = character_threshold if category == 'character' else threshold
-                if confidence <= tag_threshold:
-                    continue
-
-                # Apply exclude filter
-                if tag_name.lower() in excluded_set:
-                    continue
-
-                tags[tag_name] = {
-                    'confidence': confidence,
-                    'category': category
-                }
-
-            # Sort tags
-            if sort_by == 'alphabetical':
-                sorted_tags = sorted(tags.items(), key=lambda x: x[0])
-            elif sort_by == 'category':
-                # Sort by category order (rating, character, general), then by confidence within each
-                category_order = {'rating': 0, 'character': 1, 'general': 2}
-                sorted_tags = sorted(tags.items(),
-                                   key=lambda x: (category_order.get(x[1]['category'], 999), -x[1]['confidence']))
-            else:  # confidence (default)
-                sorted_tags = sorted(tags.items(), key=lambda x: x[1]['confidence'], reverse=True)
-
-            # Apply limit
-            if limit > 0:
-                sorted_tags = sorted_tags[:limit]
-
-            # Format output tags
-            output_tags = []
-            for tag_name, tag_info in sorted_tags:
-                # Replace underscores if requested
-                display_name = tag_name.replace('_', ' ') if replace_underscores else tag_name
-
-                # Add confidence if requested
-                if add_confidence:
-                    output_tags.append(f"{display_name}:{tag_info['confidence']:.2f}")
-                else:
-                    output_tags.append(display_name)
-
-            # Join with separator
-            result = tag_separator.join(output_tags)
-            logger.debug("Generated %d tags", len(output_tags))
-
-            return result if result else "No tags detected above threshold"
+            # Process tags using helper method
+            return self._process_tags(probs, parameters)
 
         except Exception as e:
             logger.exception("Error generating tags: %s", e)
@@ -180,29 +176,7 @@ class WdVitAdapter(BaseModelAdapter):
 
         try:
             # Convert all images to RGB
-            processed_images = []
-            for image in images:
-                if image.mode != 'RGB':
-                    image = image.convert('RGB')
-                processed_images.append(image)
-
-            # Parse parameters with defaults
-            params = parameters or {}
-            threshold = params.get('threshold', 0.3)
-            character_threshold = params.get('character_threshold', threshold)
-            exclude_tags = params.get('exclude_tags', '')
-            use_character_tags = params.get('use_character_tags', True)
-            use_rating_tags = params.get('use_rating_tags', False)
-            replace_underscores = params.get('replace_underscores', False)
-            add_confidence = params.get('add_confidence', False)
-            sort_by = params.get('sort_by', 'confidence')
-            limit = params.get('limit', 0)
-            tag_separator = params.get('tag_separator', ', ')
-
-            # Parse exclude_tags into a set
-            excluded_set = set()
-            if exclude_tags and exclude_tags.strip():
-                excluded_set = {tag.strip().lower() for tag in exclude_tags.split(',')}
+            processed_images = self._ensure_rgb(images)
 
             # Process all images in batch
             inputs = self.processor(images=processed_images, return_tensors="pt").to(self.device)
@@ -212,71 +186,8 @@ class WdVitAdapter(BaseModelAdapter):
                 logits = self.model(**inputs).logits
                 probs = torch.sigmoid(logits).cpu()
 
-            # Process each image's results
-            results = []
-            for img_probs in probs:
-                # Build tags dict with category information
-                tags = {}
-                for i in range(len(img_probs)):
-                    if i not in self.id2tag:
-                        continue
-
-                    tag_name = self.id2tag[i]
-                    confidence = img_probs[i].item()
-
-                    # Get tag category from dataframe if available
-                    category = 'general'
-                    if self.tags_df is not None and i < len(self.tags_df):
-                        category_col = self.tags_df.iloc[i].get('category', 'general')
-                        if pd.notna(category_col):
-                            category = str(category_col).lower()
-
-                    # Apply category filters
-                    if category == 'character' and not use_character_tags:
-                        continue
-                    if category == 'rating' and not use_rating_tags:
-                        continue
-
-                    # Apply appropriate threshold based on category
-                    tag_threshold = character_threshold if category == 'character' else threshold
-                    if confidence <= tag_threshold:
-                        continue
-
-                    # Apply exclude filter
-                    if tag_name.lower() in excluded_set:
-                        continue
-
-                    tags[tag_name] = {
-                        'confidence': confidence,
-                        'category': category
-                    }
-
-                # Sort tags
-                if sort_by == 'alphabetical':
-                    sorted_tags = sorted(tags.items(), key=lambda x: x[0])
-                elif sort_by == 'category':
-                    category_order = {'rating': 0, 'character': 1, 'general': 2}
-                    sorted_tags = sorted(tags.items(),
-                                       key=lambda x: (category_order.get(x[1]['category'], 999), -x[1]['confidence']))
-                else:  # confidence (default)
-                    sorted_tags = sorted(tags.items(), key=lambda x: x[1]['confidence'], reverse=True)
-
-                # Apply limit
-                if limit > 0:
-                    sorted_tags = sorted_tags[:limit]
-
-                # Format output tags
-                output_tags = []
-                for tag_name, tag_info in sorted_tags:
-                    display_name = tag_name.replace('_', ' ') if replace_underscores else tag_name
-                    if add_confidence:
-                        output_tags.append(f"{display_name}:{tag_info['confidence']:.2f}")
-                    else:
-                        output_tags.append(display_name)
-
-                # Join with separator
-                result = tag_separator.join(output_tags)
-                results.append(result if result else "No tags detected above threshold")
+            # Process each image's results using helper method
+            results = [self._process_tags(img_probs, parameters) for img_probs in probs]
 
             return results
 
