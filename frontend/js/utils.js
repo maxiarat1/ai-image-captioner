@@ -20,26 +20,47 @@ async function fetchAvailableModels() {
 
         AppState.availableModels = data.models || [];
 
+        // Set default selected model to first available model
+        if (AppState.availableModels.length > 0 && !AppState.selectedModel) {
+            AppState.selectedModel = AppState.availableModels[0].name;
+        }
+
         console.log('Available models loaded:', AppState.availableModels);
         return AppState.availableModels;
     } catch (error) {
         console.error('Error fetching models:', error);
-        AppState.availableModels = [
-            { name: 'blip', loaded: false, description: 'BLIP - Fast captioning' },
-            { name: 'r4b', loaded: false, description: 'R-4B - Advanced reasoning' },
-            { name: 'wdvit', loaded: false, description: 'WD-ViT Tagger v3' },
-            { name: 'wdeva02', loaded: false, description: 'WD-EVA02 Tagger v3' }
-        ];
+        // Minimal fallback - empty list, will be populated from metadata API
+        AppState.availableModels = [];
         return AppState.availableModels;
     }
 }
 
 function getModelDisplayName(modelName) {
-    const displayNames = {
-        'blip': 'BLIP',
-        'r4b': 'R-4B',
-        'wdvit': 'WD-ViT v3',
-        'wdeva02': 'WD-EVA02 v3'
-    };
-    return displayNames[modelName] || modelName.toUpperCase().replace(/-/g, ' ');
+    // Try to get display name from cached metadata (synchronous)
+    if (ModelsAPI.metadata && ModelsAPI.metadata.models && ModelsAPI.metadata.models[modelName]) {
+        const model = ModelsAPI.metadata.models[modelName];
+        if (model.display_name) {
+            return model.display_name;
+        }
+    }
+
+    // Fallback: format the model name nicely
+    return modelName
+        .split('-')
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+}
+
+async function getModelDisplayNameAsync(modelName) {
+    // Async version for when you need to fetch fresh data
+    try {
+        const metadata = await ModelsAPI.getModel(modelName);
+        if (metadata && metadata.display_name) {
+            return metadata.display_name;
+        }
+    } catch (error) {
+        console.warn('Could not fetch display name for model:', modelName);
+    }
+
+    return getModelDisplayName(modelName);
 }

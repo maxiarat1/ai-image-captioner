@@ -1,7 +1,7 @@
 const AppState = {
     uploadQueue: [],
     apiBaseUrl: 'http://localhost:5000',
-    selectedModel: 'blip',
+    selectedModel: 'wdvit',
     customPrompt: '',
     availableModels: [],
     processedResults: [],

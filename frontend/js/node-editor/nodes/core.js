@@ -38,6 +38,11 @@
         // Position node in center of visible viewport (in canvas space)
         const center = NEUtils.wrapperToCanvas(rect.width / 2, rect.height / 2);
 
+        // Get default model from available models (first one if available, or let backend decide)
+        const defaultModel = (AppState.availableModels && AppState.availableModels.length > 0)
+            ? AppState.availableModels[0].name
+            : AppState.selectedModel || '';
+
         const node = {
             id: NodeEditor.nextId++,
             type: type,
@@ -45,7 +50,7 @@
             y: center.y + (Math.random() - 0.5) * 200,
             label: '',
             data: type === 'prompt' ? { text: '' } :
-                  type === 'aimodel' ? { model: 'blip', parameters: {}, showAdvanced: false } :
+                  type === 'aimodel' ? { model: defaultModel, parameters: {}, showAdvanced: false } :
                   type === 'conjunction' ? { connectedItems: [], template: '', showPreview: false } : {}
         };
 
@@ -204,8 +209,8 @@
                             advancedBtn.textContent = '▼ Hide Advanced';
                             paramsContainer.classList.remove('hidden');
                             // Load parameters when showing advanced for the first time
-                            if (typeof loadModelParameters === 'function') {
-                                loadModelParameters(node.id, node.data.model || 'blip');
+                            if (typeof loadModelParameters === 'function' && node.data.model) {
+                                loadModelParameters(node.id, node.data.model);
                             }
                         } else {
                             advancedBtn.textContent = '▶ Show Advanced';
@@ -221,9 +226,9 @@
             }
 
             // Load parameters for AI model nodes (only if advanced is shown)
-            if (node.data.showAdvanced) {
+            if (node.data.showAdvanced && node.data.model) {
                 if (typeof loadModelParameters === 'function') {
-                    loadModelParameters(node.id, node.data.model || 'blip');
+                    loadModelParameters(node.id, node.data.model);
                 }
             }
         }
@@ -404,12 +409,7 @@
                     const tooltip = model.description || '';
                     return `<option value="${model.name}" ${selected} title="${tooltip}">${displayName}</option>`;
                 }).join('\n                    ')
-                : `
-                    <option value="blip" ${node.data.model === 'blip' ? 'selected' : ''}>BLIP</option>
-                    <option value="r4b" ${node.data.model === 'r4b' ? 'selected' : ''}>R-4B</option>
-                    <option value="wdvit" ${node.data.model === 'wdvit' ? 'selected' : ''}>WD-ViT v3</option>
-                    <option value="wdeva02" ${node.data.model === 'wdeva02' ? 'selected' : ''}>WD-EVA02 v3</option>
-                `;
+                : '<option value="">No models available</option>';
 
             let html = `
                 <select id="node-${node.id}-model" name="model-${node.id}" data-key="model" class="model-select">

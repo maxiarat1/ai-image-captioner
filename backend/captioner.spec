@@ -5,7 +5,7 @@ PyInstaller spec file for AI Image Captioner Backend
 This builds a standalone executable that includes:
 - Flask backend server
 - PyTorch with CUDA support
-- Transformers models (BLIP, R-4B)
+- Multiple AI vision models (BLIP, R-4B, WD-ViT, Janus, Qwen3-VL, DeepSeek-OCR)
 - All required dependencies
 
 Build command:
@@ -61,7 +61,6 @@ hidden_imports = [
     # Transformers and dependencies
     'transformers',
     'transformers.models',
-    'transformers.models.blip',
     'transformers.models.auto',
     'transformers.generation',
     'transformers.modeling_utils',

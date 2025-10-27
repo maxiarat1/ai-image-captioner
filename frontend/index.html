@@ -515,7 +515,7 @@ cd backend && python app.py">Copy</button>
                                     <div class="terminal-line">    response = requests.post(</div>
                                     <div class="terminal-line">        'http://localhost:5000/generate',</div>
                                     <div class="terminal-line">        files={'image': f},</div>
-                                    <div class="terminal-line">        data={'model': 'blip', 'prompt': 'Describe this image'}</div>
+                                    <div class="terminal-line">        data={'model': 'wdvit', 'prompt': 'Describe this image'}</div>
                                     <div class="terminal-line">    )</div>
                                     <div class="terminal-line">print(response.json()['caption'])</div>
                                 </div>
@@ -530,8 +530,8 @@ cd backend && python app.py">Copy</button>
                             <h3>Out of Memory Error</h3>
                             <p>Solutions:</p>
                             <ul class="docs-list">
-                                <li>Use BLIP model instead of R-4B</li>
-                                <li>Switch R-4B to 8-bit or 4-bit precision</li>
+                                <li>Use lightweight models (BLIP, WD-ViT) instead of larger models</li>
+                                <li>Switch to lower precision (8-bit or 4-bit) for supported models</li>
                                 <li>Close other GPU-intensive applications</li>
                             </ul>
                         </div>
@@ -631,8 +631,8 @@ cd backend && python app.py">Copy</button>
                                 <path d="M12 2L2 7l10 5 10-5-10-5z"/>
                                 <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
                             </svg>
-                            <h3>Dual AI Models</h3>
-                            <p>Choose between BLIP for speed or R-4B for detailed reasoning and high-quality captions.</p>
+                            <h3>Multiple AI Models</h3>
+                            <p>Choose from 7+ specialized models including BLIP, R-4B, WD-ViT, Janus, and DeepSeek-OCR for different use cases.</p>
                         </div>
                         <div class="feature-card">
                             <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -685,6 +685,14 @@ cd backend && python app.py">Copy</button>
                         <div class="tech-card">
                             <div class="tech-name">R-4B</div>
                             <div class="tech-desc">Advanced reasoning model</div>
+                        </div>
+                        <div class="tech-card">
+                            <div class="tech-name">WD-ViT v3</div>
+                            <div class="tech-desc">Anime/art tagging</div>
+                        </div>
+                        <div class="tech-card">
+                            <div class="tech-name">Janus & DeepSeek</div>
+                            <div class="tech-desc">Multimodal & OCR models</div>
                         </div>
                         <div class="tech-card">
                             <div class="tech-name">PyTorch</div>

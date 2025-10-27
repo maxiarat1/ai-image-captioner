@@ -55,8 +55,14 @@ async function autoResumeSession() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // Pre-load models and metadata for display names
     if (typeof fetchAvailableModels === 'function') {
         await fetchAvailableModels();
+    }
+
+    // Pre-fetch metadata so display names are available synchronously
+    if (typeof ModelsAPI !== 'undefined') {
+        await ModelsAPI.fetchMetadata();
     }
 
     await autoResumeSession();

@@ -28,10 +28,10 @@ function initDocsInterface() {
         // Clear existing content
         perfMatrix.innerHTML = '';
 
-        // Generate model cards for main models (BLIP, R-4B variants, notable others)
-        const priorityModels = ['blip', 'r4b'];
+        // Show all available models dynamically from backend
+        const allModelKeys = Object.keys(models);
 
-        priorityModels.forEach(modelKey => {
+        allModelKeys.forEach(modelKey => {
             const model = models[modelKey];
             if (!model) return;
 

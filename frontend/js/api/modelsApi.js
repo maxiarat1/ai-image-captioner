@@ -104,52 +104,21 @@ const ModelsAPI = {
 
     /**
      * Fallback metadata if backend is unavailable
+     * Returns minimal default data - backend should be the source of truth
      * @returns {Object}
      */
     getFallbackMetadata() {
         return {
-            model_count: 2,
-            models: {
-                blip: {
-                    display_name: 'BLIP',
-                    full_name: 'Salesforce BLIP',
-                    description: 'Fast image captioning',
-                    speed_score: 80,
-                    quality_score: 60,
-                    vram_gb: 2,
-                    vram_label: '2GB',
-                    speed_label: 'Fast',
-                    quality_label: 'Good',
-                    features: ['Fast processing', 'Low VRAM usage', 'General-purpose captions'],
-                    use_cases: ['Batch processing', 'Quick previews', 'Resource-constrained systems']
-                },
-                r4b: {
-                    display_name: 'R-4B',
-                    full_name: 'R-4B Advanced Reasoning',
-                    description: 'Advanced reasoning model',
-                    speed_score: 40,
-                    quality_score: 95,
-                    vram_gb: 8,
-                    vram_label: '8GB (fp16)',
-                    speed_label: 'Medium',
-                    quality_label: 'Excellent',
-                    features: ['Advanced reasoning', 'Configurable precision', 'Detailed captions'],
-                    use_cases: ['High-quality descriptions', 'Complex scenes', 'Fine-grained control'],
-                    precision_variants: [
-                        {name: 'fp16', vram_gb: 8, speed_score: 40, quality_score: 95},
-                        {name: '4bit', vram_gb: 2, speed_score: 60, quality_score: 75}
-                    ]
-                }
-            },
+            model_count: 0,
+            models: {},
             export_formats: 4,
             vram_range: '2-16',
             tech_stack: [
-                {name: 'Salesforce BLIP', description: 'Fast image captioning'},
-                {name: 'R-4B', description: 'Advanced reasoning model'},
                 {name: 'PyTorch', description: 'Deep learning framework'},
                 {name: 'Flask', description: 'REST API backend'},
                 {name: 'Vanilla JavaScript', description: 'No-build frontend'},
-                {name: 'CUDA', description: 'GPU acceleration'}
+                {name: 'CUDA', description: 'GPU acceleration'},
+                {name: 'DuckDB', description: 'Embedded analytics database'}
             ]
         };
     },
