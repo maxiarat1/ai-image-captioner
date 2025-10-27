@@ -17,8 +17,7 @@ THUMBNAIL_CACHE_MAX_SIZE = 100
 
 PRECISION_DEFAULTS = {
     'r4b': {'precision': 'float32', 'use_flash_attention': False},
-    'qwen3vl-4b': {'precision': 'auto', 'use_flash_attention': False},
-    'qwen3vl-8b': {'precision': 'auto', 'use_flash_attention': False}
+    'deepseek-ocr': {'precision': 'bfloat16', 'use_flash_attention': False}
 }
 
 DATA_DIR.mkdir(exist_ok=True)

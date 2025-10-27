@@ -1,24 +1,39 @@
+# Web Framework
 flask>=2.3.0
 flask-cors>=4.0.0
 
+# Image Processing
 pillow>=10.0.0
 
-transformers>=4.35.0
+# ML/AI Core
+transformers==4.46.3
 accelerate>=0.24.0
-bitsandbytes>=0.41.0
-safetensors>=0.4.3,<0.6.0
 timm>=0.9.0
-
 huggingface-hub>=0.17.0
 
+# Model Optimization
+bitsandbytes>=0.41.0
+safetensors>=0.4.3,<0.6.0
+
+# Database
+duckdb>=1.4.0
+
+# Utilities
 requests>=2.31.0
 tqdm>=4.66.0
 pandas>=2.0.0
+matplotlib>=3.5.0
 
-duckdb>=1.4.0
+# Tensor Operations
+einops
+addict 
+easydict
+
+# External Models
 git+https://github.com/deepseek-ai/Janus.git
+
+# Build/Distribution
 pyinstaller>=6.0.0
 
 # Optional: Flash Attention (requires compatible GPU)
-# Uncomment to install:
-# flash-attn>=2.3.0
+# Note: Install with: pip install flash-attn==2.7.3 --use-pep517 --no-build-isolation

@@ -407,8 +407,6 @@
                 : `
                     <option value="blip" ${node.data.model === 'blip' ? 'selected' : ''}>BLIP</option>
                     <option value="r4b" ${node.data.model === 'r4b' ? 'selected' : ''}>R-4B</option>
-                    <option value="qwen3vl-4b" ${node.data.model === 'qwen3vl-4b' ? 'selected' : ''}>Qwen3-VL 4B</option>
-                    <option value="qwen3vl-8b" ${node.data.model === 'qwen3vl-8b' ? 'selected' : ''}>Qwen3-VL 8B</option>
                     <option value="wdvit" ${node.data.model === 'wdvit' ? 'selected' : ''}>WD-ViT v3</option>
                     <option value="wdeva02" ${node.data.model === 'wdeva02' ? 'selected' : ''}>WD-EVA02 v3</option>
                 `;

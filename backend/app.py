@@ -15,9 +15,9 @@ if os.environ.get("TAGGER_FORCE_CPU", "0") == "1":
 
 from models.blip_adapter import BlipAdapter
 from models.r4b_adapter import R4BAdapter
-from models.qwen3vl_adapter import Qwen3VLAdapter
 from models.wdvit_adapter import WdVitAdapter
 from models.janus_adapter import JanusAdapter
+from models.deepseek_ocr_adapter import DeepSeekOCRAdapter
 from utils.image_utils import load_image, image_to_base64
 from utils.logging_utils import setup_logging
 from session_manager import SessionManager
@@ -48,16 +48,6 @@ MODEL_METADATA = {
         'adapter': R4BAdapter,
         'adapter_args': {}
     },
-    'qwen3vl-4b': {
-        'description': "Qwen3-VL 4B - Compact vision-language model with strong performance",
-        'adapter': Qwen3VLAdapter,
-        'adapter_args': {'model_id': "Qwen/Qwen3-VL-4B-Instruct"}
-    },
-    'qwen3vl-8b': {
-        'description': "Qwen3-VL 8B - Advanced vision-language model with superior image understanding",
-        'adapter': Qwen3VLAdapter,
-        'adapter_args': {'model_id': "Qwen/Qwen3-VL-8B-Instruct"}
-    },
     'wdvit': {
         'description': "WD-ViT Large Tagger v3 - Anime-style image tagging model with ViT backbone",
         'adapter': WdVitAdapter,
@@ -87,6 +77,11 @@ MODEL_METADATA = {
         'description': "Janus Pro 7B - Advanced multimodal model with superior reasoning capabilities",
         'adapter': JanusAdapter,
         'adapter_args': {'model_id': "deepseek-ai/Janus-Pro-7B"}
+    },
+    'deepseek-ocr': {
+        'description': "DeepSeek-OCR - Advanced OCR and document conversion to markdown",
+        'adapter': DeepSeekOCRAdapter,
+        'adapter_args': {'model_id': "deepseek-ai/DeepSeek-OCR"}
     }
 }
 
@@ -220,32 +215,6 @@ def models_metadata():
                 {'name': '4bit', 'vram_gb': 2, 'speed_score': 60, 'quality_score': 75}
             ]
         },
-        'qwen3vl-4b': {
-            'display_name': 'Qwen3-VL 4B',
-            'full_name': 'Qwen3-VL 4B Instruct',
-            'description': 'Compact vision-language model with strong performance',
-            'speed_score': 55,
-            'quality_score': 80,
-            'vram_gb': 6,
-            'vram_label': '6GB',
-            'speed_label': 'Fast',
-            'quality_label': 'Very Good',
-            'features': ['Vision-language understanding', 'Instruction following', 'Multilingual support'],
-            'use_cases': ['Detailed descriptions', 'Scene understanding', 'Custom prompts']
-        },
-        'qwen3vl-8b': {
-            'display_name': 'Qwen3-VL 8B',
-            'full_name': 'Qwen3-VL 8B Instruct',
-            'description': 'Advanced vision-language model with superior image understanding',
-            'speed_score': 35,
-            'quality_score': 92,
-            'vram_gb': 12,
-            'vram_label': '12GB',
-            'speed_label': 'Medium',
-            'quality_label': 'Excellent',
-            'features': ['Superior image understanding', 'Complex reasoning', 'Rich context'],
-            'use_cases': ['Professional captioning', 'Complex scenes', 'High accuracy needs']
-        },
         'wdvit': {
             'display_name': 'WD-ViT',
             'full_name': 'WD-ViT Large Tagger v3',
@@ -271,6 +240,19 @@ def models_metadata():
             'quality_label': 'Excellent',
             'features': ['Enhanced accuracy', 'Anime/manga specialized', 'Advanced tagging'],
             'use_cases': ['Professional anime tagging', 'Dataset creation', 'High-accuracy needs']
+        },
+        'deepseek-ocr': {
+            'display_name': 'DeepSeek-OCR',
+            'full_name': 'DeepSeek OCR Document Converter',
+            'description': 'Advanced OCR and document conversion to markdown',
+            'speed_score': 50,
+            'quality_score': 95,
+            'vram_gb': 6,
+            'vram_label': '6GB',
+            'speed_label': 'Medium',
+            'quality_label': 'Excellent',
+            'features': ['OCR text extraction', 'Document to markdown conversion', 'Grounding support'],
+            'use_cases': ['Document digitization', 'Text extraction', 'Markdown conversion']
         }
     }
 
@@ -285,7 +267,6 @@ def models_metadata():
         'tech_stack': [
             {'name': 'Salesforce BLIP', 'description': 'Fast image captioning'},
             {'name': 'R-4B', 'description': 'Advanced reasoning model'},
-            {'name': 'Qwen3-VL', 'description': 'Vision-language models'},
             {'name': 'WD Taggers', 'description': 'Anime-style tagging'},
             {'name': 'PyTorch', 'description': 'Deep learning framework'},
             {'name': 'Flask', 'description': 'REST API backend'},

@@ -50,15 +50,56 @@ fi
 # Create conda environment with PyTorch and CUDA
 echo "Creating conda environment with Python 3.10..."
 if [ "$CUDA_VERSION" = "12.8" ]; then
-    # For CUDA 12.8 (RTX 50 series and newer)
+    echo "🐉 Setting up environment for CUDA 12.8 (RTX 50-series or newer)"
+
     conda create -n captioner-gpu python=3.10 -y
     conda activate captioner-gpu
-    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
-else
-    # For CUDA 12.1 (RTX 20/30/40 series)
-    conda create -n captioner-gpu python=3.10 pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia -y
+
+    # Install PyTorch stack (CUDA 12.8 wheels from PyTorch site)
+    pip install torch==2.7.1+cu128 torchvision==0.22.1+cu128 torchaudio==2.7.1+cu128 \
+      --index-url https://download.pytorch.org/whl/cu128
+
+    # Recommended build helpers
+    pip install packaging ninja
+
+    # Install FlashAttention 2 (prebuilt binary for CUDA 12.x + Torch 2.7)
+    wget https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.2/flash_attn-2.8.2+cu12torch2.7cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
+    pip install flash_attn-2.8.2+cu12torch2.7cxx11abiFALSE-cp310-cp310-linux_x86_64.whl --no-build-isolation
+    rm flash_attn-2.8.2+cu12torch2.7cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
+
+    # Verify
+    echo ""
+    echo "✅ Verifying PyTorch, CUDA, and FlashAttention installation..."
+    python -c "import torch, flash_attn; print('PyTorch:', torch.__version__, 'CUDA:', torch.version.cuda, 'FlashAttention:', flash_attn.__version__')"
+
+elif [ "$CUDA_VERSION" = "12.1" ]; then
+    echo "⚡ Setting up environment for CUDA 12.1 (RTX 20/30/40-series)"
+
+    conda create -n captioner-gpu python=3.10 -y
     conda activate captioner-gpu
+
+    # Install official PyTorch 2.5 stack for CUDA 12.1
+    conda install pytorch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 pytorch-cuda=12.1 \
+      -c pytorch -c nvidia -y
+
+    # Build helpers
+    pip install packaging ninja
+
+    # Install FlashAttention 2.8.3 prebuilt wheel (CUDA 12.x + Torch 2.5)
+    wget https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.5cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
+    pip install flash_attn-2.8.3+cu12torch2.5cxx11abiFALSE-cp310-cp310-linux_x86_64.whl --no-build-isolation
+    rm flash_attn-2.8.3+cu12torch2.5cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
+
+    # Verify
+    echo ""
+    echo "✅ Verifying PyTorch, CUDA, and FlashAttention installation..."
+    python -c "import torch, flash_attn; print('PyTorch:', torch.__version__, 'CUDA:', torch.version.cuda, 'FlashAttention:', flash_attn.__version__')"
+
+else
+    echo "❌ Unsupported CUDA version: $CUDA_VERSION"
+    echo "Please set CUDA_VERSION to either 12.1 or 12.8."
 fi
+
 
 # Install project dependencies
 echo ""

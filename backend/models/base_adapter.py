@@ -122,7 +122,7 @@ class BaseModelAdapter(ABC):
             import flash_attn
             model_kwargs["attn_implementation"] = "flash_attention_2"
 
-            # Optionally force bfloat16 dtype (recommended for some models like Qwen)
+            # Optionally force bfloat16 dtype 
             if force_bfloat16 and precision not in ["4bit", "8bit"]:
                 model_kwargs["dtype"] = torch.bfloat16
                 logger.info("Using Flash Attention 2 (dtype=bfloat16)")

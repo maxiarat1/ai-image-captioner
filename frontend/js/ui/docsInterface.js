@@ -29,7 +29,7 @@ function initDocsInterface() {
         perfMatrix.innerHTML = '';
 
         // Generate model cards for main models (BLIP, R-4B variants, notable others)
-        const priorityModels = ['blip', 'r4b', 'qwen3vl-4b', 'qwen3vl-8b'];
+        const priorityModels = ['blip', 'r4b'];
 
         priorityModels.forEach(modelKey => {
             const model = models[modelKey];
