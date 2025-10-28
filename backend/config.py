@@ -17,7 +17,6 @@ THUMBNAIL_CACHE_MAX_SIZE = 100
 
 PRECISION_DEFAULTS = {
     'r4b': {'precision': 'float32', 'use_flash_attention': False},
-    'deepseek-ocr': {'precision': 'bfloat16', 'use_flash_attention': False},
     'olmocr': {'precision': 'bfloat16', 'use_flash_attention': False},
     'llava-phi3': {'precision': 'float16', 'use_flash_attention': False}
 }

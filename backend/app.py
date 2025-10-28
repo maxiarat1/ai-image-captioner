@@ -17,7 +17,6 @@ from models.blip_adapter import BlipAdapter
 from models.r4b_adapter import R4BAdapter
 from models.wdvit_adapter import WdVitAdapter
 from models.janus_adapter import JanusAdapter
-from models.deepseek_ocr_adapter import DeepSeekOCRAdapter
 from models.olmocr_adapter import OlmOCRAdapter
 from models.llava_phi3_adapter import LlavaPhiAdapter
 from utils.image_utils import load_image, image_to_base64
@@ -79,11 +78,6 @@ MODEL_METADATA = {
         'description': "Janus Pro 7B - Advanced multimodal model with superior reasoning capabilities",
         'adapter': JanusAdapter,
         'adapter_args': {'model_id': "deepseek-ai/Janus-Pro-7B"}
-    },
-    'deepseek-ocr': {
-        'description': "DeepSeek-OCR - Advanced OCR and document conversion to markdown",
-        'adapter': DeepSeekOCRAdapter,
-        'adapter_args': {'model_id': "deepseek-ai/DeepSeek-OCR"}
     },
     'olmocr': {
         'description': "olmOCR - Advanced OCR for extracting text from images and documents",
@@ -252,19 +246,6 @@ def models_metadata():
             'quality_label': 'Excellent',
             'features': ['Enhanced accuracy', 'Anime/manga specialized', 'Advanced tagging'],
             'use_cases': ['Professional anime tagging', 'Dataset creation', 'High-accuracy needs']
-        },
-        'deepseek-ocr': {
-            'display_name': 'DeepSeek-OCR',
-            'full_name': 'DeepSeek OCR Document Converter',
-            'description': 'Advanced OCR and document conversion to markdown',
-            'speed_score': 50,
-            'quality_score': 95,
-            'vram_gb': 6,
-            'vram_label': '6GB',
-            'speed_label': 'Medium',
-            'quality_label': 'Excellent',
-            'features': ['OCR text extraction', 'Document to markdown conversion', 'Grounding support'],
-            'use_cases': ['Document digitization', 'Text extraction', 'Markdown conversion']
         }
     }
 
