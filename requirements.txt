@@ -6,7 +6,7 @@ flask-cors>=4.0.0
 pillow>=10.0.0
 
 # ML/AI Core
-transformers==4.46.3
+transformers>=4.46.3
 accelerate>=0.24.0
 timm>=0.9.0
 huggingface-hub>=0.17.0
@@ -31,6 +31,7 @@ easydict
 
 # External Models
 git+https://github.com/deepseek-ai/Janus.git
+olmocr
 
 # Build/Distribution
 pyinstaller>=6.0.0

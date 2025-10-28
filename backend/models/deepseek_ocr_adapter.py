@@ -49,7 +49,7 @@ class DeepSeekOCRAdapter(BaseModelAdapter):
             if precision not in ["4bit", "8bit"]:
                 dtype = self._get_dtype(precision)
                 if dtype != "auto":
-                    model_kwargs["torch_dtype"] = dtype
+                    model_kwargs["dtype"] = dtype
 
             # Setup flash attention if requested
             if use_flash_attention:

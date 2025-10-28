@@ -18,6 +18,8 @@ from models.r4b_adapter import R4BAdapter
 from models.wdvit_adapter import WdVitAdapter
 from models.janus_adapter import JanusAdapter
 from models.deepseek_ocr_adapter import DeepSeekOCRAdapter
+from models.olmocr_adapter import OlmOCRAdapter
+from models.llava_phi3_adapter import LlavaPhiAdapter
 from utils.image_utils import load_image, image_to_base64
 from utils.logging_utils import setup_logging
 from session_manager import SessionManager
@@ -82,6 +84,16 @@ MODEL_METADATA = {
         'description': "DeepSeek-OCR - Advanced OCR and document conversion to markdown",
         'adapter': DeepSeekOCRAdapter,
         'adapter_args': {'model_id': "deepseek-ai/DeepSeek-OCR"}
+    },
+    'olmocr': {
+        'description': "olmOCR - Advanced OCR for extracting text from images and documents",
+        'adapter': OlmOCRAdapter,
+        'adapter_args': {'model_id': "allenai/olmOCR-2-7B-1025"}
+    },
+    'llava-phi3': {
+        'description': "LLaVA-Phi-3-Mini - Compact and efficient vision-language model",
+        'adapter': LlavaPhiAdapter,
+        'adapter_args': {'model_id': "xtuner/llava-phi-3-mini-hf"}
     }
 }
 

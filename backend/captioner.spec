@@ -5,7 +5,7 @@ PyInstaller spec file for AI Image Captioner Backend
 This builds a standalone executable that includes:
 - Flask backend server
 - PyTorch with CUDA support
-- Multiple AI vision models (BLIP, R-4B, WD-ViT, Janus, Qwen3-VL, DeepSeek-OCR)
+- Multiple AI vision models (BLIP, R-4B, WD-ViT, Janus)
 - All required dependencies
 
 Build command:
