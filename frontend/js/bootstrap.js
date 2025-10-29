@@ -60,6 +60,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         await fetchAvailableModels();
     }
 
+    // Pre-fetch model categories from backend
+    if (typeof ModelCategories !== 'undefined') {
+        await ModelCategories.fetchCategories();
+    }
+
     // Pre-fetch metadata so display names are available synchronously
     if (typeof ModelsAPI !== 'undefined') {
         await ModelsAPI.fetchMetadata();

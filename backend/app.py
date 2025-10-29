@@ -38,53 +38,91 @@ CORS(app)
 
 session_manager = SessionManager()
 
+# Category definitions
+CATEGORIES = {
+    'general': {
+        'name': 'General Captioning',
+        'icon': '⚡',
+        'color': '#6366f1',
+        'description': 'Fast & versatile image captioning'
+    },
+    'anime': {
+        'name': 'Anime & Art',
+        'icon': '🎨',
+        'color': '#ec4899',
+        'description': 'Specialized for anime and artwork'
+    },
+    'multimodal': {
+        'name': 'Multimodal Vision',
+        'icon': '👁️',
+        'color': '#8b5cf6',
+        'description': 'Advanced vision-language models'
+    },
+    'ocr': {
+        'name': 'OCR & Text',
+        'icon': '📝',
+        'color': '#10b981',
+        'description': 'Text extraction and analysis'
+    }
+}
+
 MODEL_METADATA = {
     'blip': {
+        'category': 'general',
         'description': "Fast, basic image captioning",
         'adapter': BlipAdapter,
         'adapter_args': {}
     },
     'r4b': {
+        'category': 'general',
         'description': "Advanced reasoning model with configurable parameters",
         'adapter': R4BAdapter,
         'adapter_args': {}
     },
     'wdvit': {
+        'category': 'anime',
         'description': "WD-ViT Large Tagger v3 - Anime-style image tagging model with ViT backbone",
         'adapter': WdVitAdapter,
         'adapter_args': {'model_id': "SmilingWolf/wd-vit-large-tagger-v3"}
     },
     'wdeva02': {
+        'category': 'anime',
         'description': "WD-EVA02 Large Tagger v3 - Anime-style image tagging model with EVA02 backbone (improved accuracy)",
         'adapter': WdVitAdapter,
         'adapter_args': {'model_id': "SmilingWolf/wd-eva02-large-tagger-v3"}
     },
     'janus-1.3b': {
+        'category': 'multimodal',
         'description': "Janus 1.3B - Multimodal vision-language model with efficient architecture",
         'adapter': JanusAdapter,
         'adapter_args': {'model_id': "deepseek-ai/Janus-1.3B"}
     },
     'janusflow-1.3b': {
+        'category': 'multimodal',
         'description': "JanusFlow 1.3B - Flow-based variant with enhanced generation quality",
         'adapter': JanusAdapter,
         'adapter_args': {'model_id': "deepseek-ai/JanusFlow-1.3B"}
     },
     'janus-pro-1b': {
+        'category': 'multimodal',
         'description': "Janus Pro 1B - Compact professional-grade vision model",
         'adapter': JanusAdapter,
         'adapter_args': {'model_id': "deepseek-ai/Janus-Pro-1B"}
     },
     'janus-pro-7b': {
+        'category': 'multimodal',
         'description': "Janus Pro 7B - Advanced multimodal model with superior reasoning capabilities",
         'adapter': JanusAdapter,
         'adapter_args': {'model_id': "deepseek-ai/Janus-Pro-7B"}
     },
     'olmocr': {
+        'category': 'ocr',
         'description': "olmOCR - Advanced OCR for extracting text from images and documents",
         'adapter': OlmOCRAdapter,
         'adapter_args': {'model_id': "allenai/olmOCR-2-7B-1025"}
     },
     'llava-phi3': {
+        'category': 'ocr',
         'description': "LLaVA-Phi-3-Mini - Compact and efficient vision-language model",
         'adapter': LlavaPhiAdapter,
         'adapter_args': {'model_id': "xtuner/llava-phi-3-mini-hf"}
@@ -186,6 +224,35 @@ def list_models():
         for name in MODEL_METADATA.keys()
     ]
     return jsonify({"models": available_models})
+
+@app.route('/models/categories', methods=['GET'])
+def get_model_categories():
+    """Get models organized by categories with category metadata."""
+    categories_data = []
+
+    for category_id, category_info in CATEGORIES.items():
+        # Find all models in this category
+        category_models = [
+            {
+                "name": name,
+                "description": MODEL_METADATA[name]['description'],
+                "loaded": models[name] is not None and models[name].is_loaded()
+            }
+            for name, metadata in MODEL_METADATA.items()
+            if metadata.get('category') == category_id
+        ]
+
+        if category_models:  # Only include categories that have models
+            categories_data.append({
+                "id": category_id,
+                "name": category_info['name'],
+                "icon": category_info['icon'],
+                "color": category_info['color'],
+                "description": category_info['description'],
+                "models": category_models
+            })
+
+    return jsonify({"categories": categories_data})
 
 @app.route('/models/metadata', methods=['GET'])
 def models_metadata():

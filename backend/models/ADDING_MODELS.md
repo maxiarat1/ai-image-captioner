@@ -326,16 +326,33 @@ Edit `backend/app.py`:
 # 1. Add import at the top
 from models.my_model_adapter import MyModelAdapter
 
-# 2. Add to MODEL_METADATA dictionary
+# 2. Add to MODEL_METADATA dictionary with category
 MODEL_METADATA = {
     # ... existing models ...
     'my-model': {
+        'category': 'general',  # Choose: general, anime, multimodal, or ocr
         'description': "MyModel - Brief description of what it does",
         'adapter': MyModelAdapter,
         'adapter_args': {'model_id': "organization/model-name"}
     }
 }
 ```
+
+**Available Categories:**
+
+| Category | Icon | Use For |
+|----------|------|---------|
+| `general` | ⚡ | Fast & versatile image captioning models |
+| `anime` | 🎨 | Anime/artwork specialized models |
+| `multimodal` | 👁️ | Advanced vision-language models |
+| `ocr` | 📝 | Text extraction and document analysis |
+
+The frontend automatically organizes models by category, so just set the `category` field and your model will appear in the right dropdown section!
+
+**That's it!** The system is fully automatic - no frontend changes needed. Your model will automatically:
+- Appear in the correct category dropdown
+- Display with the category's icon and color
+- Be available in the node editor and processing interface
 
 ### Step 3: Add Precision Defaults (Optional)
 

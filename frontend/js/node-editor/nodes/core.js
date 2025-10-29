@@ -170,6 +170,72 @@
             };
         });
 
+        // Model dropdown handlers (for AI model nodes)
+        if (node.type === 'aimodel') {
+            const modelBtn = el.querySelector('.model-select-btn');
+            const modelDropdown = el.querySelector('.model-dropdown');
+            const modelWrapper = el.querySelector('.model-select-wrapper');
+
+            if (modelBtn && modelDropdown && modelWrapper) {
+                // Toggle dropdown on button click
+                modelBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    const isOpen = modelWrapper.classList.contains('open');
+
+                    // Close all other dropdowns
+                    document.querySelectorAll('.model-select-wrapper.open').forEach(w => {
+                        if (w !== modelWrapper) w.classList.remove('open');
+                    });
+
+                    modelWrapper.classList.toggle('open', !isOpen);
+                };
+
+                // Prevent dropdown from closing when clicking inside
+                modelDropdown.onclick = (e) => {
+                    e.stopPropagation();
+                };
+
+                // Handle model selection
+                const modelItems = el.querySelectorAll('.model-item');
+                modelItems.forEach(item => {
+                    item.onclick = (e) => {
+                        e.stopPropagation();
+                        const modelName = item.dataset.model;
+                        if (modelName && modelName !== node.data.model) {
+                            node.data.model = modelName;
+
+                            // Update button display
+                            const category = typeof ModelCategories !== 'undefined'
+                                ? ModelCategories.getCategoryForModel(modelName)
+                                : null;
+                            const displayName = typeof getModelDisplayName === 'function'
+                                ? getModelDisplayName(modelName)
+                                : modelName.toUpperCase();
+
+                            const iconSpan = modelBtn.querySelector('.model-select-icon');
+                            const textSpan = modelBtn.querySelector('.model-select-text');
+
+                            if (iconSpan && category) iconSpan.textContent = category.icon;
+                            if (textSpan) textSpan.textContent = displayName;
+                            if (category) modelBtn.style.setProperty('--category-color', category.color);
+
+                            // Update selected state
+                            modelItems.forEach(mi => mi.classList.remove('selected'));
+                            item.classList.add('selected');
+
+                            // Close dropdown
+                            modelWrapper.classList.remove('open');
+
+                            // Reload model parameters
+                            if (typeof loadModelParameters === 'function') {
+                                loadModelParameters(node.id, modelName);
+                            }
+                        }
+                    };
+                });
+            }
+        }
+
         // Label input handler
         const labelInput = el.querySelector(`#node-${node.id}-label`);
         if (labelInput) {
@@ -397,24 +463,74 @@
         }
         if (node.type === 'aimodel') {
             const showAdvanced = node.data.showAdvanced || false;
-
-            // Build model options dynamically from AppState.availableModels
             const availableModels = AppState.availableModels || [];
-            const modelOptions = availableModels.length > 0
-                ? availableModels.map(model => {
-                    const displayName = typeof getModelDisplayName === 'function'
-                        ? getModelDisplayName(model.name)
-                        : model.name.toUpperCase();
-                    const selected = node.data.model === model.name ? 'selected' : '';
-                    const tooltip = model.description || '';
-                    return `<option value="${model.name}" ${selected} title="${tooltip}">${displayName}</option>`;
-                }).join('\n                    ')
-                : '<option value="">No models available</option>';
+            const currentModel = node.data.model;
+
+            // Find current model's category and display info
+            const currentModelObj = availableModels.find(m => m.name === currentModel);
+            const currentCategory = typeof ModelCategories !== 'undefined'
+                ? ModelCategories.getCategoryForModel(currentModel)
+                : null;
+
+            const currentDisplayName = currentModel
+                ? (typeof getModelDisplayName === 'function'
+                    ? getModelDisplayName(currentModel)
+                    : currentModel.toUpperCase())
+                : 'Select Model';
+
+            const categoryIcon = currentCategory ? currentCategory.icon : '⚙️';
+            const categoryColor = currentCategory ? currentCategory.color : '#6366f1';
+
+            // Build categorized dropdown HTML
+            let categoriesHtml = '';
+            if (typeof ModelCategories !== 'undefined') {
+                categoriesHtml = ModelCategories.categories.map(category => {
+                    const categoryModels = category.models
+                        .filter(modelName => availableModels.some(m => m.name === modelName))
+                        .map(modelName => {
+                            const modelObj = availableModels.find(m => m.name === modelName);
+                            const displayName = typeof getModelDisplayName === 'function'
+                                ? getModelDisplayName(modelName)
+                                : modelName.toUpperCase();
+                            const isSelected = modelName === currentModel ? 'selected' : '';
+                            const description = modelObj ? modelObj.description : '';
+                            return `
+                                <div class="model-item ${isSelected}"
+                                     data-model="${modelName}"
+                                     title="${description}">
+                                    ${displayName}
+                                </div>
+                            `;
+                        }).join('');
+
+                    if (!categoryModels) return '';
+
+                    return `
+                        <div class="model-category" data-category="${category.id}">
+                            <div class="model-category-header" style="--category-color: ${category.color}">
+                                <span class="model-category-icon">${category.icon}</span>
+                                <span class="model-category-name">${category.name}</span>
+                                <span class="model-category-arrow">›</span>
+                            </div>
+                            <div class="model-category-submenu">
+                                ${categoryModels}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
 
             let html = `
-                <select id="node-${node.id}-model" name="model-${node.id}" data-key="model" class="model-select">
-                    ${modelOptions}
-                </select>
+                <div class="model-select-wrapper" id="model-select-${node.id}">
+                    <button class="model-select-btn" data-node-id="${node.id}" style="--category-color: ${categoryColor}">
+                        <span class="model-select-icon">${categoryIcon}</span>
+                        <span class="model-select-text">${currentDisplayName}</span>
+                        <span class="model-select-arrow">▼</span>
+                    </button>
+                    <div class="model-dropdown" id="model-dropdown-${node.id}">
+                        ${categoriesHtml}
+                    </div>
+                </div>
                 <button class="btn-advanced" data-node-id="${node.id}">
                     ${showAdvanced ? '▼ Hide Advanced' : '▶ Show Advanced'}
                 </button>
@@ -633,6 +749,16 @@
             body.innerHTML = NENodes.getNodeContent(node);
         }
     };
+
+    // Global click handler to close model dropdowns when clicking outside
+    document.addEventListener('click', (e) => {
+        // Check if click is outside any model dropdown
+        if (!e.target.closest('.model-select-wrapper')) {
+            document.querySelectorAll('.model-select-wrapper.open').forEach(wrapper => {
+                wrapper.classList.remove('open');
+            });
+        }
+    });
 
     // Expose
     window.NENodes = NENodes;
