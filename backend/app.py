@@ -14,11 +14,13 @@ if os.environ.get("TAGGER_FORCE_CPU", "0") == "1":
     os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 
 from models.blip_adapter import BlipAdapter
+from models.blip2_adapter import Blip2Adapter
 from models.r4b_adapter import R4BAdapter
 from models.wdvit_adapter import WdVitAdapter
 from models.janus_adapter import JanusAdapter
 from models.olmocr_adapter import OlmOCRAdapter
 from models.llava_phi3_adapter import LlavaPhiAdapter
+from models.lfm2_adapter import LFM2Adapter
 from utils.image_utils import load_image, image_to_base64
 from utils.logging_utils import setup_logging
 from session_manager import SessionManager
@@ -73,6 +75,12 @@ MODEL_METADATA = {
         'adapter': BlipAdapter,
         'adapter_args': {}
     },
+    'blip2': {
+        'category': 'general',
+        'description': "BLIP2-OPT-2.7B - Enhanced captioning with configurable precision",
+        'adapter': Blip2Adapter,
+        'adapter_args': {'model_id': "Salesforce/blip2-opt-2.7b"}
+    },
     'r4b': {
         'category': 'general',
         'description': "Advanced reasoning model with configurable parameters",
@@ -114,6 +122,12 @@ MODEL_METADATA = {
         'description': "Janus Pro 7B - Advanced multimodal model with superior reasoning capabilities",
         'adapter': JanusAdapter,
         'adapter_args': {'model_id': "deepseek-ai/Janus-Pro-7B"}
+    },
+    'lfm2-vl-3b': {
+        'category': 'multimodal',
+        'description': "LFM2-VL-3B - LiquidAI's vision-language model with chat capabilities",
+        'adapter': LFM2Adapter,
+        'adapter_args': {'model_id': "LiquidAI/LFM2-VL-3B"}
     },
     'olmocr': {
         'category': 'ocr',
