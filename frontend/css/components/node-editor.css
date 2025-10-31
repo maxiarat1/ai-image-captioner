@@ -235,13 +235,18 @@
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: var(--radius-sm);
     color: white;
-    width: 24px;
-    height: 24px;
+    width: 42px;
+    height: 42px;
+    min-width: 22px;
+    min-height: 22px;
+    padding: 0;
+    margin-left: auto;
     cursor: pointer;
     font-size: 16px;
     line-height: 1;
     transition: all var(--transition-fast);
     display: flex;
+    flex-shrink: 0;
     align-items: center;
     justify-content: center;
 }

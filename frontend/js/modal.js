@@ -1,3 +1,16 @@
+// Generic modal functions
+function openModal(modal) {
+    if (!modal) return;
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeModal(modal) {
+    if (!modal) return;
+    modal.classList.remove('active');
+    document.body.style.overflow = '';
+}
+
 function openImagePreview(imageSrc, captionText, fileName) {
     const modal = document.getElementById('imagePreviewModal');
     const modalImage = document.getElementById('modalImage');
