@@ -3,6 +3,7 @@ import json
 import zipfile
 import os
 import logging
+import asyncio
 from pathlib import Path
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
@@ -23,7 +24,7 @@ from models.llava_phi3_adapter import LlavaPhiAdapter
 from models.lfm2_adapter import LFM2Adapter
 from utils.image_utils import load_image, image_to_base64
 from utils.logging_utils import setup_logging
-from session_manager import SessionManager
+from database import SessionManager, AsyncSessionManager
 from config import (
     SUPPORTED_IMAGE_FORMATS,
     THUMBNAIL_SIZE,
@@ -38,7 +39,9 @@ logger.setLevel(logging.DEBUG)
 app = Flask(__name__)
 CORS(app)
 
+# Session managers: sync for simple CRUD, async for AI inference paths
 session_manager = SessionManager()
+async_session_manager = AsyncSessionManager()
 
 # Category definitions
 CATEGORIES = {
@@ -574,13 +577,20 @@ def get_thumbnail():
         return jsonify({"error": str(e)}), 500
 
 @app.route('/generate', methods=['POST'])
-def generate_caption():
+async def generate_caption():
+    """
+    Generate caption for a single image (async, non-blocking).
+
+    Database operations run in thread pool to avoid blocking AI inference.
+    Caption saving happens in background (fire-and-forget).
+    """
     try:
         image_id = request.form.get('image_id', '')
         logger.info("Single generate request - image_id: %s", image_id)
 
+        # Async DB lookup for image path
         if image_id:
-            image_path = session_manager.get_image_path(image_id)
+            image_path = await async_session_manager.get_image_path(image_id)
             if not image_path:
                 logger.error("Image not found for image_id: %s", image_id)
                 return jsonify({"error": "Image not found"}), 404
@@ -612,10 +622,12 @@ def generate_caption():
         if not model_adapter or not model_adapter.is_loaded():
             return jsonify({"error": f"Model {model_name} not available"}), 500
 
+        # AI inference (GPU, potentially slow)
         caption = model_adapter.generate_caption(image, prompt, parameters)
 
+        # Save caption in background (non-blocking, fire-and-forget)
         if image_id:
-            session_manager.save_caption(image_id, caption)
+            asyncio.create_task(async_session_manager.save_caption(image_id, caption))
 
         return jsonify({
             "caption": caption,
@@ -631,7 +643,13 @@ def generate_caption():
         return jsonify({"error": str(e)}), 500
 
 @app.route('/generate/batch', methods=['POST'])
-def generate_captions_batch():
+async def generate_captions_batch():
+    """
+    Generate captions for multiple images (async, optimized for concurrency).
+
+    Database operations (path lookups and caption saves) run concurrently
+    in thread pool while AI inference runs on GPU.
+    """
     try:
         import time
         start_time = time.time()
@@ -645,12 +663,15 @@ def generate_captions_batch():
         if not image_ids:
             return jsonify({"error": "No image_ids provided"}), 400
 
-        # Load all images
+        # Load all image paths concurrently (async batch operation)
+        image_paths_dict = await async_session_manager.get_image_paths_batch(image_ids)
+
+        # Load images and prepare data
         images = []
         filenames = []
         valid_image_ids = []
         for image_id in image_ids:
-            image_path = session_manager.get_image_path(image_id)
+            image_path = image_paths_dict.get(image_id)
             if image_path:
                 images.append(load_image(image_path))
                 filenames.append(Path(image_path).name)
@@ -666,7 +687,7 @@ def generate_captions_batch():
         if not model_adapter or not model_adapter.is_loaded():
             return jsonify({"error": f"Model {model_name} not available"}), 500
 
-        # Generate captions for batch
+        # Generate captions for batch (GPU inference)
         prompts = [prompt] * len(images) if prompt else None
         captions = model_adapter.generate_captions_batch(images, prompts, parameters)
 
@@ -674,10 +695,16 @@ def generate_captions_batch():
         logger.info("Batch: %d images with %s → %d captions (%.1fs)",
                    len(images), model_name, len(captions), elapsed)
 
-        # Save captions
+        # Save all captions concurrently (async batch operation)
+        captions_data = [
+            {"image_id": img_id, "caption": cap}
+            for img_id, cap in zip(valid_image_ids, captions)
+        ]
+        asyncio.create_task(async_session_manager.save_captions_batch(captions_data))
+
+        # Build results
         results = []
         for image_id, caption, filename in zip(valid_image_ids, captions, filenames):
-            session_manager.save_caption(image_id, caption)
             results.append({
                 "image_id": image_id,
                 "caption": caption,
