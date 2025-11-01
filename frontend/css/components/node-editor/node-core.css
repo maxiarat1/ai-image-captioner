@@ -14,6 +14,9 @@
     box-shadow: 0 4px 16px var(--shadow-subtle);
     transition: box-shadow var(--transition-smooth), transform var(--transition-smooth), width 0.3s ease;
     user-select: none;
+    /* Default header gradient colors; can be overridden per node type */
+    --node-header-start: var(--accent-primary);
+    --node-header-end: var(--accent-secondary);
 }
 
 /* Nodes expand when parameters are visible */
@@ -60,10 +63,37 @@
     gap: 8px;
     font-size: 0.9rem;
     font-weight: 600;
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    /* Use per-node CSS variables for gradient so each node type can be themed */
+    background: linear-gradient(135deg, var(--node-header-start), var(--node-header-end));
     letter-spacing: 0.3px;
     user-select: none;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+/* Per-node-type header gradients */
+.node.node-type-input {
+    --node-header-start: #d4060685; /* cyan-500 */
+    --node-header-end: #f63b3b;   /* blue-500 */
+}
+
+.node.node-type-prompt {
+    --node-header-start: #10b98181; /* emerald-500 */
+    --node-header-end: #14b8a6;   /* teal-500 */
+}
+
+.node.node-type-conjunction {
+    --node-header-start: #10b98181; /* emerald-500 */
+    --node-header-end: #14b8a6;   /* teal-500 */
+}
+
+.node.node-type-aimodel {
+    --node-header-start: #6365f18a; /* indigo-500 */
+    --node-header-end: #22d3ee;   /* cyan-400 */
+}
+
+.node.node-type-output {
+    --node-header-start: #d6d61592; /* emerald-500 */
+    --node-header-end: #eae318;   /* teal-500 */
 }
 
 .node-type-label {

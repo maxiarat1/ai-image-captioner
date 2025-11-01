@@ -62,8 +62,9 @@
     // Render node
     NENodes.renderNode = function(node) {
         const def = NODES[node.type];
-        const el = document.createElement('div');
-        el.className = 'node';
+    const el = document.createElement('div');
+    // Add a per-type class to allow theming (e.g., gradient header colors per node type)
+    el.className = 'node node-type-' + node.type;
         el.id = 'node-' + node.id;
         el.style.left = node.x + 'px';
         el.style.top = node.y + 'px';
