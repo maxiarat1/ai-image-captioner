@@ -1,0 +1,199 @@
+/* ============================================================================
+   Node Editor - Core Node Styling
+   ============================================================================ */
+
+/* Node */
+.node {
+    position: absolute;
+    width: 280px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    cursor: move;
+    z-index: 10;
+    box-shadow: 0 4px 16px var(--shadow-subtle);
+    transition: box-shadow var(--transition-smooth), transform var(--transition-smooth), width 0.3s ease;
+    user-select: none;
+    /* Default header gradient colors; can be overridden per node type */
+    --node-header-start: var(--accent-primary);
+    --node-header-end: var(--accent-secondary);
+}
+
+/* Nodes expand when parameters are visible */
+.node:has(.model-parameters:not(.hidden)) {
+    width: 340px;
+}
+
+.node.dragging {
+    transition: none;
+    box-shadow: 0 12px 32px var(--shadow), 0 0 24px var(--shadow-glow);
+    transform: scale(1.02);
+    z-index: 100;
+}
+
+.node:hover {
+    box-shadow: 0 8px 24px var(--shadow), 0 0 20px var(--shadow-glow);
+    transform: translateY(-2px);
+}
+
+/* Bring node to front when dropdown is open */
+.node:has(.model-select-wrapper.open) {
+    z-index: 1000;
+}
+
+/* Processing highlight state */
+.node.processing {
+    box-shadow: 0 0 0 2px var(--accent-primary), 0 0 18px var(--accent-glow), 0 8px 24px var(--shadow);
+    transform: translateY(-1px) scale(1.01);
+    animation: pulseProcessing 1.2s ease-in-out infinite;
+}
+
+@keyframes pulseProcessing {
+    0% { filter: brightness(1); }
+    50% { filter: brightness(1.1); }
+    100% { filter: brightness(1); }
+}
+
+.node-header {
+    padding: var(--spacing-sm) var(--spacing-md);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    /* Use per-node CSS variables for gradient so each node type can be themed */
+    background: linear-gradient(135deg, var(--node-header-start), var(--node-header-end));
+    letter-spacing: 0.3px;
+    user-select: none;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+/* Per-node-type gradient variables (usable by nodes and toolbar) */
+.node-type-input {
+    --node-header-start: #d4060685; /* cyan-500 */
+    --node-header-end: #f63b3b;   /* blue-500 */
+}
+
+.node-type-prompt {
+    --node-header-start: #10b98181; /* emerald-500 */
+    --node-header-end: #14b8a6;   /* teal-500 */
+}
+
+.node-type-conjunction {
+    --node-header-start: #10b98181; /* emerald-500 */
+    --node-header-end: #14b8a6;   /* teal-500 */
+}
+
+.node-type-aimodel {
+    --node-header-start: #6365f18a; /* indigo-500 */
+    --node-header-end: #22d3ee;   /* cyan-400 */
+}
+
+.node-type-output {
+    --node-header-start: #d6d61592; /* emerald-500 */
+    --node-header-end: #eae318;   /* teal-500 */
+}
+
+.node-type-label {
+    flex-shrink: 0;
+}
+
+.node-label-input {
+    flex: 1;
+    max-width: 100px;
+    padding: 2px 6px;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--radius-sm);
+    color: white;
+    font-size: 0.75rem;
+    font-style: italic;
+    transition: all var(--transition-fast);
+    user-select: text;
+}
+
+.node-label-input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
+}
+
+.node-label-input:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+.node-label-input:focus {
+    outline: none;
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.6);
+    font-style: normal;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
+}
+
+.node-del {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--radius-sm);
+    color: white;
+    width: 42px;
+    height: 42px;
+    min-width: 22px;
+    min-height: 22px;
+    padding: 0;
+    margin-left: auto;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    transition: all var(--transition-fast);
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+}
+
+.node-del:hover {
+    background: rgba(239, 68, 68, 0.8);
+    border-color: rgba(239, 68, 68, 1);
+    transform: scale(1.1);
+}
+
+.node-body {
+    padding: var(--spacing-md);
+    background: var(--bg-tertiary);
+    overflow: visible;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.node-body textarea {
+    min-height: 60px;
+    resize: vertical;
+}
+
+.node-body select {
+    cursor: pointer;
+}
+
+/* Node Info Display */
+.node-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+}
+
+.node-info-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.node-info-value {
+    font-size: 1.1rem;
+    color: var(--accent-primary);
+    font-weight: 700;
+}

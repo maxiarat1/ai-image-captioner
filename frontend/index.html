@@ -24,7 +24,17 @@
     <link rel="stylesheet" href="css/components/footer.css">
     <link rel="stylesheet" href="css/components/modal.css">
     <link rel="stylesheet" href="css/components/config.css">
-    <link rel="stylesheet" href="css/components/node-editor.css">
+    <!-- Node Editor Styles -->
+    <link rel="stylesheet" href="css/components/node-editor/base.css">
+    <link rel="stylesheet" href="css/components/node-editor/container.css">
+    <link rel="stylesheet" href="css/components/node-editor/node-core.css">
+    <link rel="stylesheet" href="css/components/node-editor/node-inputs.css">
+    <link rel="stylesheet" href="css/components/node-editor/conjunction.css">
+    <link rel="stylesheet" href="css/components/node-editor/ports.css">
+    <link rel="stylesheet" href="css/components/node-editor/fullscreen.css">
+    <link rel="stylesheet" href="css/components/node-editor/minimap.css">
+    <link rel="stylesheet" href="css/components/node-editor/context-menu.css">
+    <link rel="stylesheet" href="css/components/node-editor/output-stats.css">
     <link rel="stylesheet" href="css/components/context-menu.css">
     <link rel="stylesheet" href="css/components/animations.css">
     <link rel="stylesheet" href="css/components/docs.css">
@@ -780,6 +790,7 @@ cd backend && python app.py">Copy</button>
 
     <!-- Node Editor & Processing Components -->
     <!-- Node Editor modular scripts (loaded before legacy bootstrap) -->
+    <script src="js/node-editor/core/canvas.js"></script>
     <script src="js/node-editor/core/state.js"></script>
     <script src="js/node-editor/core/utils.js"></script>
     <script src="js/node-editor/model-categories.js"></script>

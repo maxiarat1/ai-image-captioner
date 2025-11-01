@@ -23,6 +23,71 @@
         minimap.appendChild(minimapCanvas);
         wrapper.appendChild(minimap);
 
+        // --- Interaction: click/drag to move camera ---
+        const state = { dragging: false };
+        const scale = 200 / 5000; // minimap pixels per canvas unit
+
+        function setCameraFromMinimap(mx, my, rectEl) {
+            // mx,my are relative to minimapCanvas top-left in screen pixels
+            const { wrapper } = NEUtils.getElements();
+            if (!wrapper) return;
+
+            const rect = wrapper.getBoundingClientRect();
+            const s = NodeEditor.transform.scale || 1;
+            const viewW = rect.width / s;
+            const viewH = rect.height / s;
+
+            // Account for CSS transform scaling on minimapCanvas (0.6 -> 1.0)
+            const r = rectEl || minimapCanvas.getBoundingClientRect();
+            const hoverScale = r.width / 200; // 200 is base minimap size
+
+            // Convert to base minimap coordinates (0..200)
+            const mxBase = mx / hoverScale;
+            const myBase = my / hoverScale;
+
+            // Target viewport top-left in canvas space centered on the cursor
+            let vx = mxBase / scale - viewW / 2;
+            let vy = myBase / scale - viewH / 2;
+
+            // Clamp viewport within canvas bounds
+            const maxVX = NECanvas.SIZE - viewW;
+            const maxVY = NECanvas.SIZE - viewH;
+            vx = Math.max(0, Math.min(maxVX, vx));
+            vy = Math.max(0, Math.min(maxVY, vy));
+
+            // Convert to transform (screen space)
+            NodeEditor.transform.x = -vx * s;
+            NodeEditor.transform.y = -vy * s;
+
+            if (typeof NEViewport !== 'undefined' && typeof NEViewport.clampTransform === 'function') {
+                NEViewport.clampTransform();
+            }
+            NEUtils.applyTransform();
+            if (typeof NEConnections !== 'undefined') NEConnections.updateConnections();
+            NEMinimap.updateMinimap();
+        }
+
+        minimapCanvas.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            const r = minimapCanvas.getBoundingClientRect();
+            const mx = e.clientX - r.left;
+            const my = e.clientY - r.top;
+            state.dragging = true;
+            setCameraFromMinimap(mx, my, r);
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!state.dragging) return;
+            const r = minimapCanvas.getBoundingClientRect();
+            const mx = Math.max(0, Math.min(r.width, e.clientX - r.left));
+            const my = Math.max(0, Math.min(r.height, e.clientY - r.top));
+            setCameraFromMinimap(mx, my, r);
+        });
+
+        document.addEventListener('mouseup', () => {
+            state.dragging = false;
+        });
+
         NEMinimap.updateMinimap();
     };
 

@@ -1,0 +1,118 @@
+/* ============================================================================
+   Node Editor - Container, Canvas & Toolbar
+   ============================================================================ */
+
+/* Canvas coordinate system constants */
+:root {
+    --canvas-size: 5000px;
+    --canvas-center: 2500px;
+}
+
+.node-editor-container {
+    width: 100%;
+    height: 850px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 4px 16px var(--shadow-subtle);
+    animation: fadeIn 0.3s ease;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.node-editor-header {
+    padding: 12px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.node-editor-header h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.node-editor-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.node-toolbar {
+    padding: 8px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    gap: 8px;
+}
+
+.node-toolbar button {
+    padding: 6px 12px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 13px;
+    transition: all var(--transition-smooth);
+    position: relative; /* for banner pseudo-element */
+    overflow: hidden;
+}
+
+/* Gradient banner strip at top of toolbar buttons using shared node-type variables */
+.node-toolbar button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg,
+        var(--node-header-start, var(--accent-primary)),
+        var(--node-header-end, var(--accent-secondary))
+    );
+    border-top-left-radius: inherit;
+    border-top-right-radius: inherit;
+}
+
+.node-canvas-wrapper {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: var(--surface-bg);
+    cursor: grab;
+}
+
+.node-canvas-wrapper.panning {
+    cursor: grabbing;
+}
+
+.node-canvas {
+    position: relative;
+    width: var(--canvas-size);
+    height: var(--canvas-size);
+    transform-origin: 0 0;
+    will-change: transform;
+    /* Visible border to indicate canvas limits */
+    border: 1px solid var(--border-color);
+    /* Grid centered at canvas center (world origin 0,0) */
+    background-image:
+        radial-gradient(circle, rgba(128, 128, 128, 0.15) 1px, transparent 1px);
+    background-size: var(--grid-size, 20px) var(--grid-size, 20px);
+    background-position: var(--canvas-center) var(--canvas-center);
+}
+
+.connections-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.connections-svg line,
+.connections-svg path {
+    pointer-events: stroke;
+}

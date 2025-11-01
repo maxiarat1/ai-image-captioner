@@ -1,0 +1,40 @@
+/* ============================================================================
+   Node Editor - Base Classes for Inheritance
+   ============================================================================ */
+
+/* Common input styling for form elements */
+.node-body textarea,
+.node-body select {
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-family: var(--font-primary);
+    font-size: 0.85rem;
+    transition: border-color var(--transition-smooth), box-shadow var(--transition-smooth);
+    user-select: text; /* Allow text selection in inputs */
+}
+
+.node-body textarea:focus,
+.node-body select:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+/* Common accent button hover effect */
+.node-toolbar button:hover,
+.fullscreen-btn:hover {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+.node-toolbar button:active,
+.fullscreen-btn:active {
+    transform: translateY(0);
+}

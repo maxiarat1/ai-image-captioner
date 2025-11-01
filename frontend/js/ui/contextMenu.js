@@ -106,7 +106,14 @@
         const modeEl = document.getElementById('gs-snap-mode');
         const guidesEl = document.getElementById('gs-show-guides');
         const size = parseInt(sizeEl.value, 10);
-        if (!Number.isNaN(size) && size >= 5 && size <= 80) s.gridSize = size;
+        if (!Number.isNaN(size) && size >= 5 && size <= 80) {
+            s.gridSize = size;
+            // Update CSS variable for grid size
+            const canvas = document.getElementById('nodeCanvas');
+            if (canvas) {
+                canvas.style.setProperty('--grid-size', `${size}px`);
+            }
+        }
         s.snapMode = modeEl.value;
         s.showGuides = !!guidesEl.checked;
     }

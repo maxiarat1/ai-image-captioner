@@ -20,6 +20,15 @@ function initTabNavigation() {
 
             btn.classList.add('active');
             document.getElementById(`${targetTab}-content`).classList.add('active');
+            
+            // When switching to node tab, update connections after DOM settles
+            if (targetTab === 'node' && typeof NEConnections !== 'undefined') {
+                requestAnimationFrame(() => {
+                    if (typeof NEConnections.updateConnections === 'function') {
+                        NEConnections.updateConnections();
+                    }
+                });
+            }
         });
     });
 }

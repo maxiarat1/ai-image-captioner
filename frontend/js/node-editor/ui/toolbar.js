@@ -10,9 +10,8 @@
         for (const [type, def] of Object.entries(NODES)) {
             const btn = document.createElement('button');
             btn.textContent = def.label;
-            // Use a safe fallback color if not specified
-            const color = def.color || 'var(--primary)';
-            btn.style.borderLeft = `3px solid ${color}`;
+            // Add a generic per-type class so CSS can theme via shared variables (no inline colors)
+            btn.classList.add('node-toolbar-btn', `node-type-${type}`);
             btn.onclick = () => addNode(type);
             toolbar.appendChild(btn);
         }

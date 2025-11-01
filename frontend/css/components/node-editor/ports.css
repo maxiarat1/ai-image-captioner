@@ -1,0 +1,104 @@
+/* ============================================================================
+   Node Editor - Ports & Connections
+   ============================================================================ */
+
+/* Ports Section */
+.node-ports-section {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-md) 0; /* top & bottom only */
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+    min-height: 50px;
+}
+
+.node-ports-in,
+.node-ports-out {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    position: relative;
+}
+
+.node-ports-in {
+    align-items: flex-start;
+}
+
+.node-ports-out {
+    align-items: flex-end;
+}
+
+.port-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.port-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.port {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 3px solid var(--bg-secondary);
+    cursor: pointer;
+    z-index: 20;
+    transition: all var(--transition-fast);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.port:hover {
+    transform: scale(1.3);
+}
+
+/* Prevent selection while connecting */
+.node-canvas.connecting {
+    user-select: none;
+}
+
+.node-canvas.connecting * {
+    user-select: none;
+}
+
+/* Port colors by type - Base styling */
+.port[data-port-type] {
+    border-color: var(--bg-secondary);
+}
+
+.port[data-port-type]:hover {
+    box-shadow: 0 4px 12px var(--port-glow-color, rgba(0, 0, 0, 0.4));
+}
+
+/* Port type specific colors */
+.port[data-port-type="images"] {
+    background: #FF6B6B;
+    --port-glow-color: rgba(255, 107, 107, 0.6);
+}
+
+.port[data-port-type="text"],
+.port[data-port-type="prompt"] {
+    background: #4ECDC4;
+    --port-glow-color: rgba(78, 205, 196, 0.6);
+}
+
+.port[data-port-type="captions"] {
+    background: #4ECDC4;
+    --port-glow-color: rgba(78, 205, 196, 0.6);
+}
+
+.port[data-port-type="data"] {
+    background: #FFD93D;
+    --port-glow-color: rgba(255, 217, 61, 0.6);
+}

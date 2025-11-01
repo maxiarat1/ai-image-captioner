@@ -1,0 +1,94 @@
+/* ============================================================================
+   Node Editor - Fullscreen Mode
+   ============================================================================ */
+
+/* Fullscreen Button */
+.fullscreen-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 18px;
+    z-index: 100;
+    transition: all var(--transition-smooth);
+    box-shadow: 0 2px 4px var(--shadow-subtle);
+}
+
+/* Fullscreen Modal */
+.node-fullscreen-content {
+    max-width: 90vw;
+    max-height: 90vh;
+    width: 90vw;
+    height: 90vh;
+    animation: zoomIn 0.2s ease-out;
+}
+
+#nodeFullscreenModal.closing {
+    animation: modalFadeOut 0.2s ease-out;
+}
+
+#nodeFullscreenModal.closing .node-fullscreen-content {
+    animation: zoomOut 0.2s ease-out;
+}
+
+.node-fullscreen-body {
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+}
+
+#fullscreenCanvasContainer {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+    background: var(--surface-bg);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Toolbar inside fullscreen container - inherits from .node-toolbar */
+#fullscreenCanvasContainer .node-toolbar {
+    background: var(--bg-secondary);
+    flex-shrink: 0;
+}
+
+/* Canvas wrapper inside fullscreen container */
+#fullscreenCanvasContainer .node-canvas-wrapper {
+    flex: 1;
+}
+
+/* Hide fullscreen button when already in fullscreen mode */
+#fullscreenCanvasContainer .fullscreen-btn {
+    display: none;
+}
+
+/* Custom scrollbar styling */
+#fullscreenCanvasContainer::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+#fullscreenCanvasContainer::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+#fullscreenCanvasContainer::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+    transition: background 0.2s ease;
+}
+
+#fullscreenCanvasContainer::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+}

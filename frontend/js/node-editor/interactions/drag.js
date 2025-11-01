@@ -47,6 +47,13 @@
             if (Math.abs(ry - newY) <= EPS) newY = ry;
         }
 
+        // Clamp within canvas bounds (account for node size if available)
+        const elDom = document.getElementById('node-' + node.id);
+        const maxX = NECanvas.SIZE - (elDom ? elDom.offsetWidth : 0);
+        const maxY = NECanvas.SIZE - (elDom ? elDom.offsetHeight : 0);
+        newX = Math.max(0, Math.min(maxX, newX));
+        newY = Math.max(0, Math.min(maxY, newY));
+
         node.x = newX;
         node.y = newY;
 
@@ -73,6 +80,13 @@
                 dragged.x = Math.round(dragged.x / GRID) * GRID;
                 dragged.y = Math.round(dragged.y / GRID) * GRID;
             }
+
+            // Final clamp to keep node entirely within canvas
+            const elDom = document.getElementById('node-' + dragged.id);
+            const maxX = NECanvas.SIZE - (elDom ? elDom.offsetWidth : 0);
+            const maxY = NECanvas.SIZE - (elDom ? elDom.offsetHeight : 0);
+            dragged.x = Math.max(0, Math.min(maxX, dragged.x));
+            dragged.y = Math.max(0, Math.min(maxY, dragged.y));
 
             const el = document.getElementById('node-' + dragged.id);
             if (el) {

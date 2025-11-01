@@ -10,7 +10,12 @@
         svg: document.getElementById('connectionsSVG')
     });
 
-    // Convert screen coordinates to canvas space
+    /**
+     * Convert screen coordinates to canvas coordinates
+     * @param {number} screenX - Screen X position
+     * @param {number} screenY - Screen Y position
+     * @returns {{x: number, y: number}} Canvas coordinates (0 to 5000)
+     */
     NEUtils.screenToCanvas = function(screenX, screenY) {
         const { canvas } = NEUtils.getElements();
         const rect = canvas.getBoundingClientRect();
@@ -20,7 +25,12 @@
         };
     };
 
-    // Convert wrapper-relative screen position to canvas local coordinates
+    /**
+     * Convert wrapper-relative position to canvas coordinates
+     * @param {number} screenX - Wrapper-relative X position
+     * @param {number} screenY - Wrapper-relative Y position
+     * @returns {{x: number, y: number}} Canvas coordinates (0 to 5000)
+     */
     NEUtils.wrapperToCanvas = function(screenX, screenY) {
         return {
             x: (screenX - NodeEditor.transform.x) / NodeEditor.transform.scale,
