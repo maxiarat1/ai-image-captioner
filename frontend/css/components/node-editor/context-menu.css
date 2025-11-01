@@ -1,0 +1,80 @@
+/* ============================================================================
+   Node Editor - Context Menu & Drag Guides
+   ============================================================================ */
+
+/* Context Menu */
+.node-context-menu {
+    position: absolute;
+    z-index: 1000;
+    min-width: 220px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 24px var(--shadow), 0 0 20px var(--shadow-glow);
+    padding: 8px;
+}
+
+.node-context-menu .menu-section {
+    padding: 6px 6px 10px;
+}
+
+.node-context-menu .menu-section + .menu-section {
+    border-top: 1px solid var(--border-color);
+    margin-top: 6px;
+}
+
+.node-context-menu .menu-section-title {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+
+.node-context-menu .menu-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 6px 0;
+}
+
+.node-context-menu .menu-item label {
+    font-size: 0.85rem;
+    color: var(--text-primary);
+}
+
+.node-context-menu input[type="number"],
+.node-context-menu select {
+    width: 110px;
+    padding: 4px 6px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+}
+
+.node-context-menu .menu-item-inline {
+    gap: 12px;
+}
+
+/* Drag guides (faint) */
+.drag-guides {
+    position: absolute;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.drag-guide-line {
+    position: absolute;
+    background: rgba(99, 102, 241, 0.25);
+}
+
+.drag-guide-line.h {
+    height: 1px;
+    width: 10000px;
+}
+
+.drag-guide-line.v {
+    width: 1px;
+    height: 10000px;
+}

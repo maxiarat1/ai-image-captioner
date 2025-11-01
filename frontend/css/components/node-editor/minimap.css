@@ -1,0 +1,56 @@
+/* ============================================================================
+   Node Editor - Minimap
+   ============================================================================ */
+
+/* Minimap */
+.node-minimap {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    width: 120px;
+    height: 120px;
+    background: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    z-index: 50;
+    box-shadow: 0 4px 16px var(--shadow);
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0.7;
+}
+
+.node-minimap:hover {
+    width: 200px;
+    height: 200px;
+    opacity: 1;
+    box-shadow: 0 8px 24px var(--shadow), 0 0 20px var(--shadow-glow);
+}
+
+.minimap-canvas {
+    width: 200px;
+    height: 200px;
+    background: var(--surface-bg);
+    position: relative;
+    transform: scale(0.6);
+    transform-origin: top left;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.node-minimap:hover .minimap-canvas {
+    transform: scale(1);
+}
+
+.minimap-viewport {
+    position: absolute;
+    border: 2px solid var(--accent-primary);
+    background: rgba(99, 102, 241, 0.1);
+    pointer-events: none;
+    box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.minimap-node {
+    position: absolute;
+    background: var(--accent-secondary);
+    border-radius: 2px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}

@@ -1,0 +1,90 @@
+/* ============================================================================
+   Node Editor - Container, Canvas & Toolbar
+   ============================================================================ */
+
+.node-editor-container {
+    width: 100%;
+    height: 850px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 4px 16px var(--shadow-subtle);
+    animation: fadeIn 0.3s ease;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.node-editor-header {
+    padding: 12px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.node-editor-header h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.node-editor-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.node-toolbar {
+    padding: 8px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    gap: 8px;
+}
+
+.node-toolbar button {
+    padding: 6px 12px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 13px;
+    transition: all var(--transition-smooth);
+}
+
+.node-canvas-wrapper {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: var(--surface-bg);
+    cursor: grab;
+}
+
+.node-canvas-wrapper.panning {
+    cursor: grabbing;
+}
+
+.node-canvas {
+    position: relative;
+    width: 5000px;
+    height: 5000px;
+    transform-origin: 0 0;
+    will-change: transform;
+    background-image:
+        radial-gradient(circle, rgba(128, 128, 128, 0.15) 1px, transparent 1px);
+    background-size: 20px 20px;
+}
+
+.connections-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.connections-svg line,
+.connections-svg path {
+    pointer-events: stroke;
+}
