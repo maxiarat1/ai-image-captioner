@@ -1,4 +1,10 @@
 function initNodeEditor() {
+    // Initialize grid size CSS variable
+    const canvas = document.getElementById('nodeCanvas');
+    if (canvas && NodeEditor.settings) {
+        canvas.style.setProperty('--grid-size', `${NodeEditor.settings.gridSize}px`);
+    }
+
     NEToolbar.setupToolbar();
     NEViewport.initCanvasPanning();
     NEConnections.createConnectionGradient();

@@ -20,12 +20,7 @@
 
         // Re-center canvas for fullscreen dimensions
         setTimeout(() => {
-            const rect = container.getBoundingClientRect();
-            NodeEditor.transform.x = rect.width / 2 - 2500;
-            NodeEditor.transform.y = rect.height / 2 - 2500;
-            NEUtils.applyTransform();
-            if (typeof NEConnections !== 'undefined') NEConnections.updateConnections();
-            if (typeof NEMinimap !== 'undefined') NEMinimap.updateMinimap();
+            NEViewport.centerCanvas(container);
         }, 50);
 
         // Add zoom support to fullscreen container
@@ -72,12 +67,7 @@
 
                 // Re-center canvas for normal wrapper dimensions
                 setTimeout(() => {
-                    const rect = wrapper.getBoundingClientRect();
-                    NodeEditor.transform.x = rect.width / 2 - 2500;
-                    NodeEditor.transform.y = rect.height / 2 - 2500;
-                    NEUtils.applyTransform();
-                    if (typeof NEConnections !== 'undefined') NEConnections.updateConnections();
-                    if (typeof NEMinimap !== 'undefined') NEMinimap.updateMinimap();
+                    NEViewport.centerCanvas(wrapper);
                 }, 50);
             }
         };
