@@ -56,24 +56,43 @@
 
     /**
      * Get port position in canvas coordinates
+     * Properly handles viewport transform by measuring in screen space and converting to canvas space
      */
     function getPortPosition(nodeId, portIndex, isOutput) {
+        // Get node data (in canvas coordinates)
+        const node = NodeEditor.nodes.find(n => n.id === nodeId);
+        if (!node) return null;
+
+        // Get port and node elements
         const portSelector = isOutput 
             ? `#node-${nodeId} .port-out[data-port="${portIndex}"]`
             : `#node-${nodeId} .port-in[data-port="${portIndex}"]`;
-        
         const portEl = document.querySelector(portSelector);
-        if (!portEl) return null;
+        const nodeEl = document.getElementById(`node-${nodeId}`);
+        if (!portEl || !nodeEl) return null;
 
-        const { canvas } = NEUtils.getElements();
-        const container = canvas.parentElement;
-        const containerRect = container.getBoundingClientRect();
+        // Get screen positions
+        const nodeRect = nodeEl.getBoundingClientRect();
         const portRect = portEl.getBoundingClientRect();
 
-        return NEUtils.wrapperToCanvas(
-            portRect.left - containerRect.left + portRect.width / 2,
-            portRect.top - containerRect.top + portRect.height / 2
-        );
+        // Check if elements are visible (have non-zero dimensions)
+        // This prevents incorrect measurements when tab is hidden
+        if (nodeRect.width === 0 || nodeRect.height === 0) return null;
+
+        // Calculate port center relative to node's top-left (in screen pixels, already scaled)
+        const screenOffsetX = portRect.left - nodeRect.left + portRect.width / 2;
+        const screenOffsetY = portRect.top - nodeRect.top + portRect.height / 2;
+
+        // Convert screen offset to canvas offset (unscale)
+        const scale = NodeEditor.transform.scale;
+        const canvasOffsetX = screenOffsetX / scale;
+        const canvasOffsetY = screenOffsetY / scale;
+
+        // Return absolute canvas position
+        return {
+            x: node.x + canvasOffsetX,
+            y: node.y + canvasOffsetY
+        };
     }
 
     /**
@@ -117,6 +136,11 @@
     NEConnections.createConnectionGradient = function() {
         const { svg } = NEUtils.getElements();
         if (!svg) return;
+        
+        // Set SVG viewBox to match canvas size (5000x5000)
+        svg.setAttribute('viewBox', '0 0 5000 5000');
+        svg.setAttribute('preserveAspectRatio', 'none');
+        
         const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
         svg.appendChild(defs);
     };
@@ -457,7 +481,11 @@
         path.onclick = () => NEConnections.deleteConnection(conn.id);
 
         svg.appendChild(path);
-        NEConnections.updateConnectionLine(conn.id);
+        
+        // Defer initial position update to next frame to ensure DOM is ready
+        requestAnimationFrame(() => {
+            NEConnections.updateConnectionLine(conn.id);
+        });
     }
 
     /**

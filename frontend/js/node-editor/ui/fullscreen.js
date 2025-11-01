@@ -18,10 +18,11 @@
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
 
-        // Re-center canvas for fullscreen dimensions
-        setTimeout(() => {
-            NEViewport.centerCanvas(container);
-        }, 50);
+        // Update visuals to reflect new container, but keep current transform
+        requestAnimationFrame(() => {
+            if (typeof NEConnections !== 'undefined') NEConnections.updateConnections();
+            if (typeof NEMinimap !== 'undefined') NEMinimap.updateMinimap();
+        });
 
         // Add zoom support to fullscreen container
         const fullscreenZoomHandler = (e) => {
@@ -45,30 +46,27 @@
             delete container._zoomHandler;
         }
 
-        // Add closing class to trigger animation
+        // Move elements back immediately for smooth transition
+        const editorContainer = document.querySelector('.node-editor-container');
+        const toolbar = document.getElementById('nodeToolbar');
+        const wrapper = document.querySelector('.node-canvas-wrapper');
+        
+        editorContainer.appendChild(toolbar);
+        editorContainer.appendChild(wrapper);
+        document.body.style.overflow = '';
+
+        // Update visuals immediately
+        if (typeof NEConnections !== 'undefined') NEConnections.updateConnections();
+        if (typeof NEMinimap !== 'undefined') NEMinimap.updateMinimap();
+
+        // Then trigger the modal close animation
         modal.classList.add('closing');
 
-        // Wait for animation to complete using animationend event
+        // Clean up after animation completes
         const handleAnimationEnd = (e) => {
-            // Only handle the modal's own animation, not child animations
             if (e.target === modal) {
                 modal.removeEventListener('animationend', handleAnimationEnd);
-
-                // Animation complete - now safe to move elements and cleanup
-                const editorContainer = document.querySelector('.node-editor-container');
-                const toolbar = document.getElementById('nodeToolbar');
-                const wrapper = document.querySelector('.node-canvas-wrapper');
-
                 modal.classList.remove('active', 'closing');
-                // Move toolbar and wrapper back to editor container
-                editorContainer.appendChild(toolbar);
-                editorContainer.appendChild(wrapper);
-                document.body.style.overflow = '';
-
-                // Re-center canvas for normal wrapper dimensions
-                setTimeout(() => {
-                    NEViewport.centerCanvas(wrapper);
-                }, 50);
             }
         };
 

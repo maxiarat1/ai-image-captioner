@@ -75,6 +75,8 @@
     height: var(--canvas-size);
     transform-origin: 0 0;
     will-change: transform;
+    /* Visible border to indicate canvas limits */
+    border: 1px solid var(--border-color);
     /* Grid centered at canvas center (world origin 0,0) */
     background-image:
         radial-gradient(circle, rgba(128, 128, 128, 0.15) 1px, transparent 1px);

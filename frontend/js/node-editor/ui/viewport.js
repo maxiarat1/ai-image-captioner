@@ -11,11 +11,43 @@
         if (!container) return;
         const rect = container.getBoundingClientRect();
         // Center viewport on canvas center (world origin)
-        NodeEditor.transform.x = rect.width / 2 - NECanvas.CENTER;
-        NodeEditor.transform.y = rect.height / 2 - NECanvas.CENTER;
+        const s = NodeEditor.transform.scale || 1;
+        NodeEditor.transform.x = rect.width / 2 - NECanvas.CENTER * s;
+        NodeEditor.transform.y = rect.height / 2 - NECanvas.CENTER * s;
+        // Ensure we don't center outside bounds on small zooms/sizes
+        if (typeof NEViewport.clampTransform === 'function') NEViewport.clampTransform();
         NEUtils.applyTransform();
         if (typeof NEConnections !== 'undefined') NEConnections.updateConnections();
         if (typeof NEMinimap !== 'undefined') NEMinimap.updateMinimap();
+    };
+
+    // Keep camera translation within canvas borders
+    NEViewport.clampTransform = function() {
+        const { wrapper } = NEUtils.getElements();
+        if (!wrapper) return;
+        const rect = wrapper.getBoundingClientRect();
+        const w = rect.width;
+        const h = rect.height;
+        const s = NodeEditor.transform.scale;
+        const canvasW = NECanvas.SIZE * s;
+        const canvasH = NECanvas.SIZE * s;
+
+        // If canvas is smaller than viewport, keep it centered (no panning)
+        if (canvasW <= w) {
+            NodeEditor.transform.x = (w - canvasW) / 2;
+        } else {
+            const minX = w - canvasW; // when right edge aligns
+            const maxX = 0;           // when left edge aligns
+            NodeEditor.transform.x = Math.min(maxX, Math.max(minX, NodeEditor.transform.x));
+        }
+
+        if (canvasH <= h) {
+            NodeEditor.transform.y = (h - canvasH) / 2;
+        } else {
+            const minY = h - canvasH; // when bottom edge aligns
+            const maxY = 0;           // when top edge aligns
+            NodeEditor.transform.y = Math.min(maxY, Math.max(minY, NodeEditor.transform.y));
+        }
     };
 
     /**
@@ -25,8 +57,9 @@
         const { wrapper, canvas } = NEUtils.getElements();
         if (!wrapper || !canvas) return;
 
-        // Initial centering
-        NEViewport.centerCanvas(wrapper);
+    // Zoom out to give more viewing distance, then center with current scale
+    NodeEditor.transform.scale = 0.7;
+    NEViewport.centerCanvas(wrapper);
 
         // Mouse down - start panning on canvas background only
         canvas.addEventListener('mousedown', (e) => {
@@ -49,7 +82,10 @@
             const { transform } = NodeEditor;
             transform.x = e.clientX - NodeEditor.panning.startX;
             transform.y = e.clientY - NodeEditor.panning.startY;
+            // Keep camera within canvas borders
+            NEViewport.clampTransform();
             NEUtils.applyTransform();
+            if (typeof NEConnections !== 'undefined') NEConnections.updateConnections();
             if (typeof NEMinimap !== 'undefined') NEMinimap.updateMinimap();
         });
 
@@ -97,6 +133,9 @@
         transform.scale = newScale;
         transform.x = mouseX - canvasX * newScale;
         transform.y = mouseY - canvasY * newScale;
+
+    // Clamp after zoom to avoid exposing outside of canvas
+    NEViewport.clampTransform();
 
         // Apply updates
         NEUtils.applyTransform();

@@ -61,10 +61,10 @@ function initNodeEditor() {
                 const rowY = center.y - 20;
 
                 const layout = [
-                    { node: inputNode, x: center.x - 520, y: rowY },
-                    { node: promptNode, x: center.x - 520, y: rowY + 260 },
-                    { node: aiNode, x: center.x - 120, y: rowY + 100 },
-                    { node: outputNode, x: center.x + 320, y: rowY + 117 }
+                    { node: inputNode, x: center.x + 100, y: rowY + 250},
+                    { node: promptNode, x: center.x + 100, y: rowY + 550 },
+                    { node: aiNode, x: center.x + 500, y: rowY + 400 },
+                    { node: outputNode, x: center.x + 900, y: rowY + 407 }
                 ];
                 layout.forEach(({ node, x, y }) => {
                     node.x = x; node.y = y;
@@ -82,10 +82,19 @@ function initNodeEditor() {
                 }
 
                 // Ensure minimap and connections reflect initial graph
-                if (typeof NEMinimap !== 'undefined') NEMinimap.updateMinimap();
-                if (typeof NEConnections !== 'undefined' && typeof NEConnections.updateConnections === 'function') {
-                    NEConnections.updateConnections();
-                }
+                // Defer updates to ensure DOM layout is complete
+                const updateGraphVisuals = () => {
+                    if (typeof NEMinimap !== 'undefined') NEMinimap.updateMinimap();
+                    if (typeof NEConnections !== 'undefined' && typeof NEConnections.updateConnections === 'function') {
+                        NEConnections.updateConnections();
+                    }
+                };
+                
+                // Try immediately (works if node tab is already visible)
+                requestAnimationFrame(updateGraphVisuals);
+                
+                // Retry after delay to handle tab visibility issues
+                setTimeout(updateGraphVisuals, 50);
             }
         }
     } catch (e) {
