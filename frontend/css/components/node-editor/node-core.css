@@ -70,28 +70,28 @@
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
-/* Per-node-type header gradients */
-.node.node-type-input {
+/* Per-node-type gradient variables (usable by nodes and toolbar) */
+.node-type-input {
     --node-header-start: #d4060685; /* cyan-500 */
     --node-header-end: #f63b3b;   /* blue-500 */
 }
 
-.node.node-type-prompt {
+.node-type-prompt {
     --node-header-start: #10b98181; /* emerald-500 */
     --node-header-end: #14b8a6;   /* teal-500 */
 }
 
-.node.node-type-conjunction {
+.node-type-conjunction {
     --node-header-start: #10b98181; /* emerald-500 */
     --node-header-end: #14b8a6;   /* teal-500 */
 }
 
-.node.node-type-aimodel {
+.node-type-aimodel {
     --node-header-start: #6365f18a; /* indigo-500 */
     --node-header-end: #22d3ee;   /* cyan-400 */
 }
 
-.node.node-type-output {
+.node-type-output {
     --node-header-start: #d6d61592; /* emerald-500 */
     --node-header-end: #eae318;   /* teal-500 */
 }

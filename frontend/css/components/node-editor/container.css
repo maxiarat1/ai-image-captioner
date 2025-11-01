@@ -55,6 +55,24 @@
     cursor: pointer;
     font-size: 13px;
     transition: all var(--transition-smooth);
+    position: relative; /* for banner pseudo-element */
+    overflow: hidden;
+}
+
+/* Gradient banner strip at top of toolbar buttons using shared node-type variables */
+.node-toolbar button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg,
+        var(--node-header-start, var(--accent-primary)),
+        var(--node-header-end, var(--accent-secondary))
+    );
+    border-top-left-radius: inherit;
+    border-top-right-radius: inherit;
 }
 
 .node-canvas-wrapper {
