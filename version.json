@@ -1,7 +1,7 @@
 {
   "build_configs": {
     "python310-cuda121": {
-      "python": "3.10",
+      "python": "3.12",
       "cuda": "cu121",
       "cuda_version_display": "12.1",
       "description": "RTX 20/30/40 series (widest compatibility)"
