@@ -4,6 +4,7 @@ flask-cors>=4.0.0
 
 # Image Processing
 pillow>=10.0.0
+python-doctr[torch]>=0.7.0
 
 # ML/AI Core
 transformers>=4.46.3

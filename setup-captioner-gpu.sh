@@ -210,6 +210,9 @@ elif [[ "$CUDA_LABEL" == "cu121" ]]; then
     pip install "$FA_WHEEL" --no-build-isolation
     rm "$FA_WHEEL"
 
+    # Install Doctr with Torch support
+    pip install python-doctr[torch]
+
     # Verify
     verify_stack
 

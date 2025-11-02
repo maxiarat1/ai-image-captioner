@@ -20,6 +20,7 @@ from models.r4b_adapter import R4BAdapter
 from models.wdvit_adapter import WdVitAdapter
 from models.janus_adapter import JanusAdapter
 from models.nanonets_ocr_adapter import NanonetsOCRAdapter
+from models.trocr_adapter import TrOCRAdapter
 from models.llava_phi3_adapter import LlavaPhiAdapter
 from models.lfm2_adapter import LFM2Adapter
 from utils.image_utils import load_image, image_to_base64
@@ -137,6 +138,12 @@ MODEL_METADATA = {
         'description': "Nanonets OCR-S - Lightweight OCR (tables/equations/HTML) via Transformers",
         'adapter': NanonetsOCRAdapter,
         'adapter_args': {'model_id': "nanonets/Nanonets-OCR-s"}
+    },
+    'trocr-large-printed': {
+        'category': 'ocr',
+        'description': "TrOCR Large Printed - Microsoft's transformer-based OCR for printed text",
+        'adapter': TrOCRAdapter,
+        'adapter_args': {'model_id': "microsoft/trocr-large-printed"}
     },
     'llava-phi3': {
         'category': 'multimodal',
