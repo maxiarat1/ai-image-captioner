@@ -20,6 +20,7 @@ from models.r4b_adapter import R4BAdapter
 from models.wdvit_adapter import WdVitAdapter
 from models.janus_adapter import JanusAdapter
 from models.olmocr_adapter import OlmOCRAdapter
+from models.nanonets_ocr_adapter import NanonetsOCRAdapter
 from models.llava_phi3_adapter import LlavaPhiAdapter
 from models.lfm2_adapter import LFM2Adapter
 from utils.image_utils import load_image, image_to_base64
@@ -137,6 +138,12 @@ MODEL_METADATA = {
         'description': "olmOCR - Advanced OCR for extracting text from images and documents",
         'adapter': OlmOCRAdapter,
         'adapter_args': {'model_id': "allenai/olmOCR-2-7B-1025"}
+    },
+    'nanonets-ocr-s': {
+        'category': 'ocr',
+        'description': "Nanonets OCR-S - Lightweight OCR (tables/equations/HTML) via Transformers",
+        'adapter': NanonetsOCRAdapter,
+        'adapter_args': {'model_id': "nanonets/Nanonets-OCR-s"}
     },
     'llava-phi3': {
         'category': 'ocr',
