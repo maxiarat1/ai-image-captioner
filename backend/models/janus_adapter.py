@@ -33,16 +33,17 @@ class JanusAdapter(BaseModelAdapter):
             # Import Janus-specific classes
             try:
                 from janus.models import VLChatProcessor
+                from transformers import AutoImageProcessor
             except ImportError:
                 raise ImportError(
                     "Janus models require the 'janus' package. "
                     "Install it via: pip install git+https://github.com/deepseek-ai/Janus.git"
                 )
 
-            # Load processor with explicit fast tokenizer setting
+            # Load processor with explicit fast image processor class
             self.vl_chat_processor = VLChatProcessor.from_pretrained(
                 self.model_id,
-                use_fast=True  # Explicitly use fast tokenizer
+                fast_image_processor_class=AutoImageProcessor
             )
             self.processor = self.vl_chat_processor  # Alias for base class compatibility
 
@@ -66,7 +67,7 @@ class JanusAdapter(BaseModelAdapter):
             if precision not in ["4bit", "8bit"]:
                 dtype = self._get_dtype(precision)
                 if dtype != "auto":
-                    model_kwargs["dtype"] = dtype
+                    model_kwargs["torch_dtype"] = dtype
 
             # Setup flash attention if requested
             if use_flash_attention:

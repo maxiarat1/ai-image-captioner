@@ -48,7 +48,7 @@ class R4BAdapter(BaseModelAdapter):
             model_kwargs = {"trust_remote_code": True, "quantization_config": self.quantization_config}
 
             if precision not in ["4bit", "8bit"]:
-                model_kwargs["dtype"] = self._get_dtype(precision)
+                model_kwargs["torch_dtype"] = self._get_dtype(precision)
 
             # Setup flash attention if requested
             if use_flash_attention:

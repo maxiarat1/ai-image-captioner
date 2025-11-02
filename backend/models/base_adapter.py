@@ -124,7 +124,7 @@ class BaseModelAdapter(ABC):
 
             # Optionally force bfloat16 dtype 
             if force_bfloat16 and precision not in ["4bit", "8bit"]:
-                model_kwargs["dtype"] = torch.bfloat16
+                model_kwargs["torch_dtype"] = torch.bfloat16
                 logger.info("Using Flash Attention 2 (dtype=bfloat16)")
             else:
                 logger.info("Using Flash Attention 2")

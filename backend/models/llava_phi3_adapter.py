@@ -78,7 +78,7 @@ class LlavaPhiAdapter(BaseModelAdapter):
             if precision not in ["4bit", "8bit"]:
                 dtype = self._get_dtype(precision)
                 if dtype != "auto":
-                    model_kwargs["dtype"] = dtype
+                    model_kwargs["torch_dtype"] = dtype
 
             # Setup flash attention if requested
             if use_flash_attention:

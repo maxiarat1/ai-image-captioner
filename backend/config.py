@@ -19,7 +19,6 @@ PRECISION_DEFAULTS = {
     'r4b': {'precision': 'float32', 'use_flash_attention': False},
     'blip2': {'precision': 'float16', 'use_flash_attention': False},
     'lfm2-vl-3b': {'precision': 'bfloat16', 'use_flash_attention': False},
-    'olmocr': {'precision': 'bfloat16', 'use_flash_attention': False},
     'llava-phi3': {'precision': 'float16', 'use_flash_attention': False},
     'nanonets-ocr-s': {'precision': 'bfloat16', 'use_flash_attention': False}
 }

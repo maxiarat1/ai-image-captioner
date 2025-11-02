@@ -162,6 +162,9 @@ sys.exit(0)
 PY
 }
 
+# Convert Python version to CPython ABI tag (e.g., "3.12" -> "cp312", "3.10" -> "cp310")
+PY_ABI_TAG="cp${PYTHON_VERSION//./}"
+
 if [[ "$CUDA_LABEL" == "cu128" ]]; then
     echo "🐉 Setting up environment for CUDA 12.8 (RTX 50-series or newer)"
 
@@ -176,9 +179,12 @@ if [[ "$CUDA_LABEL" == "cu128" ]]; then
     pip install packaging ninja
 
     # Install FlashAttention 2 (prebuilt binary for CUDA 12.x + Torch 2.7)
-    wget https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.2/flash_attn-2.8.2+cu12torch2.7cxx11abiFALSE-cp312-cp312-linux_x86_64.whl
-    pip install flash_attn-2.8.2+cu12torch2.7cxx11abiFALSE-cp312-cp312-linux_x86_64.whl --no-build-isolation
-    rm flash_attn-2.8.2+cu12torch2.7cxx11abiFALSE-cp312-cp312-linux_x86_64.whl
+    FA_WHEEL="flash_attn-2.8.2+cu12torch2.7cxx11abiFALSE-${PY_ABI_TAG}-${PY_ABI_TAG}-linux_x86_64.whl"
+    FA_URL="https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.2/${FA_WHEEL}"
+    echo "Downloading FlashAttention wheel for Python ${PYTHON_VERSION}: ${FA_WHEEL}"
+    wget "$FA_URL"
+    pip install "$FA_WHEEL" --no-build-isolation
+    rm "$FA_WHEEL"
 
     # Verify
     verify_stack
@@ -197,9 +203,12 @@ elif [[ "$CUDA_LABEL" == "cu121" ]]; then
     pip install packaging ninja
 
     # Install FlashAttention 2.8.3 prebuilt wheel (CUDA 12.x + Torch 2.5)
-    wget https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.5cxx11abiFALSE-cp312-cp312-linux_x86_64.whl
-    pip install flash_attn-2.8.3+cu12torch2.5cxx11abiFALSE-cp312-cp312-linux_x86_64.whl --no-build-isolation
-    rm flash_attn-2.8.3+cu12torch2.5cxx11abiFALSE-cp312-cp312-linux_x86_64.whl
+    FA_WHEEL="flash_attn-2.8.3+cu12torch2.5cxx11abiFALSE-${PY_ABI_TAG}-${PY_ABI_TAG}-linux_x86_64.whl"
+    FA_URL="https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/${FA_WHEEL}"
+    echo "Downloading FlashAttention wheel for Python ${PYTHON_VERSION}: ${FA_WHEEL}"
+    wget "$FA_URL"
+    pip install "$FA_WHEEL" --no-build-isolation
+    rm "$FA_WHEEL"
 
     # Verify
     verify_stack

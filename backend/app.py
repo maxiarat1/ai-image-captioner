@@ -19,7 +19,6 @@ from models.blip2_adapter import Blip2Adapter
 from models.r4b_adapter import R4BAdapter
 from models.wdvit_adapter import WdVitAdapter
 from models.janus_adapter import JanusAdapter
-from models.olmocr_adapter import OlmOCRAdapter
 from models.nanonets_ocr_adapter import NanonetsOCRAdapter
 from models.llava_phi3_adapter import LlavaPhiAdapter
 from models.lfm2_adapter import LFM2Adapter
@@ -133,12 +132,6 @@ MODEL_METADATA = {
         'adapter': LFM2Adapter,
         'adapter_args': {'model_id': "LiquidAI/LFM2-VL-3B"}
     },
-    'olmocr': {
-        'category': 'ocr',
-        'description': "olmOCR - Advanced OCR for extracting text from images and documents",
-        'adapter': OlmOCRAdapter,
-        'adapter_args': {'model_id': "allenai/olmOCR-2-7B-1025"}
-    },
     'nanonets-ocr-s': {
         'category': 'ocr',
         'description': "Nanonets OCR-S - Lightweight OCR (tables/equations/HTML) via Transformers",
@@ -146,7 +139,7 @@ MODEL_METADATA = {
         'adapter_args': {'model_id': "nanonets/Nanonets-OCR-s"}
     },
     'llava-phi3': {
-        'category': 'ocr',
+        'category': 'multimodal',
         'description': "LLaVA-Phi-3-Mini - Compact and efficient vision-language model",
         'adapter': LlavaPhiAdapter,
         'adapter_args': {'model_id': "xtuner/llava-phi-3-mini-hf"}

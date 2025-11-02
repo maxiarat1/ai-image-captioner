@@ -20,7 +20,8 @@ class Blip2Adapter(BaseModelAdapter):
         try:
             logger.info("Loading BLIP2 model %s on %s with precision=%s…", self.model_id, self.device, precision)
 
-            self.processor = Blip2Processor.from_pretrained(self.model_id)
+            # Prefer fast image processor/tokenizer when available to avoid HF warning
+            self.processor = Blip2Processor.from_pretrained(self.model_id, use_fast=True)
 
             # Determine dtype and quantization config
             quantization_config = None
@@ -34,9 +35,10 @@ class Blip2Adapter(BaseModelAdapter):
 
             if quantization_config:
                 model_kwargs["quantization_config"] = quantization_config
-                model_kwargs["dtype"] = torch.float16
+                # For quantized models, set compute dtype explicitly when reasonable
+                model_kwargs["torch_dtype"] = torch.float16
             elif model_dtype != "auto":
-                model_kwargs["dtype"] = model_dtype
+                model_kwargs["torch_dtype"] = model_dtype
 
             self.model = Blip2ForConditionalGeneration.from_pretrained(
                 self.model_id,
@@ -48,7 +50,7 @@ class Blip2Adapter(BaseModelAdapter):
                 self.model.to(self.device)
 
             self.model.eval()
-            self.model_dtype = model_kwargs.get("dtype", torch.float32)
+            self.model_dtype = model_kwargs.get("torch_dtype", torch.float32)
 
             # Setup pad token for batch processing
             self._setup_pad_token()
