@@ -111,6 +111,7 @@ class TrOCRAdapter(BaseModelAdapter):
         pixel_values = pixel_values.to(device=self.device, dtype=model_dtype)
 
         gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
+        gen_params = self._sanitize_generation_params(gen_params)
         gen_params.setdefault("max_new_tokens", 256)
 
         # Ensure dtype alignment and safe inference
@@ -184,46 +185,28 @@ class TrOCRAdapter(BaseModelAdapter):
     def get_available_parameters(self) -> list:
         return [
             {
-                "name": "Max New Tokens",
-                "param_key": "max_new_tokens",
-                "type": "number",
-                "min": 1,
-                "max": 512,
-                "step": 1,
-                "description": "Maximum tokens per text region (default: 256)"
+                "name": "Use Fast Processor",
+                "param_key": "use_fast",
+                "type": "checkbox",
+                "description": "Use fast tokenizer (requires model reload)"
             },
             {
                 "name": "Do Sample",
                 "param_key": "do_sample",
                 "type": "checkbox",
-                "description": "Enable sampling (default: disabled for deterministic OCR)"
+                "description": "Enable sampling mode (default: disabled for deterministic OCR). Required for temperature/top_p.",
+                "group": "sampling"
             },
             {
                 "name": "Temperature",
                 "param_key": "temperature",
                 "type": "number",
-                "min": 0,
+                "min": 0.1,
                 "max": 2,
                 "step": 0.1,
-                "description": "Sampling temperature (only if sampling enabled)"
-            },
-            {
-                "name": "Num Beams",
-                "param_key": "num_beams",
-                "type": "number",
-                "min": 1,
-                "max": 10,
-                "step": 1,
-                "description": "Number of beams for beam search (higher = more accurate, slower)"
-            },
-            {
-                "name": "Repetition Penalty",
-                "param_key": "repetition_penalty",
-                "type": "number",
-                "min": 1.0,
-                "max": 2.0,
-                "step": 0.1,
-                "description": "Penalty for repeating tokens (1.0 = no penalty, higher = less repetition)"
+                "description": "Sampling temperature (requires do_sample=true)",
+                "depends_on": "do_sample",
+                "group": "sampling"
             },
             {
                 "name": "Top P",
@@ -232,25 +215,19 @@ class TrOCRAdapter(BaseModelAdapter):
                 "min": 0,
                 "max": 1,
                 "step": 0.01,
-                "description": "Nucleus sampling threshold (only if sampling enabled)"
+                "description": "Nucleus sampling threshold (requires do_sample=true)",
+                "depends_on": "do_sample",
+                "group": "sampling"
             },
             {
-                "name": "No Repeat N-gram Size",
-                "param_key": "no_repeat_ngram_size",
+                "name": "Num Beams",
+                "param_key": "num_beams",
                 "type": "number",
-                "min": 0,
-                "max": 5,
+                "min": 1,
+                "max": 10,
                 "step": 1,
-                "description": "Prevent repeating n-grams of this size (0 = disabled)"
-            },
-            {
-                "name": "Min New Tokens",
-                "param_key": "min_new_tokens",
-                "type": "number",
-                "min": 0,
-                "max": 100,
-                "step": 1,
-                "description": "Minimum number of tokens to generate per region"
+                "description": "Number of beams for beam search (conflicts with do_sample=true)",
+                "group": "beam_search"
             },
             {
                 "name": "Length Penalty",
@@ -259,19 +236,57 @@ class TrOCRAdapter(BaseModelAdapter):
                 "min": 0,
                 "max": 2,
                 "step": 0.1,
-                "description": "Length penalty for beam search (>1 favors longer, <1 favors shorter)"
+                "description": "Length penalty for beam search (requires num_beams>1)",
+                "depends_on": "num_beams",
+                "group": "beam_search"
             },
             {
                 "name": "Early Stopping",
                 "param_key": "early_stopping",
                 "type": "checkbox",
-                "description": "Stop beam search when all beams finish (only with num_beams > 1)"
+                "description": "Stop beam search when all beams finish (requires num_beams>1)",
+                "depends_on": "num_beams",
+                "group": "beam_search"
             },
             {
-                "name": "Use Fast Processor",
-                "param_key": "use_fast",
-                "type": "checkbox",
-                "description": "Use fast tokenizer (requires model reload)"
+                "name": "Max New Tokens",
+                "param_key": "max_new_tokens",
+                "type": "number",
+                "min": 1,
+                "max": 512,
+                "step": 1,
+                "description": "Maximum tokens per text region (default: 256)",
+                "group": "general"
+            },
+            {
+                "name": "Min New Tokens",
+                "param_key": "min_new_tokens",
+                "type": "number",
+                "min": 0,
+                "max": 100,
+                "step": 1,
+                "description": "Minimum number of tokens to generate per region",
+                "group": "general"
+            },
+            {
+                "name": "Repetition Penalty",
+                "param_key": "repetition_penalty",
+                "type": "number",
+                "min": 1.0,
+                "max": 2.0,
+                "step": 0.1,
+                "description": "Penalty for repeating tokens (works in both modes)",
+                "group": "general"
+            },
+            {
+                "name": "No Repeat N-gram Size",
+                "param_key": "no_repeat_ngram_size",
+                "type": "number",
+                "min": 0,
+                "max": 5,
+                "step": 1,
+                "description": "Prevent repeating n-grams of this size (works in both modes)",
+                "group": "general"
             },
             {
                 "name": "Batch Size",

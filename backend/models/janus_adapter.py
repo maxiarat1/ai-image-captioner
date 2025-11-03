@@ -96,6 +96,7 @@ class JanusAdapter(BaseModelAdapter):
 
             # Build generation parameters (filter to only valid params for this model)
             gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
+            gen_params = self._sanitize_generation_params(gen_params)
 
             # Use default prompt if none provided
             if not prompt or not prompt.strip():
@@ -171,6 +172,7 @@ class JanusAdapter(BaseModelAdapter):
 
             # Build generation parameters
             gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
+            gen_params = self._sanitize_generation_params(gen_params)
 
             # Process each image one at a time (Janus processes images individually)
             results = []
@@ -242,16 +244,26 @@ class JanusAdapter(BaseModelAdapter):
                 "min": 1,
                 "max": 2048,
                 "step": 1,
-                "description": "Maximum number of new tokens to generate"
+                "description": "Maximum number of new tokens to generate",
+                "group": "general"
+            },
+            {
+                "name": "Do Sample",
+                "param_key": "do_sample",
+                "type": "checkbox",
+                "description": "Enable sampling (required for temperature/top_p/top_k to work)",
+                "group": "mode"
             },
             {
                 "name": "Temperature",
                 "param_key": "temperature",
                 "type": "number",
-                "min": 0,
+                "min": 0.1,
                 "max": 2,
                 "step": 0.1,
-                "description": "Sampling temperature for randomness"
+                "description": "Sampling temperature for randomness",
+                "group": "sampling",
+                "requires": "do_sample"
             },
             {
                 "name": "Top P",
@@ -260,7 +272,9 @@ class JanusAdapter(BaseModelAdapter):
                 "min": 0,
                 "max": 1,
                 "step": 0.01,
-                "description": "Nucleus sampling probability threshold"
+                "description": "Nucleus sampling probability threshold",
+                "group": "sampling",
+                "requires": "do_sample"
             },
             {
                 "name": "Top K",
@@ -269,13 +283,9 @@ class JanusAdapter(BaseModelAdapter):
                 "min": 0,
                 "max": 200,
                 "step": 1,
-                "description": "Top-k sampling: limit to k highest probability tokens"
-            },
-            {
-                "name": "Do Sample",
-                "param_key": "do_sample",
-                "type": "checkbox",
-                "description": "Enable sampling (required for temperature/top_p/top_k to work)"
+                "description": "Top-k sampling: limit to k highest probability tokens",
+                "group": "sampling",
+                "requires": "do_sample"
             },
             {
                 "name": "Precision",
@@ -288,13 +298,15 @@ class JanusAdapter(BaseModelAdapter):
                     {"value": "4bit", "label": "4-bit Quantized"},
                     {"value": "8bit", "label": "8-bit Quantized"}
                 ],
-                "description": "Model precision mode (requires model reload)"
+                "description": "Model precision mode (requires model reload)",
+                "group": "advanced"
             },
             {
                 "name": "Use Flash Attention 2",
                 "param_key": "use_flash_attention",
                 "type": "checkbox",
-                "description": "Enable Flash Attention for better performance (requires flash-attn package)"
+                "description": "Enable Flash Attention for better performance (requires flash-attn package)",
+                "group": "advanced"
             },
             {
                 "name": "Batch Size",
@@ -303,7 +315,8 @@ class JanusAdapter(BaseModelAdapter):
                 "min": 1,
                 "max": 8,
                 "step": 1,
-                "description": "Number of images to process simultaneously (higher = faster but more VRAM)"
+                "description": "Number of images to process simultaneously (higher = faster but more VRAM)",
+                "group": "advanced"
             }
         ]
 

@@ -309,3 +309,87 @@
 .model-item:active {
     transform: scale(0.98);
 }
+
+/* ============================================================================
+   Parameter Groups & Dependencies
+   ============================================================================ */
+
+/* Parameter warning message */
+.param-warning {
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    background: rgba(255, 152, 0, 0.1);
+    border-left: 3px solid #ff9800;
+    border-radius: var(--radius-sm);
+    font-size: 0.7rem;
+    color: var(--text-primary);
+    line-height: 1.4;
+    display: none;
+}
+
+/* Parameter group styling by category */
+.param-group-sampling {
+    position: relative;
+}
+
+.param-group-sampling::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(180deg, #4caf50, transparent);
+    border-radius: 2px;
+}
+
+.param-group-beam_search {
+    position: relative;
+}
+
+.param-group-beam_search::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(180deg, #2196f3, transparent);
+    border-radius: 2px;
+}
+
+.param-group-general {
+    position: relative;
+}
+
+.param-group-general::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(180deg, #9e9e9e, transparent);
+    border-radius: 2px;
+}
+
+/* Disabled parameter state */
+.param-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+    position: relative;
+}
+
+.param-disabled::after {
+    content: '🔒 Disabled';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+

@@ -78,6 +78,7 @@ class Blip2Adapter(BaseModelAdapter):
 
             # Filter generation parameters
             gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
+            gen_params = self._sanitize_generation_params(gen_params)
 
             logger.debug("BLIP2 params: %s", gen_params if gen_params else "defaults")
 
@@ -108,6 +109,7 @@ class Blip2Adapter(BaseModelAdapter):
 
             # Build generation parameters
             gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
+            gen_params = self._sanitize_generation_params(gen_params)
 
             # Process batch with padding
             if prompts[0] and prompts[0].strip():
@@ -162,40 +164,22 @@ class Blip2Adapter(BaseModelAdapter):
                 "description": "Precision mode - BLIP2 supports FP32 and BF16 (requires model reload)"
             },
             {
-                "name": "Max Length",
-                "param_key": "max_length",
-                "type": "number",
-                "min": 1,
-                "max": 500,
-                "step": 1,
-                "description": "Maximum number of tokens to generate"
-            },
-            {
-                "name": "Min Length",
-                "param_key": "min_length",
-                "type": "number",
-                "min": 0,
-                "max": 100,
-                "step": 1,
-                "description": "Minimum number of tokens to generate"
-            },
-            {
-                "name": "Num Beams",
-                "param_key": "num_beams",
-                "type": "number",
-                "min": 1,
-                "max": 20,
-                "step": 1,
-                "description": "Number of beams for beam search"
+                "name": "Do Sample",
+                "param_key": "do_sample",
+                "type": "checkbox",
+                "description": "Enable sampling mode (required for temperature, top_p, top_k). Conflicts with num_beams>1.",
+                "group": "sampling"
             },
             {
                 "name": "Temperature",
                 "param_key": "temperature",
                 "type": "number",
-                "min": 0,
+                "min": 0.1,
                 "max": 2,
                 "step": 0.1,
-                "description": "Sampling temperature for randomness"
+                "description": "Sampling temperature (requires do_sample=true)",
+                "depends_on": "do_sample",
+                "group": "sampling"
             },
             {
                 "name": "Top P",
@@ -204,7 +188,9 @@ class Blip2Adapter(BaseModelAdapter):
                 "min": 0,
                 "max": 1,
                 "step": 0.01,
-                "description": "Nucleus sampling probability threshold"
+                "description": "Nucleus sampling probability (requires do_sample=true)",
+                "depends_on": "do_sample",
+                "group": "sampling"
             },
             {
                 "name": "Top K",
@@ -213,16 +199,19 @@ class Blip2Adapter(BaseModelAdapter):
                 "min": 0,
                 "max": 200,
                 "step": 1,
-                "description": "Top-k sampling: limit to k highest probability tokens"
+                "description": "Top-k sampling (requires do_sample=true)",
+                "depends_on": "do_sample",
+                "group": "sampling"
             },
             {
-                "name": "Repetition Penalty",
-                "param_key": "repetition_penalty",
+                "name": "Num Beams",
+                "param_key": "num_beams",
                 "type": "number",
                 "min": 1,
-                "max": 2,
-                "step": 0.1,
-                "description": "Penalty for repeating tokens"
+                "max": 20,
+                "step": 1,
+                "description": "Number of beams for beam search (conflicts with do_sample=true)",
+                "group": "beam_search"
             },
             {
                 "name": "Length Penalty",
@@ -231,7 +220,39 @@ class Blip2Adapter(BaseModelAdapter):
                 "min": 0,
                 "max": 2,
                 "step": 0.1,
-                "description": "Exponential penalty to the length for beam search"
+                "description": "Length penalty for beam search (requires num_beams>1)",
+                "depends_on": "num_beams",
+                "group": "beam_search"
+            },
+            {
+                "name": "Max Length",
+                "param_key": "max_length",
+                "type": "number",
+                "min": 1,
+                "max": 500,
+                "step": 1,
+                "description": "Maximum number of tokens to generate",
+                "group": "general"
+            },
+            {
+                "name": "Min Length",
+                "param_key": "min_length",
+                "type": "number",
+                "min": 0,
+                "max": 100,
+                "step": 1,
+                "description": "Minimum number of tokens to generate",
+                "group": "general"
+            },
+            {
+                "name": "Repetition Penalty",
+                "param_key": "repetition_penalty",
+                "type": "number",
+                "min": 1,
+                "max": 2,
+                "step": 0.1,
+                "description": "Penalty for repeating tokens (works in both modes)",
+                "group": "general"
             },
             {
                 "name": "Batch Size",
