@@ -33,22 +33,19 @@ class LFM2Adapter(BaseModelAdapter):
                 "device_map": "auto"
             }
 
-            # Handle quantization (4bit/8bit)
-            if precision == "8bit":
-                model_kwargs["load_in_8bit"] = True
-                logger.info("Using 8-bit quantization")
-            elif precision == "4bit":
-                model_kwargs["load_in_4bit"] = True
-                logger.info("Using 4-bit quantization")
-            else:
-                # Handle float precision
-                model_dtype = self._get_dtype(precision)
-                if model_dtype != "auto":
-                    model_kwargs["torch_dtype"] = model_dtype
+            # LFM2 does not support bitsandbytes quantization (4bit/8bit) due to tensor layout incompatibility
+            # Only handle float precision
+            if precision in ["8bit", "4bit"]:
+                logger.warning("LFM2 does not support %s quantization. Falling back to bfloat16.", precision)
+                precision = "bfloat16"
+            
+            model_dtype = self._get_dtype(precision)
+            if model_dtype != "auto":
+                model_kwargs["torch_dtype"] = model_dtype
 
-                # Setup Flash Attention if requested and available
-                if use_flash_attention:
-                    self._setup_flash_attention(model_kwargs, precision, force_bfloat16=False)
+            # Setup Flash Attention if requested and available
+            if use_flash_attention:
+                self._setup_flash_attention(model_kwargs, precision, force_bfloat16=False)
 
             # Load model
             self.model = AutoModelForImageTextToText.from_pretrained(
@@ -94,6 +91,7 @@ class LFM2Adapter(BaseModelAdapter):
             ).to(self.model.device)
 
             gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
+            gen_params = self._sanitize_generation_params(gen_params)
 
             logger.debug("LFM2 params: %s", gen_params if gen_params else "defaults")
 
@@ -157,29 +155,6 @@ class LFM2Adapter(BaseModelAdapter):
     def get_available_parameters(self) -> list:
         return [
             {
-                "name": "Precision",
-                "param_key": "precision",
-                "type": "select",
-                "options": [
-                    {"value": "float32", "label": "Float32 (Best quality, most VRAM)"},
-                    {"value": "float16", "label": "Float16 (Balanced)"},
-                    {"value": "bfloat16", "label": "BFloat16 (Recommended)"},
-                    {"value": "8bit", "label": "8-bit (Low VRAM)"},
-                    {"value": "4bit", "label": "4-bit (Minimal VRAM)"}
-                ],
-                "default": "bfloat16",
-                "reload_required": True,
-                "description": "Model precision (requires reload when changed)"
-            },
-            {
-                "name": "Flash Attention",
-                "param_key": "use_flash_attention",
-                "type": "checkbox",
-                "default": False,
-                "reload_required": True,
-                "description": "Use Flash Attention 2 for faster inference (requires flash-attn package)"
-            },
-            {
                 "name": "Max New Tokens",
                 "param_key": "max_new_tokens",
                 "type": "number",
@@ -187,17 +162,28 @@ class LFM2Adapter(BaseModelAdapter):
                 "max": 1024,
                 "step": 1,
                 "default": 256,
-                "description": "Maximum number of new tokens to generate"
+                "description": "Maximum number of new tokens to generate",
+                "group": "general"
+            },
+            {
+                "name": "Do Sample",
+                "param_key": "do_sample",
+                "type": "checkbox",
+                "default": False,
+                "description": "Enable sampling (required for temperature/top_p/top_k)",
+                "group": "mode"
             },
             {
                 "name": "Temperature",
                 "param_key": "temperature",
                 "type": "number",
-                "min": 0,
+                "min": 0.1,
                 "max": 2,
                 "step": 0.1,
                 "default": 1.0,
-                "description": "Sampling temperature for randomness"
+                "description": "Sampling temperature for randomness",
+                "group": "sampling",
+                "requires": "do_sample"
             },
             {
                 "name": "Top P",
@@ -207,7 +193,9 @@ class LFM2Adapter(BaseModelAdapter):
                 "max": 1,
                 "step": 0.01,
                 "default": 1.0,
-                "description": "Nucleus sampling probability threshold"
+                "description": "Nucleus sampling probability threshold",
+                "group": "sampling",
+                "requires": "do_sample"
             },
             {
                 "name": "Top K",
@@ -217,7 +205,9 @@ class LFM2Adapter(BaseModelAdapter):
                 "max": 200,
                 "step": 1,
                 "default": 50,
-                "description": "Top-k sampling: limit to k highest probability tokens"
+                "description": "Top-k sampling: limit to k highest probability tokens",
+                "group": "sampling",
+                "requires": "do_sample"
             },
             {
                 "name": "Repetition Penalty",
@@ -227,13 +217,30 @@ class LFM2Adapter(BaseModelAdapter):
                 "max": 2,
                 "step": 0.1,
                 "default": 1.0,
-                "description": "Penalty for repeating tokens"
+                "description": "Penalty for repeating tokens",
+                "group": "general"
             },
             {
-                "name": "Do Sample",
-                "param_key": "do_sample",
+                "name": "Precision",
+                "param_key": "precision",
+                "type": "select",
+                "options": [
+                    {"value": "float32", "label": "Float32 (Best quality, most VRAM)"},
+                    {"value": "float16", "label": "Float16 (Balanced)"},
+                    {"value": "bfloat16", "label": "BFloat16 (Recommended)"}
+                ],
+                "default": "bfloat16",
+                "reload_required": True,
+                "description": "Model precision (Note: LFM2 does not support 4-bit/8-bit quantization)",
+                "group": "advanced"
+            },
+            {
+                "name": "Flash Attention",
+                "param_key": "use_flash_attention",
                 "type": "checkbox",
                 "default": False,
-                "description": "Enable sampling (required for temperature/top_p/top_k)"
+                "reload_required": True,
+                "description": "Use Flash Attention 2 for faster inference (requires flash-attn package)",
+                "group": "advanced"
             }
         ]

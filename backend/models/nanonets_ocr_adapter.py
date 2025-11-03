@@ -104,7 +104,7 @@ class NanonetsOCRAdapter(BaseModelAdapter):
             # Default deterministic-ish OCR prompt if none provided
             prompt = (prompt or self._default_prompt()).strip()
 
-            # Build chat-style messages (supported by this processor/model)
+            # Build chat-style messages (supported by this processor/model)f
             messages = [
                 {"role": "system", "content": "You are a helpful OCR assistant."},
                 {
@@ -131,11 +131,12 @@ class NanonetsOCRAdapter(BaseModelAdapter):
 
             # Generation parameters
             gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
-
-            # Reasonable defaults for OCR
+            
+            # Apply defaults before sanitization
             gen_params.setdefault("do_sample", False)
-            gen_params.setdefault("temperature", 0.1)
-            gen_params.setdefault("max_new_tokens", 1024)
+
+            # Sanitize after defaults (will remove temperature if do_sample=False)
+            gen_params = self._sanitize_generation_params(gen_params)
 
             logger.debug("Nanonets OCR gen params: %s", gen_params)
 
@@ -203,9 +204,13 @@ class NanonetsOCRAdapter(BaseModelAdapter):
             inputs = self._move_inputs_to_device(inputs, self.device, model_dtype)
 
             gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
+            
+            # Apply defaults before sanitization
             gen_params.setdefault("do_sample", False)
-            gen_params.setdefault("temperature", 0.1)
             gen_params.setdefault("max_new_tokens", 1024)
+            
+            # Sanitize after defaults (will remove temperature if do_sample=False)
+            gen_params = self._sanitize_generation_params(gen_params)
 
             with torch.no_grad():
                 generated_ids = self.model.generate(**inputs, **gen_params)
@@ -232,30 +237,6 @@ class NanonetsOCRAdapter(BaseModelAdapter):
     def get_available_parameters(self) -> list:
         return [
             {
-                "name": "Temperature",
-                "param_key": "temperature",
-                "type": "number",
-                "min": 0,
-                "max": 2,
-                "step": 0.1,
-                "description": "Sampling temperature (default: 0.1)"
-            },
-            {
-                "name": "Max New Tokens",
-                "param_key": "max_new_tokens",
-                "type": "number",
-                "min": 1,
-                "max": 4096,
-                "step": 1,
-                "description": "Maximum number of tokens to generate (default: 1024)"
-            },
-            {
-                "name": "Do Sample",
-                "param_key": "do_sample",
-                "type": "checkbox",
-                "description": "Enable sampling (default: disabled for deterministic OCR)"
-            },
-            {
                 "name": "Precision",
                 "param_key": "precision",
                 "type": "select",
@@ -273,6 +254,34 @@ class NanonetsOCRAdapter(BaseModelAdapter):
                 "param_key": "use_flash_attention",
                 "type": "checkbox",
                 "description": "Enable Flash Attention (requires flash-attn package)"
+            },
+            {
+                "name": "Do Sample",
+                "param_key": "do_sample",
+                "type": "checkbox",
+                "description": "Enable sampling mode (default: disabled for deterministic OCR). Required for temperature.",
+                "group": "sampling"
+            },
+            {
+                "name": "Temperature",
+                "param_key": "temperature",
+                "type": "number",
+                "min": 0.1,
+                "max": 2,
+                "step": 0.1,
+                "description": "Sampling temperature (requires do_sample=true, default: 0.1)",
+                "depends_on": "do_sample",
+                "group": "sampling"
+            },
+            {
+                "name": "Max New Tokens",
+                "param_key": "max_new_tokens",
+                "type": "number",
+                "min": 1,
+                "max": 4096,
+                "step": 1,
+                "description": "Maximum number of tokens to generate (default: 1024)",
+                "group": "general"
             },
             {
                 "name": "Batch Size",

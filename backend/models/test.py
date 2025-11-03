@@ -1,86 +1,119 @@
 import torch
 from PIL import Image
-from transformers import AutoTokenizer, AutoProcessor, AutoModelForImageTextToText
+from doctr.io import DocumentFile
+from doctr.models import ocr_predictor
+from transformers import TrOCRProcessor, VisionEncoderDecoderModel
+import os
 
-# --- CONFIG ---
-model_path = "nanonets/Nanonets-OCR-s"
-image_path = "/home/max/Pictures/Screenshots/Screenshot from 2025-09-21 22-05-40.png"
+def doctr_trocr_ocr(image_path: str, save_to_file: bool = True):
+    # -------------------------------------------------------------
+    # 1️⃣ Load Models
+    # -------------------------------------------------------------
+    print("Loading models...")
+    doctr_model = ocr_predictor(pretrained=True)
+    processor = TrOCRProcessor.from_pretrained("microsoft/trocr-base-printed")
+    trocr_model = VisionEncoderDecoderModel.from_pretrained("microsoft/trocr-base-printed")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    trocr_model.to(device)
 
-# --- LOAD MODEL ---
-print("Loading model...")
-
-model = AutoModelForImageTextToText.from_pretrained(
-    model_path,
-    torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-    device_map="cuda" if torch.cuda.is_available() else "cpu",
-)
-model.eval()
-
-tokenizer = AutoTokenizer.from_pretrained(model_path)
-processor = AutoProcessor.from_pretrained(model_path, use_fast=True)  # force fast processor
-
-device = model.device
-print(f"✅ Model loaded on: {device}")
-
-# --- OCR FUNCTION ---
-def ocr_page_with_nanonets_s(image_path, model, processor, max_new_tokens=1024):
-    """
-    Extract text, tables, equations, and images from a document image using Nanonets OCR-S.
-    """
-    prompt = """Extract the text from the above document as if you were reading it naturally.
-    Return the tables in HTML format. Return the equations in LaTeX representation.
-    If there is an image in the document and an image caption is not present, add a small description
-    of the image inside the <img></img> tag; otherwise, add the image caption inside <img></img>.
-    Watermarks should be wrapped in <watermark></watermark>.
-    Page numbers should be wrapped in <page_number></page_number>.
-    Prefer using ☐ and ☑ for check boxes.
-    """
-
-    # --- Load and resize image ---
+    # -------------------------------------------------------------
+    # 2️⃣ Load Image
+    # -------------------------------------------------------------
+    if not os.path.exists(image_path):
+        print(f"❌ File not found: {image_path}")
+        return
     image = Image.open(image_path).convert("RGB")
-    image.thumbnail((1024, 1024))
+    width, height = image.size
+    doc = DocumentFile.from_images([image_path])
 
-    # --- Use chat-style input (required for Qwen2VL) ---
-    messages = [
-        {"role": "system", "content": "You are a helpful OCR assistant."},
-        {"role": "user", "content": [
-            {"type": "image", "image": image},
-            {"type": "text", "text": prompt},
-        ]},
-    ]
+    # -------------------------------------------------------------
+    # 3️⃣ Detect text regions with docTR
+    # -------------------------------------------------------------
+    print("Running text detection (docTR)...")
+    doctr_result = doctr_model(doc)
+    exported = doctr_result.export()
+    page = exported['pages'][0]
 
-    print("Applying chat template...")
-    text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    word_boxes = []
+    for block in page['blocks']:
+        for line in block['lines']:
+            for word in line['words']:
+                ((x1, y1), (x2, y2)) = word['geometry']
+                x1, y1, x2, y2 = (
+                    int(x1 * width), int(y1 * height),
+                    int(x2 * width), int(y2 * height)
+                )
+                word_boxes.append((x1, y1, x2, y2))
 
-    print("Encoding inputs...")
-    inputs = processor(text=[text], images=[image], padding=True, return_tensors="pt").to(model.device)
+    if not word_boxes:
+        print("⚠️ No text detected in the image.")
+        return ""
 
-    print(f"Generating output (max_new_tokens={max_new_tokens})...")
-    with torch.inference_mode():
-        output_ids = model.generate(
-            **inputs,
-            max_new_tokens=max_new_tokens,
-            do_sample=False
-        )
+    print(f"✅ Detected {len(word_boxes)} text regions")
 
-    print("Decoding output...")
-    generated_ids = [
-        output_ids[len(input_ids):] for input_ids, output_ids in zip(inputs.input_ids, output_ids)
-    ]
-    output_text = processor.batch_decode(
-        generated_ids,
-        skip_special_tokens=True,
-        clean_up_tokenization_spaces=True
-    )[0]
+    # -------------------------------------------------------------
+    # 4️⃣ Recognize each region with TrOCR
+    # -------------------------------------------------------------
+    results = []
+    print("Running text recognition (TrOCR)...")
+    for (x1, y1, x2, y2) in word_boxes:
+        crop = image.crop((x1, y1, x2, y2))
+        if (x2 - x1) < 5 or (y2 - y1) < 5:
+            continue
+        pixel_values = processor(crop, return_tensors="pt").pixel_values.to(device)
+        generated_ids = trocr_model.generate(pixel_values)
+        text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
+        if text:
+            results.append({"bbox": (x1, y1, x2, y2), "text": text})
 
-    print("✅ OCR complete.")
-    return output_text
+    if not results:
+        print("⚠️ No readable text recognized.")
+        return ""
+
+    # -------------------------------------------------------------
+    # 5️⃣ Sort & Group into readable text lines
+    # -------------------------------------------------------------
+    results.sort(key=lambda r: (r["bbox"][1], r["bbox"][0]))
+    lines = []
+    current_line = []
+    line_threshold = 20  # tweak depending on image resolution
+
+    for r in results:
+        if not current_line:
+            current_line.append(r)
+            continue
+        prev_y = current_line[-1]["bbox"][1]
+        curr_y = r["bbox"][1]
+        if abs(curr_y - prev_y) < line_threshold:
+            current_line.append(r)
+        else:
+            current_line.sort(key=lambda w: w["bbox"][0])
+            lines.append(" ".join(w["text"] for w in current_line))
+            current_line = [r]
+
+    if current_line:
+        current_line.sort(key=lambda w: w["bbox"][0])
+        lines.append(" ".join(w["text"] for w in current_line))
+
+    # -------------------------------------------------------------
+    # 6️⃣ Print & optionally save results
+    # -------------------------------------------------------------
+    final_text = "\n".join(lines)
+    print("\n=== OCR TEXT OUTPUT ===\n")
+    print(final_text)
+
+    if save_to_file:
+        out_path = os.path.splitext(image_path)[0] + "_ocr.txt"
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(final_text)
+        print(f"\n💾 Text saved to: {out_path}")
+
+    return final_text
 
 
-# --- RUN OCR ---
-print("Starting OCR...")
-result = ocr_page_with_nanonets_s(image_path, model, processor, max_new_tokens=1024)
-
-# --- DISPLAY RESULT ---
-print("\n--- OCR RESULT ---\n")
-print(result[:3000])
+# -------------------------------------------------------------
+# 🔰 Run Example
+# -------------------------------------------------------------
+if __name__ == "__main__":
+    image_path = "/home/max/Pictures/Screenshots/Screenshot from 2025-10-01 21-09-12.png"  # change this to your image path
+    doctr_trocr_ocr(image_path)

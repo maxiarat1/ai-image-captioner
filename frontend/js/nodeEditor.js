@@ -147,10 +147,14 @@ function buildParameterInput(param, currentValue, nodeId) {
     const value = currentValue !== undefined ? currentValue : '';
     const inputId = `node-${nodeId}-param-${param.param_key}`;
     const inputName = `${param.param_key}-${nodeId}`;
+    
+    // Add group class and dependency attributes
+    const groupClass = param.group ? `param-group-${param.group}` : '';
+    const dependsOn = param.depends_on ? `data-depends-on="${param.depends_on}"` : '';
 
     if (param.type === 'number') {
         return `
-            <div class="param-group">
+            <div class="param-group ${groupClass}" ${dependsOn}>
                 <label class="param-label" for="${inputId}" title="${param.description}">${param.name}</label>
                 <input type="number"
                        id="${inputId}"
@@ -169,7 +173,7 @@ function buildParameterInput(param, currentValue, nodeId) {
             `<option value="${opt.value}" ${value === opt.value ? 'selected' : ''}>${opt.label}</option>`
         ).join('');
         return `
-            <div class="param-group">
+            <div class="param-group ${groupClass}" ${dependsOn}>
                 <label class="param-label" for="${inputId}" title="${param.description}">${param.name}</label>
                 <select id="${inputId}"
                         name="${inputName}"
@@ -182,7 +186,7 @@ function buildParameterInput(param, currentValue, nodeId) {
         `;
     } else if (param.type === 'checkbox') {
         return `
-            <div class="param-group">
+            <div class="param-group ${groupClass}" ${dependsOn}>
                 <label class="param-label param-checkbox-label" for="${inputId}" title="${param.description}">
                     <input type="checkbox"
                            id="${inputId}"
@@ -196,7 +200,7 @@ function buildParameterInput(param, currentValue, nodeId) {
         `;
     } else if (param.type === 'text') {
         return `
-            <div class="param-group">
+            <div class="param-group ${groupClass}" ${dependsOn}>
                 <label class="param-label" for="${inputId}" title="${param.description}">${param.name}</label>
                 <input type="text"
                        id="${inputId}"
@@ -255,8 +259,85 @@ async function loadModelParameters(nodeId, modelName) {
                     delete node.data.parameters[paramKey];
                 }
             }
+            
+            // Update parameter visibility based on dependencies
+            updateParameterDependencies(nodeId, parameters);
         });
     });
+    
+    // Initial dependency check
+    updateParameterDependencies(nodeId, parameters);
+}
+
+// Update parameter visibility based on dependencies
+function updateParameterDependencies(nodeId, parameters) {
+    const node = NodeEditor.nodes.find(n => n.id === nodeId);
+    if (!node) return;
+    
+    const paramsContainer = document.getElementById(`params-${nodeId}`);
+    if (!paramsContainer) return;
+    
+    const currentParams = node.data.parameters || {};
+    
+    // Check for conflicts and dependencies
+    const doSample = currentParams.do_sample || false;
+    const numBeams = currentParams.num_beams || 1;
+    
+    // Show warning if conflicting parameters
+    if (doSample && numBeams > 1) {
+        // Show warning - sampling conflicts with beam search
+        showParameterWarning(paramsContainer, 'Sampling mode (do_sample) conflicts with beam search (num_beams>1). Sampling will be disabled.');
+    } else {
+        clearParameterWarning(paramsContainer);
+    }
+    
+    // Update parameter states based on dependencies
+    parameters.forEach(param => {
+        const paramGroup = paramsContainer.querySelector(`[data-depends-on="${param.param_key}"], #node-${nodeId}-param-${param.param_key}`);
+        if (!paramGroup) return;
+        
+        // Handle sampling-specific parameters
+        if (param.group === 'sampling' && param.param_key !== 'do_sample') {
+            const paramContainer = paramGroup.closest('.param-group');
+            if (paramContainer) {
+                if (doSample && numBeams === 1) {
+                    paramContainer.classList.remove('param-disabled');
+                } else {
+                    paramContainer.classList.add('param-disabled');
+                }
+            }
+        }
+        
+        // Handle beam-search-specific parameters
+        if (param.group === 'beam_search' && param.param_key !== 'num_beams') {
+            const paramContainer = paramGroup.closest('.param-group');
+            if (paramContainer) {
+                if (numBeams > 1 && !doSample) {
+                    paramContainer.classList.remove('param-disabled');
+                } else {
+                    paramContainer.classList.add('param-disabled');
+                }
+            }
+        }
+    });
+}
+
+function showParameterWarning(container, message) {
+    let warning = container.querySelector('.param-warning');
+    if (!warning) {
+        warning = document.createElement('div');
+        warning.className = 'param-warning';
+        container.insertBefore(warning, container.firstChild);
+    }
+    warning.textContent = '⚠️ ' + message;
+    warning.style.display = 'block';
+}
+
+function clearParameterWarning(container) {
+    const warning = container.querySelector('.param-warning');
+    if (warning) {
+        warning.style.display = 'none';
+    }
 }
 
 // Node dragging moved to NEDrag

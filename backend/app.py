@@ -4,6 +4,7 @@ import zipfile
 import os
 import logging
 import asyncio
+import webbrowser
 from pathlib import Path
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
@@ -19,8 +20,8 @@ from models.blip2_adapter import Blip2Adapter
 from models.r4b_adapter import R4BAdapter
 from models.wdvit_adapter import WdVitAdapter
 from models.janus_adapter import JanusAdapter
-from models.olmocr_adapter import OlmOCRAdapter
 from models.nanonets_ocr_adapter import NanonetsOCRAdapter
+from models.trocr_adapter import TrOCRAdapter
 from models.llava_phi3_adapter import LlavaPhiAdapter
 from models.lfm2_adapter import LFM2Adapter
 from utils.image_utils import load_image, image_to_base64
@@ -81,7 +82,7 @@ MODEL_METADATA = {
     },
     'blip2': {
         'category': 'general',
-        'description': "BLIP2-OPT-2.7B - Enhanced captioning with configurable precision",
+        'description': "BLIP2-OPT-2.7B - Enhanced captioning",
         'adapter': Blip2Adapter,
         'adapter_args': {'model_id': "Salesforce/blip2-opt-2.7b"}
     },
@@ -133,20 +134,20 @@ MODEL_METADATA = {
         'adapter': LFM2Adapter,
         'adapter_args': {'model_id': "LiquidAI/LFM2-VL-3B"}
     },
-    'olmocr': {
-        'category': 'ocr',
-        'description': "olmOCR - Advanced OCR for extracting text from images and documents",
-        'adapter': OlmOCRAdapter,
-        'adapter_args': {'model_id': "allenai/olmOCR-2-7B-1025"}
-    },
     'nanonets-ocr-s': {
         'category': 'ocr',
         'description': "Nanonets OCR-S - Lightweight OCR (tables/equations/HTML) via Transformers",
         'adapter': NanonetsOCRAdapter,
         'adapter_args': {'model_id': "nanonets/Nanonets-OCR-s"}
     },
-    'llava-phi3': {
+    'trocr-large-printed': {
         'category': 'ocr',
+        'description': "TrOCR Large Printed - Microsoft's transformer-based OCR for printed text",
+        'adapter': TrOCRAdapter,
+        'adapter_args': {'model_id': "microsoft/trocr-large-printed"}
+    },
+    'llava-phi3': {
+        'category': 'multimodal',
         'description': "LLaVA-Phi-3-Mini - Compact and efficient vision-language model",
         'adapter': LlavaPhiAdapter,
         'adapter_args': {'model_id': "xtuner/llava-phi-3-mini-hf"}
@@ -804,6 +805,9 @@ def internal_error(e):
     return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == '__main__':
+    frontend_path = os.path.join(os.path.dirname(__file__), "../frontend/index.html")
+    frontend_path = os.path.abspath(frontend_path)
+    webbrowser.open(f"file://{frontend_path}")
     app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE  # None = no limit
     init_models()
     flask_debug = os.environ.get("FLASK_DEBUG", "0") == "1"

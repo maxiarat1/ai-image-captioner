@@ -78,7 +78,7 @@ class LlavaPhiAdapter(BaseModelAdapter):
             if precision not in ["4bit", "8bit"]:
                 dtype = self._get_dtype(precision)
                 if dtype != "auto":
-                    model_kwargs["dtype"] = dtype
+                    model_kwargs["torch_dtype"] = dtype
 
             # Setup flash attention if requested
             if use_flash_attention:
@@ -126,12 +126,15 @@ class LlavaPhiAdapter(BaseModelAdapter):
 
             # Build generation parameters
             gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
-
-            # Set defaults if not provided
+            
+            # Set defaults before sanitization
             if 'max_new_tokens' not in gen_params:
                 gen_params['max_new_tokens'] = 200
             if 'do_sample' not in gen_params:
                 gen_params['do_sample'] = False  # Greedy decoding by default
+            
+            # Sanitize after defaults
+            gen_params = self._sanitize_generation_params(gen_params)
 
             logger.debug("LLaVA-Phi-3 params: %s", gen_params)
 
@@ -182,12 +185,15 @@ class LlavaPhiAdapter(BaseModelAdapter):
 
             # Build generation parameters
             gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
-
-            # Set defaults if not provided
+            
+            # Set defaults before sanitization
             if 'max_new_tokens' not in gen_params:
                 gen_params['max_new_tokens'] = 200
             if 'do_sample' not in gen_params:
                 gen_params['do_sample'] = False
+            
+            # Sanitize after defaults
+            gen_params = self._sanitize_generation_params(gen_params)
 
             # Generate for batch
             with torch.no_grad():
@@ -226,16 +232,26 @@ class LlavaPhiAdapter(BaseModelAdapter):
                 "min": 1,
                 "max": 500,
                 "step": 1,
-                "description": "Maximum number of new tokens to generate (default: 200)"
+                "description": "Maximum number of new tokens to generate (default: 200)",
+                "group": "general"
+            },
+            {
+                "name": "Do Sample",
+                "param_key": "do_sample",
+                "type": "checkbox",
+                "description": "Enable sampling instead of greedy decoding (required for temperature/top_p/top_k)",
+                "group": "mode"
             },
             {
                 "name": "Temperature",
                 "param_key": "temperature",
                 "type": "number",
-                "min": 0,
+                "min": 0.1,
                 "max": 2,
                 "step": 0.1,
-                "description": "Sampling temperature for randomness"
+                "description": "Sampling temperature for randomness",
+                "group": "sampling",
+                "requires": "do_sample"
             },
             {
                 "name": "Top P",
@@ -244,7 +260,9 @@ class LlavaPhiAdapter(BaseModelAdapter):
                 "min": 0,
                 "max": 1,
                 "step": 0.01,
-                "description": "Nucleus sampling probability threshold"
+                "description": "Nucleus sampling probability threshold",
+                "group": "sampling",
+                "requires": "do_sample"
             },
             {
                 "name": "Top K",
@@ -253,13 +271,9 @@ class LlavaPhiAdapter(BaseModelAdapter):
                 "min": 0,
                 "max": 200,
                 "step": 1,
-                "description": "Top-k sampling: limit to k highest probability tokens"
-            },
-            {
-                "name": "Do Sample",
-                "param_key": "do_sample",
-                "type": "checkbox",
-                "description": "Enable sampling instead of greedy decoding (default: disabled)"
+                "description": "Top-k sampling: limit to k highest probability tokens",
+                "group": "sampling",
+                "requires": "do_sample"
             },
             {
                 "name": "Num Beams",
@@ -268,7 +282,9 @@ class LlavaPhiAdapter(BaseModelAdapter):
                 "min": 1,
                 "max": 10,
                 "step": 1,
-                "description": "Number of beams for beam search (1 = no beam search)"
+                "description": "Number of beams for beam search (>1 disables sampling)",
+                "group": "beam_search",
+                "conflicts_with": "do_sample"
             },
             {
                 "name": "Repetition Penalty",
@@ -277,7 +293,8 @@ class LlavaPhiAdapter(BaseModelAdapter):
                 "min": 1,
                 "max": 2,
                 "step": 0.1,
-                "description": "Penalty for repeating tokens"
+                "description": "Penalty for repeating tokens",
+                "group": "general"
             },
             {
                 "name": "Precision",
@@ -290,13 +307,15 @@ class LlavaPhiAdapter(BaseModelAdapter):
                     {"value": "4bit", "label": "4-bit Quantized"},
                     {"value": "8bit", "label": "8-bit Quantized"}
                 ],
-                "description": "Model precision mode (requires model reload)"
+                "description": "Model precision mode (requires model reload)",
+                "group": "advanced"
             },
             {
                 "name": "Use Flash Attention 2",
                 "param_key": "use_flash_attention",
                 "type": "checkbox",
-                "description": "Enable Flash Attention for better performance (requires flash-attn package)"
+                "description": "Enable Flash Attention for better performance (requires flash-attn package)",
+                "group": "advanced"
             },
             {
                 "name": "Batch Size",
@@ -305,7 +324,8 @@ class LlavaPhiAdapter(BaseModelAdapter):
                 "min": 1,
                 "max": 16,
                 "step": 1,
-                "description": "Number of images to process simultaneously (higher = faster but more VRAM)"
+                "description": "Number of images to process simultaneously (higher = faster but more VRAM)",
+                "group": "advanced"
             }
         ]
 

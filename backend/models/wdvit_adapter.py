@@ -128,7 +128,7 @@ class WdVitAdapter(BaseModelAdapter):
             self.model = AutoModelForImageClassification.from_pretrained(
                 self.model_name,
                 trust_remote_code=True,
-                dtype=self.dtype
+                torch_dtype=self.dtype
             )
             self.model.to(self.device)
             self.model.eval()

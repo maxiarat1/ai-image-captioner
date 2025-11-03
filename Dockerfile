@@ -9,7 +9,7 @@ FROM nvidia/cuda:${CUDA_BASE_VERSION}-${CUDNN_SUFFIX}-runtime-ubuntu22.04
 
 # Re-declare build arguments (ARG before FROM are not available after)
 ARG CUDA_VERSION=cu121
-ARG PYTHON_VERSION=3.10
+ARG PYTHON_VERSION=3.12
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive \

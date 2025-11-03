@@ -48,7 +48,7 @@ class R4BAdapter(BaseModelAdapter):
             model_kwargs = {"trust_remote_code": True, "quantization_config": self.quantization_config}
 
             if precision not in ["4bit", "8bit"]:
-                model_kwargs["dtype"] = self._get_dtype(precision)
+                model_kwargs["torch_dtype"] = self._get_dtype(precision)
 
             # Setup flash attention if requested
             if use_flash_attention:
@@ -78,6 +78,7 @@ class R4BAdapter(BaseModelAdapter):
 
             # Build generation parameters
             gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
+            gen_params = self._sanitize_generation_params(gen_params)
 
             prompt = prompt or "Describe this image."
 
@@ -129,6 +130,7 @@ class R4BAdapter(BaseModelAdapter):
 
             # Build generation parameters
             gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
+            gen_params = self._sanitize_generation_params(gen_params)
 
             # Build batch messages
             batch_messages = []
@@ -196,16 +198,26 @@ class R4BAdapter(BaseModelAdapter):
                 "min": 1,
                 "max": 32768,
                 "step": 1,
-                "description": "Maximum number of new tokens to generate"
+                "description": "Maximum number of new tokens to generate",
+                "group": "general"
+            },
+            {
+                "name": "Do Sample",
+                "param_key": "do_sample",
+                "type": "checkbox",
+                "description": "Enable sampling (required for temperature/top_p/top_k to work)",
+                "group": "mode"
             },
             {
                 "name": "Temperature",
                 "param_key": "temperature",
                 "type": "number",
-                "min": 0,
+                "min": 0.1,
                 "max": 2,
                 "step": 0.1,
-                "description": "Sampling temperature for randomness"
+                "description": "Sampling temperature for randomness",
+                "group": "sampling",
+                "requires": "do_sample"
             },
             {
                 "name": "Top P",
@@ -214,7 +226,9 @@ class R4BAdapter(BaseModelAdapter):
                 "min": 0,
                 "max": 1,
                 "step": 0.01,
-                "description": "Nucleus sampling probability threshold"
+                "description": "Nucleus sampling probability threshold",
+                "group": "sampling",
+                "requires": "do_sample"
             },
             {
                 "name": "Top K",
@@ -223,7 +237,9 @@ class R4BAdapter(BaseModelAdapter):
                 "min": 0,
                 "max": 200,
                 "step": 1,
-                "description": "Top-k sampling: limit to k highest probability tokens"
+                "description": "Top-k sampling: limit to k highest probability tokens",
+                "group": "sampling",
+                "requires": "do_sample"
             },
             {
                 "name": "Thinking Mode",
@@ -234,7 +250,8 @@ class R4BAdapter(BaseModelAdapter):
                     {"value": "short", "label": "Short"},
                     {"value": "long", "label": "Long"}
                 ],
-                "description": "Verbosity of reasoning process"
+                "description": "Verbosity of reasoning process",
+                "group": "general"
             },
             {
                 "name": "Precision",
@@ -247,13 +264,15 @@ class R4BAdapter(BaseModelAdapter):
                     {"value": "4bit", "label": "4-bit Quantized"},
                     {"value": "8bit", "label": "8-bit Quantized"}
                 ],
-                "description": "Model precision mode (requires model reload)"
+                "description": "Model precision mode (requires model reload)",
+                "group": "advanced"
             },
             {
                 "name": "Use Flash Attention 2",
                 "param_key": "use_flash_attention",
                 "type": "checkbox",
-                "description": "Enable Flash Attention for better performance (requires flash-attn package)"
+                "description": "Enable Flash Attention for better performance (requires flash-attn package)",
+                "group": "advanced"
             },
             {
                 "name": "Batch Size",
@@ -262,7 +281,8 @@ class R4BAdapter(BaseModelAdapter):
                 "min": 1,
                 "max": 8,
                 "step": 1,
-                "description": "Number of images to process simultaneously (higher = faster but more VRAM)"
+                "description": "Number of images to process simultaneously (higher = faster but more VRAM)",
+                "group": "advanced"
             }
         ]
 

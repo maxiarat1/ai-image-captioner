@@ -50,11 +50,88 @@ class BaseModelAdapter(ABC):
             return [img.convert('RGB') if img.mode != 'RGB' else img for img in images]
         return images.convert('RGB') if images.mode != 'RGB' else images
 
-    def _filter_generation_params(self, parameters: dict, exclude_keys: set) -> dict:
-        """Filter parameters to only include generation params (exclude special keys)"""
+    def _filter_generation_params(self, parameters: dict, exclude_keys: set = None) -> dict:
+        """
+        Filter parameters to only include valid generation params for this model.
+        
+        This method filters in two ways:
+        1. Excludes keys in exclude_keys (model-specific special params like 'precision')
+        2. Only includes params that are declared in get_available_parameters()
+        
+        This prevents parameters from other models from being passed through.
+        """
         if not parameters:
             return {}
-        return {k: v for k, v in parameters.items() if k not in exclude_keys}
+        
+        # Get valid parameter keys for this model
+        available_params = self.get_available_parameters()
+        valid_param_keys = {param['param_key'] for param in available_params if 'param_key' in param}
+        
+        # Filter: exclude special keys AND only include valid params for this model
+        exclude_keys = exclude_keys or set()
+        return {
+            k: v for k, v in parameters.items() 
+            if k not in exclude_keys and k in valid_param_keys
+        }
+
+    def _sanitize_generation_params(self, parameters: dict) -> dict:
+        """
+        Sanitize generation parameters based on LLM generation dependencies.
+        
+        Applies these rules:
+        - If do_sample=True (or sample=True): enables top_k, top_p, temperature
+        - If do_sample=False or num_beams>1: uses beam search mode (disables sampling params)
+        - Removes conflicting parameters to prevent errors
+        
+        Returns sanitized parameters dictionary.
+        """
+        if not parameters:
+            return {}
+        
+        params = parameters.copy()
+        
+        # Check sampling mode (do_sample is the standard parameter name in HF)
+        do_sample = params.get('do_sample', params.get('sample', False))
+        num_beams = params.get('num_beams', 1)
+        
+        # Rule: Can't combine sampling with beam search (num_beams>1)
+        if do_sample and num_beams > 1:
+            logger.warning("Conflicting parameters: do_sample=True with num_beams=%d. Disabling sampling.", num_beams)
+            do_sample = False
+            params['do_sample'] = False
+            if 'sample' in params:
+                params['sample'] = False
+        
+        # If beam search mode (num_beams > 1), remove sampling parameters
+        if num_beams > 1 and not do_sample:
+            sampling_params = ['temperature', 'top_p', 'top_k']
+            for param in sampling_params:
+                if param in params:
+                    logger.debug("Removing %s (only works with sampling mode)", param)
+                    del params[param]
+        
+        # If sampling disabled, remove sampling-only parameters
+        if not do_sample:
+            sampling_params = ['temperature', 'top_p', 'top_k']
+            for param in sampling_params:
+                if param in params:
+                    logger.debug("Removing %s (do_sample=False)", param)
+                    del params[param]
+        
+        # If sampling enabled, ensure num_beams is 1 (default for sampling)
+        if do_sample and num_beams > 1:
+            logger.debug("Sampling mode: setting num_beams=1")
+            params['num_beams'] = 1
+        
+        # beam search specific parameters only work with num_beams > 1
+        if num_beams <= 1:
+            beam_params = ['length_penalty', 'early_stopping', 'num_beam_groups', 'diversity_penalty']
+            for param in beam_params:
+                if param in params:
+                    logger.debug("Removing %s (requires num_beams>1)", param)
+                    del params[param]
+        
+        return params
 
     def _setup_pad_token(self):
         """Ensure tokenizer has a pad token set (use EOS token if not set)"""
@@ -124,7 +201,7 @@ class BaseModelAdapter(ABC):
 
             # Optionally force bfloat16 dtype 
             if force_bfloat16 and precision not in ["4bit", "8bit"]:
-                model_kwargs["dtype"] = torch.bfloat16
+                model_kwargs["torch_dtype"] = torch.bfloat16
                 logger.info("Using Flash Attention 2 (dtype=bfloat16)")
             else:
                 logger.info("Using Flash Attention 2")
