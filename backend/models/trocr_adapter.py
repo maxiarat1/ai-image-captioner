@@ -17,11 +17,12 @@ class TrOCRAdapter(BaseModelAdapter):
     Adapter for Microsoft TrOCR model with doctr text detection.
 
     Two-stage OCR approach:
-    1. Text region detection using doctr's ocr_predictor
-    2. Text recognition using TrOCR on detected regions
+    1. Word-level text detection using doctr's ocr_predictor
+    2. Text recognition using TrOCR on detected word regions
+    3. Intelligent line reconstruction by grouping words based on vertical proximity
     """
 
-    SPECIAL_PARAMS = {"batch_size", "use_fast", "line_separator", "sort_boxes"}
+    SPECIAL_PARAMS = {"batch_size", "use_fast", "line_separator", "sort_boxes", "line_threshold"}
 
     def __init__(self, model_id: str = "microsoft/trocr-large-printed"):
         super().__init__(model_id)
@@ -61,6 +62,10 @@ class TrOCRAdapter(BaseModelAdapter):
             raise
 
     def _detect_text_regions(self, image: Image.Image) -> List[tuple]:
+        """
+        Detect text regions at word-level using doctr.
+        Returns list of bounding boxes in absolute pixel coordinates.
+        """
         import tempfile, os
         with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
             tmp_path = tmp.name
@@ -68,14 +73,27 @@ class TrOCRAdapter(BaseModelAdapter):
         try:
             doc = DocumentFile.from_images(tmp_path)
             result = self.detector(doc)
-            if not result.pages:
+            exported = result.export()
+            
+            if not exported.get('pages'):
                 return []
-            page = result.pages[0]
+            
+            page = exported['pages'][0]
+            width, height = image.size
             boxes = []
-            for block in page.blocks:
-                for line in block.lines:
-                    (x_min, y_min), (x_max, y_max) = line.geometry
-                    boxes.append((x_min, y_min, x_max, y_max))
+            
+            # Extract word-level bounding boxes
+            for block in page.get('blocks', []):
+                for line in block.get('lines', []):
+                    for word in line.get('words', []):
+                        ((x1, y1), (x2, y2)) = word['geometry']
+                        # Convert normalized coordinates to absolute pixels
+                        x1, y1, x2, y2 = (
+                            int(x1 * width), int(y1 * height),
+                            int(x2 * width), int(y2 * height)
+                        )
+                        boxes.append((x1, y1, x2, y2))
+            
             return boxes
         finally:
             if os.path.exists(tmp_path):
@@ -86,21 +104,69 @@ class TrOCRAdapter(BaseModelAdapter):
         Sort text region boxes according to the specified reading order.
 
         Args:
-            boxes: List of (x_min, y_min, x_max, y_max) tuples in normalized coordinates
+            boxes: List of (x1, y1, x2, y2) tuples in absolute pixel coordinates
             sort_order: One of "top-to-bottom", "left-to-right", or "none"
 
         Returns:
             Sorted list of boxes
         """
         if sort_order == "top-to-bottom":
-            # Sort by y_min (top edge), then by x_min (left edge) for ties
+            # Sort by y1 (top edge), then by x1 (left edge) for ties
             return sorted(boxes, key=lambda box: (box[1], box[0]))
         elif sort_order == "left-to-right":
-            # Sort by x_min (left edge), then by y_min (top edge) for ties
+            # Sort by x1 (left edge), then by y1 (top edge) for ties
             return sorted(boxes, key=lambda box: (box[0], box[1]))
         else:
             # "none" - return as-is (detection order)
             return boxes
+
+    def _group_words_into_lines(self, word_results: List[dict], line_threshold: int = 20) -> List[str]:
+        """
+        Group recognized words into lines based on vertical proximity.
+        
+        Args:
+            word_results: List of dicts with 'bbox' (x1, y1, x2, y2) and 'text'
+            line_threshold: Maximum vertical distance (pixels) to group words into same line
+            
+        Returns:
+            List of strings, each representing a line of text
+        """
+        if not word_results:
+            return []
+        
+        # Sort words by top-to-bottom first, then left-to-right
+        word_results.sort(key=lambda r: (r["bbox"][1], r["bbox"][0]))
+        
+        lines = []
+        current_line = []
+        
+        for word_result in word_results:
+            if not current_line:
+                current_line.append(word_result)
+                continue
+            
+            prev_y = current_line[-1]["bbox"][1]  # y1 coordinate of previous word
+            curr_y = word_result["bbox"][1]  # y1 coordinate of current word
+            
+            if abs(curr_y - prev_y) < line_threshold:
+                # Same line
+                current_line.append(word_result)
+            else:
+                # New line - sort current line left-to-right and save
+                current_line.sort(key=lambda w: w["bbox"][0])
+                line_text = " ".join(w["text"] for w in current_line if w["text"])
+                if line_text:
+                    lines.append(line_text)
+                current_line = [word_result]
+        
+        # Handle last line
+        if current_line:
+            current_line.sort(key=lambda w: w["bbox"][0])
+            line_text = " ".join(w["text"] for w in current_line if w["text"])
+            if line_text:
+                lines.append(line_text)
+        
+        return lines
 
     def _recognize_text_from_crop(self, crop: Image.Image, parameters: dict = None) -> str:
         """
@@ -133,34 +199,42 @@ class TrOCRAdapter(BaseModelAdapter):
             if line_separator == "\\n":
                 line_separator = "\n"
             sort_boxes = parameters.get("sort_boxes", "none") if parameters else "none"
+            line_threshold = parameters.get("line_threshold", 20) if parameters else 20
 
+            # Detect word-level bounding boxes
             boxes = self._detect_text_regions(image)
             num_boxes = len(boxes)
-            logger.info("TrOCR detected %d text box(es) in image", num_boxes)
-
-            # Sort boxes if requested
-            if num_boxes > 0 and sort_boxes != "none":
-                boxes = self._sort_boxes(boxes, sort_boxes)
-
-            recognized_lines = []
+            logger.info("TrOCR detected %d word box(es) in image", num_boxes)
 
             if num_boxes == 0:
-                logger.info("No boxes detected, processing whole image")
-                text = self._recognize_text_from_crop(image, parameters)
-                if text:
-                    recognized_lines.append(text)
-            else:
-                width, height = image.size
-                for x_min, y_min, x_max, y_max in boxes:
-                    left, top = int(x_min * width), int(y_min * height)
-                    right, bottom = int(x_max * width), int(y_max * height)
-                    crop = image.crop((left, top, right, bottom))
-                    text = self._recognize_text_from_crop(crop, parameters)
-                    if text:
-                        recognized_lines.append(text)
+                logger.info("No text regions detected in image")
+                return ""
 
-            final_text = line_separator.join(recognized_lines)
-            logger.info("Total lines recognized: %d", len(recognized_lines))
+            # Recognize text from each word box
+            word_results = []
+            for (x1, y1, x2, y2) in boxes:
+                # Skip very small crops
+                if (x2 - x1) < 5 or (y2 - y1) < 5:
+                    continue
+                
+                crop = image.crop((x1, y1, x2, y2))
+                text = self._recognize_text_from_crop(crop, parameters)
+                if text:
+                    word_results.append({"bbox": (x1, y1, x2, y2), "text": text})
+
+            logger.info("Successfully recognized %d words", len(word_results))
+
+            # If no readable text was recognized, return empty
+            if not word_results:
+                logger.info("No readable text recognized in detected regions")
+                return ""
+
+            # Group words into lines based on vertical proximity
+            lines = self._group_words_into_lines(word_results, line_threshold)
+            
+            # Apply final line separator
+            final_text = line_separator.join(lines)
+            logger.info("Total lines reconstructed: %d", len(lines))
             return final_text if final_text else ""
 
         except Exception as e:
@@ -307,6 +381,15 @@ class TrOCRAdapter(BaseModelAdapter):
                     {"value": " | ", "label": "Pipe ( | )"},
                 ],
                 "description": "Character(s) to join detected text lines"
+            },
+            {
+                "name": "Line Threshold",
+                "param_key": "line_threshold",
+                "type": "number",
+                "min": 5,
+                "max": 100,
+                "step": 5,
+                "description": "Maximum vertical distance (pixels) to group words into same line (default: 20)"
             },
             {
                 "name": "Sort Reading Order",
