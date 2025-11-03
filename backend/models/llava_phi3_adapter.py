@@ -126,13 +126,15 @@ class LlavaPhiAdapter(BaseModelAdapter):
 
             # Build generation parameters
             gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
-            gen_params = self._sanitize_generation_params(gen_params)
-
-            # Set defaults if not provided
+            
+            # Set defaults before sanitization
             if 'max_new_tokens' not in gen_params:
                 gen_params['max_new_tokens'] = 200
             if 'do_sample' not in gen_params:
                 gen_params['do_sample'] = False  # Greedy decoding by default
+            
+            # Sanitize after defaults
+            gen_params = self._sanitize_generation_params(gen_params)
 
             logger.debug("LLaVA-Phi-3 params: %s", gen_params)
 
@@ -183,13 +185,15 @@ class LlavaPhiAdapter(BaseModelAdapter):
 
             # Build generation parameters
             gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
-            gen_params = self._sanitize_generation_params(gen_params)
-
-            # Set defaults if not provided
+            
+            # Set defaults before sanitization
             if 'max_new_tokens' not in gen_params:
                 gen_params['max_new_tokens'] = 200
             if 'do_sample' not in gen_params:
                 gen_params['do_sample'] = False
+            
+            # Sanitize after defaults
+            gen_params = self._sanitize_generation_params(gen_params)
 
             # Generate for batch
             with torch.no_grad():

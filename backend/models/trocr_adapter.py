@@ -112,7 +112,6 @@ class TrOCRAdapter(BaseModelAdapter):
 
         gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
         gen_params = self._sanitize_generation_params(gen_params)
-        gen_params.setdefault("max_new_tokens", 256)
 
         # Ensure dtype alignment and safe inference
         with torch.no_grad(), torch.autocast(device_type=self.device.type, dtype=model_dtype):

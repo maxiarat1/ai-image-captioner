@@ -104,7 +104,7 @@ class NanonetsOCRAdapter(BaseModelAdapter):
             # Default deterministic-ish OCR prompt if none provided
             prompt = (prompt or self._default_prompt()).strip()
 
-            # Build chat-style messages (supported by this processor/model)
+            # Build chat-style messages (supported by this processor/model)f
             messages = [
                 {"role": "system", "content": "You are a helpful OCR assistant."},
                 {
@@ -131,12 +131,12 @@ class NanonetsOCRAdapter(BaseModelAdapter):
 
             # Generation parameters
             gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
-            gen_params = self._sanitize_generation_params(gen_params)
-
-            # Reasonable defaults for OCR
+            
+            # Apply defaults before sanitization
             gen_params.setdefault("do_sample", False)
-            gen_params.setdefault("temperature", 0.1)
-            gen_params.setdefault("max_new_tokens", 1024)
+
+            # Sanitize after defaults (will remove temperature if do_sample=False)
+            gen_params = self._sanitize_generation_params(gen_params)
 
             logger.debug("Nanonets OCR gen params: %s", gen_params)
 
@@ -204,10 +204,13 @@ class NanonetsOCRAdapter(BaseModelAdapter):
             inputs = self._move_inputs_to_device(inputs, self.device, model_dtype)
 
             gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
-            gen_params = self._sanitize_generation_params(gen_params)
+            
+            # Apply defaults before sanitization
             gen_params.setdefault("do_sample", False)
-            gen_params.setdefault("temperature", 0.1)
             gen_params.setdefault("max_new_tokens", 1024)
+            
+            # Sanitize after defaults (will remove temperature if do_sample=False)
+            gen_params = self._sanitize_generation_params(gen_params)
 
             with torch.no_grad():
                 generated_ids = self.model.generate(**inputs, **gen_params)
