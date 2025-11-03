@@ -50,11 +50,29 @@ class BaseModelAdapter(ABC):
             return [img.convert('RGB') if img.mode != 'RGB' else img for img in images]
         return images.convert('RGB') if images.mode != 'RGB' else images
 
-    def _filter_generation_params(self, parameters: dict, exclude_keys: set) -> dict:
-        """Filter parameters to only include generation params (exclude special keys)"""
+    def _filter_generation_params(self, parameters: dict, exclude_keys: set = None) -> dict:
+        """
+        Filter parameters to only include valid generation params for this model.
+        
+        This method filters in two ways:
+        1. Excludes keys in exclude_keys (model-specific special params like 'precision')
+        2. Only includes params that are declared in get_available_parameters()
+        
+        This prevents parameters from other models from being passed through.
+        """
         if not parameters:
             return {}
-        return {k: v for k, v in parameters.items() if k not in exclude_keys}
+        
+        # Get valid parameter keys for this model
+        available_params = self.get_available_parameters()
+        valid_param_keys = {param['param_key'] for param in available_params if 'param_key' in param}
+        
+        # Filter: exclude special keys AND only include valid params for this model
+        exclude_keys = exclude_keys or set()
+        return {
+            k: v for k, v in parameters.items() 
+            if k not in exclude_keys and k in valid_param_keys
+        }
 
     def _setup_pad_token(self):
         """Ensure tokenizer has a pad token set (use EOS token if not set)"""

@@ -94,7 +94,7 @@ class JanusAdapter(BaseModelAdapter):
         try:
             image = self._ensure_rgb(image)
 
-            # Build generation parameters
+            # Build generation parameters (filter to only valid params for this model)
             gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
 
             # Use default prompt if none provided

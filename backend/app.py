@@ -4,6 +4,7 @@ import zipfile
 import os
 import logging
 import asyncio
+import webbrowser
 from pathlib import Path
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
@@ -81,7 +82,7 @@ MODEL_METADATA = {
     },
     'blip2': {
         'category': 'general',
-        'description': "BLIP2-OPT-2.7B - Enhanced captioning with configurable precision",
+        'description': "BLIP2-OPT-2.7B - Enhanced captioning",
         'adapter': Blip2Adapter,
         'adapter_args': {'model_id': "Salesforce/blip2-opt-2.7b"}
     },
@@ -804,6 +805,9 @@ def internal_error(e):
     return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == '__main__':
+    frontend_path = os.path.join(os.path.dirname(__file__), "../frontend/index.html")
+    frontend_path = os.path.abspath(frontend_path)
+    webbrowser.open(f"file://{frontend_path}")
     app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE  # None = no limit
     init_models()
     flask_debug = os.environ.get("FLASK_DEBUG", "0") == "1"

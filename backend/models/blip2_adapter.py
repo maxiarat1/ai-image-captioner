@@ -16,41 +16,41 @@ class Blip2Adapter(BaseModelAdapter):
         self.device = self._init_device(torch)
         self.model_dtype = None
 
-    def load_model(self, precision: str = "float16") -> None:
+    def load_model(self, precision: str = "bfloat16", *args, **kwargs) -> None:
         try:
             logger.info("Loading BLIP2 model %s on %s with precision=%s…", self.model_id, self.device, precision)
 
             # Prefer fast image processor/tokenizer when available to avoid HF warning
             self.processor = Blip2Processor.from_pretrained(self.model_id, use_fast=True)
 
-            # Determine dtype and quantization config
-            quantization_config = None
-            if precision in ["4bit", "8bit"]:
-                quantization_config = self._create_quantization_config(precision)
-            
-            model_dtype = self._get_dtype(precision)
+            # Determine dtype - only support bfloat16 and float32 for BLIP2
+            if precision == "bfloat16":
+                dtype = torch.bfloat16
+            elif precision == "float32":
+                dtype = torch.float32
+            else:
+                logger.warning("Unsupported precision '%s' for BLIP2; falling back to float32", precision)
+                dtype = torch.float32
 
-            # Build model kwargs
+            # Build model kwargs (device placement handled by from_pretrained/device move)
             model_kwargs = {"device_map": {"": 0}} if self.device == "cuda" else {}
+            model_kwargs["torch_dtype"] = dtype
 
-            if quantization_config:
-                model_kwargs["quantization_config"] = quantization_config
-                # For quantized models, set compute dtype explicitly when reasonable
-                model_kwargs["torch_dtype"] = torch.float16
-            elif model_dtype != "auto":
-                model_kwargs["torch_dtype"] = model_dtype
-
+            # Load model with chosen dtype
             self.model = Blip2ForConditionalGeneration.from_pretrained(
                 self.model_id,
                 **model_kwargs
             )
 
-            # Move to device if not using quantization (which handles device placement)
-            if not quantization_config:
+            # Move to device (when necessary, set dtype on CUDA)
+            if self.device == "cuda":
+                self.model.to(self.device, dtype=dtype)
+            else:
+                # Some devices/torch builds may not support bfloat16 on CPU; keep as loaded
                 self.model.to(self.device)
 
             self.model.eval()
-            self.model_dtype = model_kwargs.get("torch_dtype", torch.float32)
+            self.model_dtype = dtype
 
             # Setup pad token for batch processing
             self._setup_pad_token()
@@ -156,13 +156,10 @@ class Blip2Adapter(BaseModelAdapter):
                 "param_key": "precision",
                 "type": "select",
                 "options": [
-                    {"label": "FP32 (High Quality)", "value": "float32"},
-                    {"label": "FP16 (Balanced)", "value": "float16"},
-                    {"label": "BF16 (Best for A100/H100)", "value": "bfloat16"},
-                    {"label": "8-bit (Low VRAM)", "value": "8bit"},
-                    {"label": "4-bit (Minimal VRAM)", "value": "4bit"}
+                    {"label": "FP32", "value": "float32"},
+                    {"label": "BF16 (bfloat16)", "value": "bfloat16"}
                 ],
-                "description": "Precision mode - lower precision uses less VRAM (requires model reload)"
+                "description": "Precision mode - BLIP2 supports FP32 and BF16 (requires model reload)"
             },
             {
                 "name": "Max Length",

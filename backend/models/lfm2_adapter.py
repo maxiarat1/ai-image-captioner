@@ -33,22 +33,19 @@ class LFM2Adapter(BaseModelAdapter):
                 "device_map": "auto"
             }
 
-            # Handle quantization (4bit/8bit)
-            if precision == "8bit":
-                model_kwargs["load_in_8bit"] = True
-                logger.info("Using 8-bit quantization")
-            elif precision == "4bit":
-                model_kwargs["load_in_4bit"] = True
-                logger.info("Using 4-bit quantization")
-            else:
-                # Handle float precision
-                model_dtype = self._get_dtype(precision)
-                if model_dtype != "auto":
-                    model_kwargs["torch_dtype"] = model_dtype
+            # LFM2 does not support bitsandbytes quantization (4bit/8bit) due to tensor layout incompatibility
+            # Only handle float precision
+            if precision in ["8bit", "4bit"]:
+                logger.warning("LFM2 does not support %s quantization. Falling back to bfloat16.", precision)
+                precision = "bfloat16"
+            
+            model_dtype = self._get_dtype(precision)
+            if model_dtype != "auto":
+                model_kwargs["torch_dtype"] = model_dtype
 
-                # Setup Flash Attention if requested and available
-                if use_flash_attention:
-                    self._setup_flash_attention(model_kwargs, precision, force_bfloat16=False)
+            # Setup Flash Attention if requested and available
+            if use_flash_attention:
+                self._setup_flash_attention(model_kwargs, precision, force_bfloat16=False)
 
             # Load model
             self.model = AutoModelForImageTextToText.from_pretrained(
@@ -163,13 +160,11 @@ class LFM2Adapter(BaseModelAdapter):
                 "options": [
                     {"value": "float32", "label": "Float32 (Best quality, most VRAM)"},
                     {"value": "float16", "label": "Float16 (Balanced)"},
-                    {"value": "bfloat16", "label": "BFloat16 (Recommended)"},
-                    {"value": "8bit", "label": "8-bit (Low VRAM)"},
-                    {"value": "4bit", "label": "4-bit (Minimal VRAM)"}
+                    {"value": "bfloat16", "label": "BFloat16 (Recommended)"}
                 ],
                 "default": "bfloat16",
                 "reload_required": True,
-                "description": "Model precision (requires reload when changed)"
+                "description": "Model precision (Note: LFM2 does not support 4-bit/8-bit quantization)"
             },
             {
                 "name": "Flash Attention",
