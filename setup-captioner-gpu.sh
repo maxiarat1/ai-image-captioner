@@ -213,6 +213,8 @@ elif [[ "$CUDA_LABEL" == "cu121" ]]; then
     # Install Doctr with Torch support
     pip install python-doctr[torch]
 
+    # Install ONNX Runtime GPU
+    pip install onnxruntime-gpu
     # Verify
     verify_stack
 

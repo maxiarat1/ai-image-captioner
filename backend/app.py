@@ -24,6 +24,8 @@ from models.nanonets_ocr_adapter import NanonetsOCRAdapter
 from models.trocr_adapter import TrOCRAdapter
 from models.llava_phi3_adapter import LlavaPhiAdapter
 from models.lfm2_adapter import LFM2Adapter
+from models.wd14_convnext_adapter import Wd14ConvNextAdapter
+from models.vit_classifier_adapter import VitClassifierAdapter
 from utils.image_utils import load_image, image_to_base64
 from utils.logging_utils import setup_logging
 from database import SessionManager, AsyncSessionManager
@@ -104,6 +106,12 @@ MODEL_METADATA = {
         'adapter': WdVitAdapter,
         'adapter_args': {'model_id': "SmilingWolf/wd-eva02-large-tagger-v3"}
     },
+    'wd14-convnext': {
+        'category': 'anime',
+        'description': "WD v1.4 ConvNext Tagger v2 - Fast ONNX-based anime tagging (optimized inference)",
+        'adapter': Wd14ConvNextAdapter,
+        'adapter_args': {'model_id': "SmilingWolf/wd-v1-4-convnext-tagger-v2"}
+    },
     'janus-1.3b': {
         'category': 'multimodal',
         'description': "Janus 1.3B - Multimodal vision-language model with efficient architecture",
@@ -151,6 +159,12 @@ MODEL_METADATA = {
         'description': "LLaVA-Phi-3-Mini - Compact and efficient vision-language model",
         'adapter': LlavaPhiAdapter,
         'adapter_args': {'model_id': "xtuner/llava-phi-3-mini-hf"}
+    },
+    'vit-classifier': {
+        'category': 'general',
+        'description': "Google ViT Base - ImageNet classification model (1000 object classes)",
+        'adapter': VitClassifierAdapter,
+        'adapter_args': {'model_id': "google/vit-base-patch16-224"}
     }
 }
 
