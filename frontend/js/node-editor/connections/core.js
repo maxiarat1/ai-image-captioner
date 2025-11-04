@@ -426,11 +426,15 @@
         }
 
         // Remove any existing connection to the same input port (single input rule)
-        const existingToInput = NodeEditor.connections.find(c =>
-            c.to === toNode && c.toPort === toPort
-        );
-        if (existingToInput) {
-            NEConnections.deleteConnection(existingToInput.id);
+        // Exception: Conjunction nodes can accept multiple connections on their text input
+        const allowMultiple = toNodeObj.type === 'conjunction' && toPortType === 'text';
+        if (!allowMultiple) {
+            const existingToInput = NodeEditor.connections.find(c =>
+                c.to === toNode && c.toPort === toPort
+            );
+            if (existingToInput) {
+                NEConnections.deleteConnection(existingToInput.id);
+            }
         }
 
         // Create and add connection
