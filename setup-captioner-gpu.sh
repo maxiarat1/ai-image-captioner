@@ -162,67 +162,70 @@ sys.exit(0)
 PY
 }
 
-# Convert Python version to CPython ABI tag (e.g., "3.12" -> "cp312", "3.10" -> "cp310")
+# Convert Python version to CPython ABI tag
 PY_ABI_TAG="cp${PYTHON_VERSION//./}"
 
-if [[ "$CUDA_LABEL" == "cu128" ]]; then
-    echo "🐉 Setting up environment for CUDA 12.8 (RTX 50-series or newer)"
+# Get additional configuration from version.json
+PYTORCH_CONFIG=$(jq -r --arg ver "$CUDA_VERSION" '.build_configs | to_entries[] | select(.value.cuda_version_display == $ver) | .value.pytorch' version.json)
+FA_CONFIG=$(jq -r --arg ver "$CUDA_VERSION" '.build_configs | to_entries[] | select(.value.cuda_version_display == $ver) | .value.flash_attention' version.json)
+ADD_PACKAGES=$(jq -r --arg ver "$CUDA_VERSION" '.build_configs | to_entries[] | select(.value.cuda_version_display == $ver) | .value.additional_packages' version.json)
 
-    conda create -n captioner-gpu python="$PYTHON_VERSION" -y
-    conda activate captioner-gpu
+# Parse configuration values
+PYTORCH_METHOD=$(echo "$PYTORCH_CONFIG" | jq -r '.install_method')
+PYTORCH_VERSION=$(echo "$PYTORCH_CONFIG" | jq -r '.version')
+TORCHVISION_VERSION=$(echo "$PYTORCH_CONFIG" | jq -r '.torchvision')
+TORCHAUDIO_VERSION=$(echo "$PYTORCH_CONFIG" | jq -r '.torchaudio')
+PYTORCH_INDEX_URL=$(echo "$PYTORCH_CONFIG" | jq -r '.index_url // empty')
+PYTORCH_CUDA=$(echo "$PYTORCH_CONFIG" | jq -r '.pytorch_cuda // empty')
 
-    # Install PyTorch stack (CUDA 12.8 wheels from PyTorch site)
-    pip install torch==2.7.1+cu128 torchvision==0.22.1+cu128 torchaudio==2.7.1+cu128 \
-      --index-url https://download.pytorch.org/whl/cu128
+FA_VERSION=$(echo "$FA_CONFIG" | jq -r '.version')
+FA_CUDA_SUFFIX=$(echo "$FA_CONFIG" | jq -r '.cuda_suffix')
 
-    # Recommended build helpers
-    pip install packaging ninja
+# Create and activate conda environment
+conda create -n captioner-gpu python="$PYTHON_VERSION" -y
+conda activate captioner-gpu
 
-    # Install FlashAttention 2 (prebuilt binary for CUDA 12.x + Torch 2.7)
-    FA_WHEEL="flash_attn-2.8.2+cu12torch2.7cxx11abiFALSE-${PY_ABI_TAG}-${PY_ABI_TAG}-linux_x86_64.whl"
-    FA_URL="https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.2/${FA_WHEEL}"
-    echo "Downloading FlashAttention wheel for Python ${PYTHON_VERSION}: ${FA_WHEEL}"
-    wget "$FA_URL"
-    pip install "$FA_WHEEL" --no-build-isolation
-    rm "$FA_WHEEL"
-
-    # Verify
-    verify_stack
-
-elif [[ "$CUDA_LABEL" == "cu121" ]]; then
-    echo "⚡ Setting up environment for CUDA 12.1 (RTX 20/30/40-series)"
-
-    conda create -n captioner-gpu python="$PYTHON_VERSION" -y
-    conda activate captioner-gpu
-
-    # Install official PyTorch 2.5 stack for CUDA 12.1
-    conda install pytorch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 pytorch-cuda=12.1 \
-      -c pytorch -c nvidia -y
-
-    # Build helpers
-    pip install packaging ninja
-
-    # Install FlashAttention 2.8.3 prebuilt wheel (CUDA 12.x + Torch 2.5)
-    FA_WHEEL="flash_attn-2.8.3+cu12torch2.5cxx11abiFALSE-${PY_ABI_TAG}-${PY_ABI_TAG}-linux_x86_64.whl"
-    FA_URL="https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/${FA_WHEEL}"
-    echo "Downloading FlashAttention wheel for Python ${PYTHON_VERSION}: ${FA_WHEEL}"
-    wget "$FA_URL"
-    pip install "$FA_WHEEL" --no-build-isolation
-    rm "$FA_WHEEL"
-
-    # Install Doctr with Torch support
-    pip install python-doctr[torch]
-
-    # Install ONNX Runtime GPU
-    pip install onnxruntime-gpu
-    # Verify
-    verify_stack
-
-else
-    echo "❌ Unsupported or unknown CUDA label from version.json: $CUDA_LABEL"
-    echo "Please ensure version.json contains a supported 'cuda' label (e.g., cu121 or cu128)."
-    exit 1
+# Install PyTorch stack based on configuration
+if [[ "$PYTORCH_METHOD" == "pip" ]]; then
+    echo "Installing PyTorch stack via pip..."
+    pip install torch==${PYTORCH_VERSION}+${CUDA_LABEL} \
+                torchvision==${TORCHVISION_VERSION}+${CUDA_LABEL} \
+                torchaudio==${TORCHAUDIO_VERSION}+${CUDA_LABEL} \
+                --index-url "$PYTORCH_INDEX_URL"
+elif [[ "$PYTORCH_METHOD" == "conda" ]]; then
+    echo "Installing PyTorch stack via conda..."
+    conda install pytorch==${PYTORCH_VERSION} \
+                  torchvision==${TORCHVISION_VERSION} \
+                  torchaudio==${TORCHAUDIO_VERSION} \
+                  pytorch-cuda=${PYTORCH_CUDA} \
+                  -c pytorch -c nvidia -y
 fi
+
+# Install build helpers from configuration
+for helper in $(echo "$ADD_PACKAGES" | jq -r '.build_helpers[]'); do
+    pip install "$helper"
+done
+
+# Install FlashAttention
+FA_WHEEL="flash_attn-${FA_VERSION}+${FA_CUDA_SUFFIX}-${PY_ABI_TAG}-${PY_ABI_TAG}-linux_x86_64.whl"
+FA_URL="https://github.com/Dao-AILab/flash-attention/releases/download/v${FA_VERSION}/${FA_WHEEL}"
+echo "Downloading FlashAttention wheel for Python ${PYTHON_VERSION}: ${FA_WHEEL}"
+wget "$FA_URL"
+pip install "$FA_WHEEL" --no-build-isolation
+rm "$FA_WHEEL"
+
+# Install additional packages from configuration
+if [[ -n "$(echo "$ADD_PACKAGES" | jq -r '.doctr')" ]]; then
+    pip install $(echo "$ADD_PACKAGES" | jq -r '.doctr')
+fi
+
+if [[ -n "$(echo "$ADD_PACKAGES" | jq -r '.onnxruntime')" ]]; then
+    pip install $(echo "$ADD_PACKAGES" | jq -r '.onnxruntime')
+fi
+
+# Verify installation
+verify_stack
+
 
 
 # Install project dependencies
