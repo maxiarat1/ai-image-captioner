@@ -30,15 +30,15 @@
       "cuda_version_display": "12.8",
       "description": "RTX 50 series (Blackwell architecture)",
       "pytorch": {
-        "version": "2.7.1",
-        "torchvision": "0.22.1",
-        "torchaudio": "2.7.1",
+        "version": "2.8.0",
+        "torchvision": "0.23.0",
+        "torchaudio": "2.8.0",
         "index_url": "https://download.pytorch.org/whl/cu128",
         "install_method": "pip"
       },
       "flash_attention": {
-        "version": "2.8.2",
-        "cuda_suffix": "cu12torch2.7cxx11abiFALSE",
+        "version": "2.8.3",
+        "cuda_suffix": "cu12torch2.8cxx11abiTRUE",
         "install_method": "wheel"
       },
       "additional_packages": {

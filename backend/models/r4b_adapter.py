@@ -36,6 +36,12 @@ class R4BAdapter(BaseModelAdapter):
 
     def load_model(self, precision="float32", use_flash_attention=False) -> None:
         try:
+            # R-4B only supports float32 and quantized modes (4bit, 8bit)
+            supported_precisions = ["float32", "4bit", "8bit"]
+            if precision not in supported_precisions:
+                logger.warning("R-4B does not support %s precision. Falling back to float32.", precision)
+                precision = "float32"
+
             logger.info("Loading R-4B model on %s with %s precision…", self.device, precision)
 
             self.quantization_config = self._create_quantization_config(precision)
@@ -259,8 +265,6 @@ class R4BAdapter(BaseModelAdapter):
                 "type": "select",
                 "options": [
                     {"value": "float32", "label": "Float32 (Full)"},
-                    {"value": "float16", "label": "Float16 (Half)"},
-                    {"value": "bfloat16", "label": "BFloat16"},
                     {"value": "4bit", "label": "4-bit Quantized"},
                     {"value": "8bit", "label": "8-bit Quantized"}
                 ],
