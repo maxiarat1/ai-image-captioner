@@ -7,7 +7,8 @@ This guide explains how to add a new AI model adapter to the project.
 1. **Create a new adapter file** in `backend/models/` (e.g., `my_model_adapter.py`)
 2. **Inherit from `BaseModelAdapter`**
 3. **Implement required methods**
-4. **Register the model** in `backend/app.py`
+4. **Register the model** in `backend/app.py` → `MODEL_METADATA`
+5. **Add precision defaults** in `backend/config.py` → `PRECISION_DEFAULTS` (if using precision options)
 
 ## Required Implementation
 
@@ -69,6 +70,18 @@ def generate_caption(self, image: Image.Image, prompt: str = None, parameters: d
     except Exception as e:
         logger.exception("Error: %s", e)
         return f"Error: {str(e)}"
+```
+
+**Note for library-specific parameters:** If your model uses a custom generation function (not standard `model.generate()`), you may need to map parameter names. For example, Chandra's `generate_hf()` uses `max_output_tokens` instead of `max_new_tokens`:
+
+```python
+# Extract and map library-specific parameters
+max_output_tokens = parameters.get("max_new_tokens") if parameters else None
+gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
+gen_params.pop("max_new_tokens", None)  # Remove since passed separately
+
+# Call library-specific function
+result = generate_hf(batch, model, max_output_tokens=max_output_tokens, **gen_params)
 ```
 
 #### `is_loaded(self) -> bool`
@@ -145,20 +158,39 @@ From `BaseModelAdapter`:
 
 ## Register the Model
 
-In `backend/app.py`, add your model to the registry:
+### Step 1: Add to MODEL_METADATA in `backend/app.py`
 
 ```python
 from models.my_model_adapter import MyModelAdapter
 
-MODEL_REGISTRY = {
+MODEL_METADATA = {
     # ... existing models ...
-    'my_model': {
-        'adapter_class': MyModelAdapter,
+    'my-model': {
+        'category': 'general',  # Categories: 'general', 'anime', 'multimodal', 'ocr'
         'description': 'Brief description of the model',
-        'capabilities': ['captioning']  # or ['ocr'], ['both']
+        'adapter': MyModelAdapter,
+        'adapter_args': {'model_id': "huggingface/model-id"}
     }
 }
 ```
+
+### Step 2: Add Precision Defaults in `backend/config.py` (REQUIRED for precision support)
+
+**IMPORTANT**: If your model supports precision options (float16, bfloat16, float32, 4bit, 8bit), you MUST add it to `PRECISION_DEFAULTS` in `backend/config.py`. Without this, precision parameters won't be extracted and passed to `load_model()`.
+
+```python
+PRECISION_DEFAULTS = {
+    # ... existing models ...
+    'my-model': {'precision': 'float16', 'use_flash_attention': False}
+}
+```
+
+This ensures:
+- The precision parameter is extracted from user selections
+- It's passed to `load_model(precision='...', use_flash_attention=...)`
+- The model loads with the correct precision instead of always using the default
+
+**Common mistake**: Forgetting this step means precision selection in the UI won't work - the model will always load with the hardcoded default in `load_model()`.
 
 ## Parameter Groups & Dependencies
 
@@ -181,6 +213,7 @@ See existing adapters for reference:
 - **With precision options**: `blip2_adapter.py`
 - **Chat-based model**: `llava_phi3_adapter.py`
 - **OCR model**: `trocr_adapter.py`
+- **Library-specific parameters**: `chandra_adapter.py` (custom generate function with parameter mapping)
 
 ## Testing
 
@@ -234,12 +267,18 @@ class MyModelAdapter(BaseModelAdapter):
         ]
 
 # 6. Register in backend/app.py
-MODEL_REGISTRY = {
-    'my_model': {
-        'adapter_class': MyModelAdapter,
+MODEL_METADATA = {
+    'my-model': {
+        'category': 'general',
         'description': 'Model description',
-        'capabilities': ['captioning']
+        'adapter': MyModelAdapter,
+        'adapter_args': {'model_id': "org/model"}
     }
+}
+
+# 7. Add precision defaults in backend/config.py (if using precision options)
+PRECISION_DEFAULTS = {
+    'my-model': {'precision': 'float16', 'use_flash_attention': False}
 }
 ```
 

@@ -21,6 +21,7 @@ from models.r4b_adapter import R4BAdapter
 from models.wdvit_adapter import WdVitAdapter
 from models.janus_adapter import JanusAdapter
 from models.nanonets_ocr_adapter import NanonetsOCRAdapter
+from models.chandra_adapter import ChandraAdapter
 from models.trocr_adapter import TrOCRAdapter
 from models.llava_phi3_adapter import LlavaPhiAdapter
 from models.lfm2_adapter import LFM2Adapter
@@ -147,6 +148,12 @@ MODEL_METADATA = {
         'description': "Nanonets OCR-S - Lightweight OCR (tables/equations/HTML) via Transformers",
         'adapter': NanonetsOCRAdapter,
         'adapter_args': {'model_id': "nanonets/Nanonets-OCR-s"}
+    },
+    'chandra-ocr': {
+        'category': 'ocr',
+        'description': "Chandra OCR - Advanced layout-aware text extraction with table/equation support",
+        'adapter': ChandraAdapter,
+        'adapter_args': {'model_id': "datalab-to/chandra"}
     },
     'trocr-large-printed': {
         'category': 'ocr',

@@ -6,12 +6,14 @@ function addResultItemToCurrentPage(queueItem, data) {
     const itemPage = Math.ceil((itemIndex + 1) / AppState.itemsPerPage);
 
     if (itemPage === AppState.currentPage) {
-        const currentPageItemCount = resultsGrid.children.length;
-
-        if (currentPageItemCount < AppState.itemsPerPage) {
+        // Calculate position within the current page (0-indexed)
+        const positionInPage = itemIndex % AppState.itemsPerPage;
+        
+        // Only add if this position should be on the current page
+        if (positionInPage < AppState.itemsPerPage) {
             const resultDiv = createResultElement(queueItem, data);
 
-            const delayMs = currentPageItemCount * 80;
+            const delayMs = positionInPage * 80;
             resultDiv.style.animationDelay = `${delayMs}ms`;
 
             resultsGrid.appendChild(resultDiv);
