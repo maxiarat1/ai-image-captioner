@@ -1,86 +1,70 @@
-import logging
-from typing import List
-
 import torch
+import logging
 from PIL import Image
 from transformers import AutoProcessor, AutoModelForImageTextToText
-from chandra.model.schema import BatchInputItem
 from chandra.model.hf import generate_hf
-
+from chandra.model.schema import BatchInputItem
 from .base_adapter import BaseModelAdapter
 
 logger = logging.getLogger(__name__)
 
-
 class ChandraAdapter(BaseModelAdapter):
-    """
-    Adapter for Chandra OCR model (datalab-to/chandra).
+    # Parameters that should not be passed to generate_hf()
+    # Note: generate_hf only accepts max_output_tokens parameter, doesn't pass **kwargs to model.generate()
+    SPECIAL_PARAMS = {'precision', 'use_flash_attention', 'batch_size', 'max_new_tokens', 'chandra_preset'}
 
-    Advanced layout-aware OCR model with support for tables, equations,
-    and various document types using task-specific prompt templates.
-    """
-
-    # Parameters that should not be passed to model.generate()
-    SPECIAL_PARAMS = {"precision", "use_flash_attention", "batch_size", "prompt_type"}
-
-    def __init__(self, model_id: str = "datalab-to/chandra"):
+    def __init__(self, model_id="datalab-to/chandra"):
         super().__init__(model_id)
-        self.model_id = model_id
+        self.model_id = model_id  # Explicitly store model_id
         self.device = self._init_device(torch)
-        self.quantization_config = None
 
-    def load_model(self, precision: str = "float16", use_flash_attention: bool = False) -> None:
+    def load_model(self, precision="bfloat16", use_flash_attention=False) -> None:
         try:
-            logger.info(
-                "Loading Chandra OCR model %s on %s with %s precision…",
-                self.model_id,
-                self.device,
-                precision,
-            )
+            # Chandra OCR only supports float precisions (no quantization)
+            # Quantization produces corrupted output due to vision-language architecture
+            supported_precisions = ["float32", "float16", "bfloat16"]
+            if precision not in supported_precisions:
+                logger.warning("Chandra OCR only supports float precisions. Falling back to bfloat16.")
+                precision = "bfloat16"
 
-            # Load processor
+            logger.info("Loading Chandra OCR model on %s with %s precision…", self.device, precision)
+
             self.processor = AutoProcessor.from_pretrained(self.model_id, trust_remote_code=True)
 
-            # Quantization and dtype setup
-            self.quantization_config = self._create_quantization_config(precision)
+            # Setup pad token for batch processing
+            self._setup_pad_token()
 
+            # Build model kwargs with torch dtype
             model_kwargs = {
                 "trust_remote_code": True,
-                "quantization_config": self.quantization_config,
-                "low_cpu_mem_usage": True,
+                "torch_dtype": self._get_dtype(precision)
             }
 
-            # Choose torch dtype
-            torch_dtype = None
-            if precision not in ["4bit", "8bit"]:
-                _dtype = self._get_dtype(precision)
-                if _dtype != "auto":
-                    torch_dtype = _dtype
-
-            # Optional flash attention
+            # Setup flash attention if requested
             if use_flash_attention:
-                self._setup_flash_attention(model_kwargs, precision, force_bfloat16=False)
+                self._setup_flash_attention(model_kwargs, precision, force_bfloat16=True)
 
-            # Load model
-            self.model = AutoModelForImageTextToText.from_pretrained(
-                self.model_id,
-                torch_dtype=torch_dtype,
-                device_map="auto" if precision in ["4bit", "8bit"] else None,
-                **model_kwargs,
-            )
+            self.model = AutoModelForImageTextToText.from_pretrained(self.model_id, **model_kwargs)
+            self.model.to(self.device)
 
-            # Attach processor to model (required by generate_hf)
+            # Attach processor to model (required by Chandra's generate_hf)
             self.model.processor = self.processor
 
-            # Move to device if not quantized
-            if precision not in ["4bit", "8bit"]:
-                self.model = self.model.to(self.device)
+            # Configure generation settings for deterministic OCR output
+            if self.processor.tokenizer.pad_token_id is not None:
+                self.model.generation_config.pad_token_id = self.processor.tokenizer.pad_token_id
+
+            # Use greedy decoding (do_sample=False) for deterministic OCR
+            self.model.generation_config.do_sample = False
+            self.model.generation_config.temperature = None
+            self.model.generation_config.top_p = None
+            self.model.generation_config.top_k = None
 
             self.model.eval()
             logger.info("Chandra OCR model loaded successfully (Precision: %s)", precision)
 
         except Exception as e:
-            logger.exception("Error loading Chandra OCR model %s: %s", self.model_id, e)
+            logger.exception("Error loading Chandra OCR model: %s", e)
             raise
 
     def generate_caption(self, image: Image.Image, prompt: str = None, parameters: dict = None) -> str:
@@ -88,132 +72,105 @@ class ChandraAdapter(BaseModelAdapter):
             raise RuntimeError("Model not loaded. Call load_model() first.")
 
         try:
-            # Ensure image in RGB
             image = self._ensure_rgb(image)
 
-            # Extract prompt_type and max_new_tokens before filtering
-            prompt_type = parameters.get("prompt_type", "ocr_layout") if parameters else "ocr_layout"
-            max_output_tokens = parameters.get("max_new_tokens") if parameters else None
+            # Extract max_output_tokens (Chandra's generate_hf uses this parameter name)
+            max_output_tokens = parameters.get("max_new_tokens", 512) if parameters else 512
 
-            # Default prompt if none provided
-            if not prompt:
-                prompt = "<image>"
+            # Extract Chandra preset selection
+            chandra_preset = parameters.get("chandra_preset", "user_prompt") if parameters else "user_prompt"
 
-            # Create batch input
-            batch = [
-                BatchInputItem(
-                    image=image,
-                    prompt=prompt,
-                    prompt_type=prompt_type
-                )
-            ]
+            # Create BatchInputItem based on preset selection
+            if chandra_preset == "ocr_layout":
+                # Force use of Chandra's OCR layout preset (ignore user prompt)
+                batch_item = BatchInputItem(image=image, prompt_type="ocr_layout")
+            elif chandra_preset == "ocr":
+                # Force use of Chandra's simple OCR preset (ignore user prompt)
+                batch_item = BatchInputItem(image=image, prompt_type="ocr")
+            else:  # user_prompt (default)
+                # Use custom user prompt if provided, otherwise default to ocr_layout
+                if prompt:
+                    batch_item = BatchInputItem(image=image, prompt=prompt)
+                else:
+                    batch_item = BatchInputItem(image=image, prompt_type="ocr_layout")
 
-            # Filter and sanitize generation parameters
-            gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
-            gen_params = self._sanitize_generation_params(gen_params)
+            batch = [batch_item]
 
-            # Remove max_new_tokens from gen_params (passed separately as max_output_tokens)
-            gen_params.pop("max_new_tokens", None)
+            # Generate using Chandra's generate_hf
+            # Note: This function internally handles chat template, processing, and generation
+            with torch.inference_mode():
+                results = generate_hf(batch, self.model, max_output_tokens=max_output_tokens)
 
-            logger.debug("Chandra OCR prompt_type: %s, max_output_tokens: %s", prompt_type, max_output_tokens)
+            # Extract raw text from GenerationResult
+            caption = results[0].raw if results and hasattr(results[0], 'raw') else ""
 
-            # Generate using Chandra's generate_hf function
-            # Note: generate_hf accepts max_output_tokens and **kwargs for generation params
-            result = generate_hf(batch, self.model, max_output_tokens=max_output_tokens, **gen_params)[0]
-
-            return result.raw.strip() if result.raw else ""
+            return caption.strip() if caption else "Unable to generate description."
 
         except Exception as e:
-            logger.exception("Error generating OCR with Chandra: %s", e)
+            logger.exception("Error generating caption with Chandra OCR: %s", e)
             return f"Error: {str(e)}"
 
-    def generate_captions_batch(
-        self, images: List[Image.Image], prompts: List[str] = None, parameters: dict = None
-    ) -> List[str]:
+    def generate_captions_batch(self, images: list, prompts: list = None, parameters: dict = None) -> list:
+        """Generate captions for multiple images using batch processing"""
         if not self.is_loaded():
             raise RuntimeError("Model not loaded. Call load_model() first.")
 
         try:
-            # Prepare prompts
+            # Ensure we have prompts for all images
             if prompts is None:
-                prompts = ["<image>"] * len(images)
+                prompts = [None] * len(images)
             elif len(prompts) != len(images):
-                raise ValueError(
-                    f"Number of prompts ({len(prompts)}) must match number of images ({len(images)})"
-                )
+                raise ValueError(f"Number of prompts ({len(prompts)}) must match number of images ({len(images)})")
 
-            # Extract prompt_type and max_new_tokens
-            prompt_type = parameters.get("prompt_type", "ocr_layout") if parameters else "ocr_layout"
-            max_output_tokens = parameters.get("max_new_tokens") if parameters else None
-
-            # Ensure RGB
+            # Convert all images to RGB
             processed_images = self._ensure_rgb(images)
 
-            # Build batch
+            # Extract max_output_tokens
+            max_output_tokens = parameters.get("max_new_tokens", 512) if parameters else 512
+
+            # Extract Chandra preset selection
+            chandra_preset = parameters.get("chandra_preset", "user_prompt") if parameters else "user_prompt"
+
+            # Build batch items based on preset selection
             batch = []
-            for img, prm in zip(processed_images, prompts):
-                p = prm if prm else "<image>"
-                batch.append(
-                    BatchInputItem(
-                        image=img,
-                        prompt=p,
-                        prompt_type=prompt_type
-                    )
-                )
+            for i, img in enumerate(processed_images):
+                if chandra_preset == "ocr_layout":
+                    # Force use of Chandra's OCR layout preset (ignore user prompt)
+                    batch_item = BatchInputItem(image=img, prompt_type="ocr_layout")
+                elif chandra_preset == "ocr":
+                    # Force use of Chandra's simple OCR preset (ignore user prompt)
+                    batch_item = BatchInputItem(image=img, prompt_type="ocr")
+                else:  # user_prompt (default)
+                    # Use custom user prompt if provided, otherwise default to ocr_layout
+                    if prompts[i]:
+                        batch_item = BatchInputItem(image=img, prompt=prompts[i])
+                    else:
+                        batch_item = BatchInputItem(image=img, prompt_type="ocr_layout")
+                batch.append(batch_item)
 
-            # Filter and sanitize generation parameters
-            gen_params = self._filter_generation_params(parameters, self.SPECIAL_PARAMS)
-            gen_params = self._sanitize_generation_params(gen_params)
+            # Generate for batch using Chandra's generate_hf
+            with torch.inference_mode():
+                results = generate_hf(batch, self.model, max_output_tokens=max_output_tokens)
 
-            # Remove max_new_tokens from gen_params (passed separately as max_output_tokens)
-            gen_params.pop("max_new_tokens", None)
+            # Extract raw text from GenerationResult objects
+            captions = []
+            for result in results:
+                caption = result.raw if hasattr(result, 'raw') else ""
+                captions.append(caption.strip() if caption else "Unable to generate description.")
 
-            logger.debug("Chandra OCR batch size: %d, prompt_type: %s, max_output_tokens: %s",
-                        len(batch), prompt_type, max_output_tokens)
-
-            # Generate batch using Chandra's generate_hf
-            results = generate_hf(batch, self.model, max_output_tokens=max_output_tokens, **gen_params)
-
-            # Extract text from results
-            text_outputs = [result.raw.strip() if result.raw else "" for result in results]
-
-            return text_outputs
+            return captions
 
         except Exception as e:
-            logger.exception("Error generating batch OCR with Chandra: %s", e)
+            logger.exception("Error generating captions in batch with Chandra OCR: %s", e)
             return self._format_batch_error(e, len(images))
 
     def is_loaded(self) -> bool:
         return self.model is not None and self.processor is not None
 
     def get_available_parameters(self) -> list:
+        # Note: Chandra's generate_hf only supports max_output_tokens parameter
+        # Other generation parameters (do_sample, temperature, etc.) are not passed through
         return [
-            {
-                "name": "Prompt Type",
-                "param_key": "prompt_type",
-                "type": "text",
-                "description": "Task-specific prompt template (e.g., 'ocr_layout' for layout-aware OCR)",
-                "group": "general"
-            },
-            {
-                "name": "Precision",
-                "param_key": "precision",
-                "type": "select",
-                "options": [
-                    {"value": "float16", "label": "Float16 (Recommended)"},
-                    {"value": "bfloat16", "label": "BFloat16"},
-                    {"value": "float32", "label": "Float32 (Full)"},
-                    {"value": "4bit", "label": "4-bit Quantized"},
-                    {"value": "8bit", "label": "8-bit Quantized"},
-                ],
-                "description": "Model precision mode (requires model reload)"
-            },
-            {
-                "name": "Use Flash Attention 2",
-                "param_key": "use_flash_attention",
-                "type": "checkbox",
-                "description": "Enable Flash Attention (requires flash-attn package)"
-            },
             {
                 "name": "Max New Tokens",
                 "param_key": "max_new_tokens",
@@ -221,58 +178,39 @@ class ChandraAdapter(BaseModelAdapter):
                 "min": 1,
                 "max": 4096,
                 "step": 1,
-                "description": "Maximum number of tokens to generate (default: 1024)",
+                "description": "Maximum number of tokens to generate",
                 "group": "general"
             },
             {
-                "name": "Do Sample",
-                "param_key": "do_sample",
+                "name": "Chandra Preset",
+                "param_key": "chandra_preset",
+                "type": "select",
+                "options": [
+                    {"value": "user_prompt", "label": "User Prompt (Default)"},
+                    {"value": "ocr_layout", "label": "OCR with Layout (Chandra Preset)"},
+                    {"value": "ocr", "label": "Simple OCR (Chandra Preset)"}
+                ],
+                "description": "Choose between custom prompt or Chandra's predefined OCR prompts. OCR presets ignore user-entered text.",
+                "group": "advanced"
+            },
+            {
+                "name": "Precision",
+                "param_key": "precision",
+                "type": "select",
+                "options": [
+                    {"value": "bfloat16", "label": "BFloat16 (Recommended)"},
+                    {"value": "float16", "label": "Float16"},
+                    {"value": "float32", "label": "Float32 (Full)"}
+                ],
+                "description": "Model precision mode (requires model reload). Quantization not supported.",
+                "group": "advanced"
+            },
+            {
+                "name": "Use Flash Attention 2",
+                "param_key": "use_flash_attention",
                 "type": "checkbox",
-                "description": "Enable sampling mode (required for temperature, top_p, top_k)",
-                "group": "sampling"
-            },
-            {
-                "name": "Temperature",
-                "param_key": "temperature",
-                "type": "number",
-                "min": 0.1,
-                "max": 2,
-                "step": 0.1,
-                "description": "Sampling temperature for generation (requires do_sample=true)",
-                "depends_on": "do_sample",
-                "group": "sampling"
-            },
-            {
-                "name": "Top P",
-                "param_key": "top_p",
-                "type": "number",
-                "min": 0,
-                "max": 1,
-                "step": 0.05,
-                "description": "Nucleus sampling probability threshold (requires do_sample=true)",
-                "depends_on": "do_sample",
-                "group": "sampling"
-            },
-            {
-                "name": "Top K",
-                "param_key": "top_k",
-                "type": "number",
-                "min": 0,
-                "max": 100,
-                "step": 1,
-                "description": "Top-k sampling (requires do_sample=true, 0 = disabled)",
-                "depends_on": "do_sample",
-                "group": "sampling"
-            },
-            {
-                "name": "Repetition Penalty",
-                "param_key": "repetition_penalty",
-                "type": "number",
-                "min": 1.0,
-                "max": 2.0,
-                "step": 0.1,
-                "description": "Penalty for repeating tokens (default: 1.0)",
-                "group": "general"
+                "description": "Enable Flash Attention for better performance (requires flash-attn package)",
+                "group": "advanced"
             },
             {
                 "name": "Batch Size",
@@ -281,11 +219,10 @@ class ChandraAdapter(BaseModelAdapter):
                 "min": 1,
                 "max": 8,
                 "step": 1,
-                "description": "Number of images to process simultaneously"
-            },
+                "description": "Number of images to process simultaneously (higher = faster but more VRAM)",
+                "group": "advanced"
+            }
         ]
 
     def unload(self) -> None:
-        if hasattr(self, "quantization_config"):
-            self.quantization_config = None
         super().unload()

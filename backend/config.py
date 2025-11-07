@@ -21,7 +21,7 @@ PRECISION_DEFAULTS = {
     'lfm2-vl-3b': {'precision': 'bfloat16', 'use_flash_attention': False},
     'llava-phi3': {'precision': 'float16', 'use_flash_attention': False},
     'nanonets-ocr-s': {'precision': 'bfloat16', 'use_flash_attention': False},
-    'chandra-ocr': {'precision': 'float16', 'use_flash_attention': False}
+    'chandra-ocr': {'precision': 'bfloat16', 'use_flash_attention': False}
 }
 
 DATA_DIR.mkdir(exist_ok=True)
