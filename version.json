@@ -1,29 +1,5 @@
 {
   "build_configs": {
-    "python310-cuda121": {
-      "python": "3.12",
-      "cuda": "cu121",
-      "cuda_version_display": "12.1",
-      "description": "RTX 20/30/40 series (widest compatibility)",
-      "pytorch": {
-        "version": "2.5.1",
-        "torchvision": "0.20.1",
-        "torchaudio": "2.5.1",
-        "pytorch_cuda": "12.1",
-        "channel": "pytorch-cuda",
-        "install_method": "conda"
-      },
-      "flash_attention": {
-        "version": "2.8.3",
-        "cuda_suffix": "cu12torch2.5cxx11abiFALSE",
-        "install_method": "wheel"
-      },
-      "additional_packages": {
-        "doctr": "python-doctr[torch]",
-        "onnxruntime": "onnxruntime-gpu",
-        "build_helpers": ["packaging", "ninja"]
-      }
-    },
     "python312-cuda128": {
       "python": "3.12",
       "cuda": "cu128",
