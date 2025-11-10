@@ -72,6 +72,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await autoResumeSession();
 
+    // Resume execution monitoring if job exists
+    if (typeof NEExec !== 'undefined' && typeof NEExec.resumeExecution === 'function') {
+        NEExec.resumeExecution();
+    }
+
     initTabNavigation();
     initThemeToggle();
     initDocsInterface();

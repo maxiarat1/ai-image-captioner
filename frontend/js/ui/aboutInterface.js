@@ -46,6 +46,9 @@ function initAboutInterface() {
 
     // Update stats from backend
     async function updateStats() {
+        // Clear cache to fetch fresh data
+        ModelsAPI.clearCache();
+
         const modelCount = await ModelsAPI.getModelCount();
         const vramRange = await ModelsAPI.getVRAMRange();
         const exportFormats = await ModelsAPI.getExportFormatsCount();

@@ -2,36 +2,32 @@ function initProcessingControls() {
     const pauseBtn = document.getElementById('pauseBtn');
     const stopBtn = document.getElementById('stopBtn');
 
+    // Hide pause button (backend execution doesn't support pause yet)
     if (pauseBtn) {
-        pauseBtn.addEventListener('click', () => {
-            if (!isProcessing) return;
-
-            isPaused = !isPaused;
-            pauseBtn.classList.toggle('paused', isPaused);
-
-            if (isPaused) {
-                pauseBtn.title = 'Resume processing';
-                showToast('Processing paused', true);
-            } else {
-                pauseBtn.title = 'Pause processing';
-                showToast('Processing resumed', true);
-            }
-        });
+        pauseBtn.style.display = 'none';
     }
 
     if (stopBtn) {
-        stopBtn.addEventListener('click', () => {
-            if (!isProcessing) return;
+        stopBtn.addEventListener('click', async () => {
+            const jobId = sessionStorage.getItem('currentJobId');
+            if (!jobId) return;
 
-            shouldStop = true;
-            isPaused = false;
+            try {
+                showToast('Cancelling execution...', true);
 
-            const pauseBtnElement = document.getElementById('pauseBtn');
-            if (pauseBtnElement) {
-                pauseBtnElement.classList.remove('paused');
+                const response = await fetch(`${AppState.apiBaseUrl}/graph/cancel/${jobId}`, {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    showToast('Execution cancelled');
+                } else {
+                    showToast('Failed to cancel execution');
+                }
+            } catch (error) {
+                console.error('Error cancelling execution:', error);
+                showToast('Failed to cancel execution');
             }
-
-            showToast('Stopping processing...', true);
         });
     }
 }

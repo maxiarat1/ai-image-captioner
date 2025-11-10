@@ -278,7 +278,7 @@
     transition: max-height var(--transition-smooth);
 }
 
-.model-category:hover .model-category-submenu {
+.model-category.open .model-category-submenu {
     max-height: 300px;
     border-bottom: 1px solid var(--border-color);
 }

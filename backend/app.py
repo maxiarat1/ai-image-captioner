@@ -5,8 +5,9 @@ import os
 import logging
 import asyncio
 import webbrowser
+import threading
 from pathlib import Path
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, Response, stream_with_context
 from flask_cors import CORS
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
@@ -29,7 +30,8 @@ from models.wd14_convnext_adapter import Wd14ConvNextAdapter
 from models.vit_classifier_adapter import VitClassifierAdapter
 from utils.image_utils import load_image, image_to_base64
 from utils.logging_utils import setup_logging
-from database import SessionManager, AsyncSessionManager
+from database import SessionManager, AsyncSessionManager, ExecutionManager
+from graph_executor import GraphExecutor
 from config import (
     SUPPORTED_IMAGE_FORMATS,
     THUMBNAIL_SIZE,
@@ -47,6 +49,10 @@ CORS(app)
 # Session managers: sync for simple CRUD, async for AI inference paths
 session_manager = SessionManager()
 async_session_manager = AsyncSessionManager()
+execution_manager = ExecutionManager()
+
+# Active graph executors (job_id -> GraphExecutor)
+active_executors = {}
 
 # Category definitions
 CATEGORIES = {
@@ -118,12 +124,6 @@ MODEL_METADATA = {
         'description': "Janus 1.3B - Multimodal vision-language model with efficient architecture",
         'adapter': JanusAdapter,
         'adapter_args': {'model_id': "deepseek-ai/Janus-1.3B"}
-    },
-    'janusflow-1.3b': {
-        'category': 'multimodal',
-        'description': "JanusFlow 1.3B - Flow-based variant with enhanced generation quality",
-        'adapter': JanusAdapter,
-        'adapter_args': {'model_id': "deepseek-ai/JanusFlow-1.3B"}
     },
     'janus-pro-1b': {
         'category': 'multimodal',
@@ -366,10 +366,10 @@ def models_metadata():
     active_models = {name: details for name, details in model_details.items() if name in available_models}
 
     return jsonify({
-        'model_count': len(active_models),
+        'model_count': len(available_models),
         'models': active_models,
         'export_formats': 4,
-        'vram_range': f"{min(m['vram_gb'] for m in active_models.values())}-{max(m['vram_gb'] for m in active_models.values())}",
+        'vram_range': f"{min(m['vram_gb'] for m in active_models.values())}-{max(m['vram_gb'] for m in active_models.values())}" if active_models else "2-16",
         'tech_stack': [
             {'name': 'Salesforce BLIP', 'description': 'Fast image captioning'},
             {'name': 'R-4B', 'description': 'Advanced reasoning model'},
@@ -815,6 +815,122 @@ def export_with_metadata():
     except Exception as e:
         logger.exception("Error in export_with_metadata: %s", e)
         return jsonify({"error": str(e)}), 500
+
+@app.route('/graph/execute', methods=['POST'])
+def execute_graph():
+    """
+    Submit a graph for execution.
+
+    Graph execution runs independently in background thread,
+    surviving page refreshes and browser sessions.
+    """
+    try:
+        data = request.get_json()
+        graph = data.get('graph', {})
+        image_ids = data.get('image_ids', [])
+        clear_previous = data.get('clear_previous', True)
+
+        if not graph or not image_ids:
+            return jsonify({"error": "Missing graph or image_ids"}), 400
+
+        # Clear previous captions if requested
+        if clear_previous:
+            session_manager.clear_all_captions()
+            logger.info("Cleared previous captions before execution")
+
+        # Create job
+        job_id = execution_manager.create_job(graph, image_ids)
+
+        # Start execution in background thread
+        executor = GraphExecutor(execution_manager, async_session_manager)
+        active_executors[job_id] = executor
+
+        def run_executor():
+            try:
+                asyncio.run(executor.execute(job_id, get_model))
+            finally:
+                # Cleanup
+                active_executors.pop(job_id, None)
+
+        thread = threading.Thread(target=run_executor, daemon=True)
+        thread.start()
+
+        logger.info(f"Started execution job {job_id} in background")
+
+        return jsonify({
+            "success": True,
+            "job_id": job_id,
+            "message": "Graph execution started"
+        })
+
+    except Exception as e:
+        logger.exception("Error starting graph execution: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/graph/status/<job_id>', methods=['GET'])
+def get_graph_status_sse(job_id):
+    """
+    Get real-time status updates for a job via Server-Sent Events.
+
+    Client connects once and receives updates as they happen.
+    Connection stays open until job completes/fails/cancelled.
+    """
+    def generate():
+        import time
+        last_status = None
+
+        while True:
+            status = execution_manager.get_status(job_id)
+
+            if not status:
+                yield f"data: {json.dumps({'error': 'Job not found'})}\n\n"
+                break
+
+            # Only send if status changed
+            if status != last_status:
+                yield f"data: {json.dumps(status)}\n\n"
+                last_status = status
+
+            # If terminal state, close connection
+            if status['status'] in ('completed', 'failed', 'cancelled'):
+                break
+
+            time.sleep(0.5)  # Poll every 500ms
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no'
+        }
+    )
+
+
+@app.route('/graph/cancel/<job_id>', methods=['POST'])
+def cancel_graph_execution(job_id):
+    """Cancel a running graph execution."""
+    try:
+        # Signal executor to stop
+        executor = active_executors.get(job_id)
+        if executor:
+            executor.cancel()
+
+        # Update database status
+        execution_manager.cancel_job(job_id)
+
+        logger.info(f"Cancelled job {job_id}")
+
+        return jsonify({
+            "success": True,
+            "message": "Job cancellation requested"
+        })
+
+    except Exception as e:
+        logger.exception("Error cancelling job: %s", e)
+        return jsonify({"error": str(e)}), 500
+
 
 @app.errorhandler(413)
 def too_large(_):

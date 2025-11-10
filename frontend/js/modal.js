@@ -26,7 +26,14 @@ function openImagePreview(imageSrc, captionText, fileName) {
 
     document.body.style.overflow = 'hidden';
 
+    // Blur the active tab content
     if (activeTab) activeTab.classList.add('blur-bg');
+
+    // Blur the header and tab navigation
+    const header = document.querySelector('header');
+    const tabNav = document.querySelector('.tab-navigation');
+    if (header) header.classList.add('blur-bg');
+    if (tabNav) tabNav.classList.add('blur-bg');
 }
 
 function closeImagePreview() {
@@ -34,9 +41,16 @@ function closeImagePreview() {
     modal.classList.remove('active');
 
     document.body.style.overflow = '';
-    
+
+    // Remove blur from tab content
     const activeTab = document.querySelector('.tab-content.active');
     if (activeTab) activeTab.classList.remove('blur-bg');
+
+    // Remove blur from header and tab navigation
+    const header = document.querySelector('header');
+    const tabNav = document.querySelector('.tab-navigation');
+    if (header) header.classList.remove('blur-bg');
+    if (tabNav) tabNav.classList.remove('blur-bg');
 }
 
 function initModalHandlers() {

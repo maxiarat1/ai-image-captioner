@@ -242,6 +242,24 @@ class SessionManager:
         finally:
             conn.close()
 
+    def clear_all_captions(self) -> int:
+        """Clear all captions from images (keeps images, only clears captions)."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute("SELECT COUNT(*) FROM images WHERE caption IS NOT NULL")
+            count = cursor.fetchone()[0]
+
+            cursor.execute("UPDATE images SET caption = NULL")
+            conn.commit()
+
+            logger.info("Cleared %d captions", count)
+            return count
+
+        finally:
+            conn.close()
+
     def clear_all(self) -> int:
 
         conn = self._get_connection()
