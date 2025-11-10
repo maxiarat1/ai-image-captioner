@@ -49,7 +49,7 @@
 /* Content Grid */
 .docs-content-grid {
     display: grid;
-    grid-template-columns: 240px 1fr;
+    grid-template-columns: 280px 1fr 280px;
     gap: 0;
     flex: 1;
     overflow: hidden;
@@ -152,10 +152,9 @@
 /* Main Content */
 .docs-main {
     padding: var(--spacing-xl);
-    padding-right: calc(var(--spacing-xl) * 2);
     overflow-y: auto;
     position: relative;
-    max-width: 1560px;
+    grid-column: 2;
 }
 
 /* Hide scrollbar for docs main */
@@ -427,7 +426,7 @@
 /* Responsive Design */
 @media (max-width: 1200px) {
     .docs-content-grid {
-        grid-template-columns: 200px 1fr;
+        grid-template-columns: 200px 1fr 200px;
     }
 }
 
@@ -442,6 +441,7 @@
 
     .docs-main {
         padding: var(--spacing-md);
+        grid-column: 1;
     }
 
     .content-close {

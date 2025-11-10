@@ -196,6 +196,21 @@
                     e.stopPropagation();
                 };
 
+                // Prevent page scroll when scrolling inside dropdown
+                modelDropdown.onwheel = (e) => {
+                    e.stopPropagation();
+                };
+
+                // Handle category click to toggle submenu
+                const categoryHeaders = el.querySelectorAll('.model-category-header');
+                categoryHeaders.forEach(header => {
+                    header.onclick = (e) => {
+                        e.stopPropagation();
+                        const category = header.parentElement;
+                        category.classList.toggle('open');
+                    };
+                });
+
                 // Handle model selection
                 const modelItems = el.querySelectorAll('.model-item');
                 modelItems.forEach(item => {

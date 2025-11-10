@@ -119,12 +119,6 @@ MODEL_METADATA = {
         'adapter': JanusAdapter,
         'adapter_args': {'model_id': "deepseek-ai/Janus-1.3B"}
     },
-    'janusflow-1.3b': {
-        'category': 'multimodal',
-        'description': "JanusFlow 1.3B - Flow-based variant with enhanced generation quality",
-        'adapter': JanusAdapter,
-        'adapter_args': {'model_id': "deepseek-ai/JanusFlow-1.3B"}
-    },
     'janus-pro-1b': {
         'category': 'multimodal',
         'description': "Janus Pro 1B - Compact professional-grade vision model",
@@ -366,10 +360,10 @@ def models_metadata():
     active_models = {name: details for name, details in model_details.items() if name in available_models}
 
     return jsonify({
-        'model_count': len(active_models),
+        'model_count': len(available_models),
         'models': active_models,
         'export_formats': 4,
-        'vram_range': f"{min(m['vram_gb'] for m in active_models.values())}-{max(m['vram_gb'] for m in active_models.values())}",
+        'vram_range': f"{min(m['vram_gb'] for m in active_models.values())}-{max(m['vram_gb'] for m in active_models.values())}" if active_models else "2-16",
         'tech_stack': [
             {'name': 'Salesforce BLIP', 'description': 'Fast image captioning'},
             {'name': 'R-4B', 'description': 'Advanced reasoning model'},

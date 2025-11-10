@@ -16,7 +16,6 @@ class JanusAdapter(BaseModelAdapter):
 
         Supported models:
         - deepseek-ai/Janus-1.3B
-        - deepseek-ai/JanusFlow-1.3B
         - deepseek-ai/Janus-Pro-1B
         - deepseek-ai/Janus-Pro-7B
         """
