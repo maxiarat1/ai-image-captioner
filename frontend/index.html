@@ -78,9 +78,8 @@
     <main>
         <!-- Tool Interface Section -->
         <section id="tool-interface" class="tool-section">
-            <div class="container">
-                <!-- Tab Navigation -->
-                <div class="tab-navigation">
+            <!-- Tab Navigation -->
+            <div class="tab-navigation">
                     <button class="tab-btn active" data-tab="upload">
                         <span class="tab-number">1</span>
                         <span class="tab-label">Upload</span>
@@ -118,6 +117,7 @@
                         <div class="results-card" id="uploadGridContainer" style="display: none;">
                             <div class="results-header">
                                 <h3>Image Queue</h3>
+                                <span id="uploadStats" style="color: var(--text-secondary);">0 images ready</span>
                             </div>
                             <div class="results-toolbar">
                                 <div class="search-box">
@@ -141,9 +141,6 @@
                             <div class="results-grid" id="uploadGrid">
                                 <!-- Grid items will be populated dynamically -->
                             </div>
-                            <div class="upload-stats-footer">
-                                <span id="uploadStats" style="color: var(--text-secondary);">0 images ready</span>
-                            </div>
                         </div>
                     </div>
 
@@ -151,7 +148,7 @@
                     <div class="tab-content" id="node-content">
                         <div class="node-editor-container">
                             <div class="node-editor-header">
-                                <h3>Build Your Workflow</h3>
+                                <h3>Build Workflow</h3>
                                 <div class="node-editor-actions">
                                     <button class="btn-secondary" id="clearGraphBtn">Clear All</button>
                                     <button class="btn-primary" id="executeGraphBtn">Execute Graph</button>
@@ -213,7 +210,6 @@
                         </div>
                     </div>
                 </div>
-            </div>
         </section>
     </main>
 
@@ -396,61 +392,9 @@ cd backend && python app.py">Copy</button>
                         <h2>AI Models</h2>
                         <div class="docs-card">
                             <h3>Model Comparison</h3>
+                            <p>Models are dynamically loaded from the backend. This section shows example models. Some models are <strong>optimized for speed</strong>, while others are <strong>optimized for quality</strong> (The VRAM usage may vary depending on the selected precision).</p>
                             <div class="performance-matrix">
-                                <div class="perf-model-card">
-                                    <div class="perf-model-header">BLIP</div>
-                                    <div class="perf-metric">
-                                        <span class="perf-label">Speed</span>
-                                        <div class="perf-bar"><div class="perf-fill" style="width: 80%"></div></div>
-                                        <span class="perf-value">Fast</span>
-                                    </div>
-                                    <div class="perf-metric">
-                                        <span class="perf-label">Quality</span>
-                                        <div class="perf-bar"><div class="perf-fill" style="width: 60%"></div></div>
-                                        <span class="perf-value">Good</span>
-                                    </div>
-                                    <div class="perf-metric">
-                                        <span class="perf-label">VRAM</span>
-                                        <div class="perf-bar"><div class="perf-fill" style="width: 25%"></div></div>
-                                        <span class="perf-value">2GB</span>
-                                    </div>
-                                </div>
-                                <div class="perf-model-card">
-                                    <div class="perf-model-header">R-4B (fp16)</div>
-                                    <div class="perf-metric">
-                                        <span class="perf-label">Speed</span>
-                                        <div class="perf-bar"><div class="perf-fill" style="width: 40%"></div></div>
-                                        <span class="perf-value">Medium</span>
-                                    </div>
-                                    <div class="perf-metric">
-                                        <span class="perf-label">Quality</span>
-                                        <div class="perf-bar"><div class="perf-fill" style="width: 95%"></div></div>
-                                        <span class="perf-value">Excellent</span>
-                                    </div>
-                                    <div class="perf-metric">
-                                        <span class="perf-label">VRAM</span>
-                                        <div class="perf-bar"><div class="perf-fill" style="width: 50%"></div></div>
-                                        <span class="perf-value">8GB</span>
-                                    </div>
-                                </div>
-                                <div class="perf-model-card">
-                                    <div class="perf-model-header">R-4B (4bit)</div>
-                                    <div class="perf-metric">
-                                        <span class="perf-label">Speed</span>
-                                        <div class="perf-bar"><div class="perf-fill" style="width: 60%"></div></div>
-                                        <span class="perf-value">Fast</span>
-                                    </div>
-                                    <div class="perf-metric">
-                                        <span class="perf-label">Quality</span>
-                                        <div class="perf-bar"><div class="perf-fill" style="width: 75%"></div></div>
-                                        <span class="perf-value">Very Good</span>
-                                    </div>
-                                    <div class="perf-metric">
-                                        <span class="perf-label">VRAM</span>
-                                        <div class="perf-bar"><div class="perf-fill" style="width: 15%"></div></div>
-                                        <span class="perf-value">2GB</span>
-                                    </div>
-                                </div>
+                                <!-- This will be populated dynamically by docsInterface.js -->
                             </div>
                         </div>
                     </section>

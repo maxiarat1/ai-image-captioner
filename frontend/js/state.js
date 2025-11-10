@@ -8,7 +8,7 @@ const AppState = {
     userConfig: null,
     allResults: [],
     currentPage: 1,
-    itemsPerPage: 12,
+    itemsPerPage: 15,
     uploadCurrentPage: 1,
     uploadSearchQuery: '',
     resultsSearchQuery: ''

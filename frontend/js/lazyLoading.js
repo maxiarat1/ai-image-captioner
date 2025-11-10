@@ -5,8 +5,7 @@
 // Unified lazy loading for both upload and results grids
 function setupLazyLoadingForGrid(gridId) {
     const grid = document.getElementById(gridId);
-    // Support both upload and results containers
-    const containers = grid.querySelectorAll('[data-image-id].upload-thumbnail-container, [data-image-id].result-thumbnail-container');
+    const containers = grid.querySelectorAll('.result-image[data-image-id]');
 
     if (containers.length === 0) {
         return;
@@ -27,23 +26,10 @@ function setupLazyLoadingForGrid(gridId) {
 
                 if (fullImage) {
                     // Display image
-                    container.innerHTML = `<img src="${fullImage}" alt="Image" style="width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-md);">`;
+                    container.innerHTML = `<img src="${fullImage}" alt="Image">`;
 
                     const img = container.querySelector('img');
                     if (img) {
-                        // Check aspect ratio for stretched images (results only)
-                        if (isResultsGrid) {
-                            img.addEventListener('load', () => {
-                                const aspectRatio = img.naturalWidth / img.naturalHeight;
-                                if (aspectRatio > 2.5) {
-                                    const resultItem = container.closest('.result-item');
-                                    if (resultItem) {
-                                        resultItem.classList.add('stretched-image');
-                                    }
-                                }
-                            });
-                        }
-
                         // Add click handler based on grid type
                         img.addEventListener('click', async () => {
                             if (isResultsGrid) {
