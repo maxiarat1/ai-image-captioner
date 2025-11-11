@@ -39,6 +39,7 @@ Available categories:
 {port_2}: {port_2_instruction}
 
 Respond with ONLY the exact category name. Do not add explanations.`,
+                      forwardImages: false,  // Whether to forward images to routed outputs
                       showPorts: true,
                       showTemplate: false,
                       showAdvanced: false

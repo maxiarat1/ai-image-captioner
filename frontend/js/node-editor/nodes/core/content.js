@@ -267,6 +267,18 @@
                                 </div>
                             `).join('')}
                         </div>
+                        <div class="curate-refs-help">
+                            Use <code>{port_refKey}</code> for port label, <code>{port_refKey_instruction}</code> for criteria
+                        </div>
+                    </div>
+                    <div class="curate-option-group">
+                        <label class="curate-option-label" title="When enabled, images will be forwarded to downstream nodes connected to routing outputs. When disabled, only captions are passed.">
+                            <input type="checkbox"
+                                   id="curate-${node.id}-forward-images"
+                                   class="curate-option-checkbox"
+                                   ${node.data.forwardImages ? 'checked' : ''}>
+                            Forward images to routed outputs
+                        </label>
                     </div>
                     <div class="curate-template-wrapper">
                         <div class="curate-highlights" id="curate-${node.id}-highlights"></div>

@@ -351,6 +351,15 @@
                 }
             };
         });
+
+        // Forward images checkbox handler
+        const forwardImagesCheckbox = nodeEl.querySelector(`#curate-${node.id}-forward-images`);
+        if (forwardImagesCheckbox) {
+            forwardImagesCheckbox.onclick = (e) => e.stopPropagation();
+            forwardImagesCheckbox.onchange = (e) => {
+                node.data.forwardImages = e.target.checked;
+            };
+        }
     };
 
     // Auto-add-on-typing behavior removed. Use the explicit Add Port button instead.
