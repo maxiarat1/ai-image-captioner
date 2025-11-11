@@ -29,6 +29,11 @@
     width: 340px;
 }
 
+/* Nodes expand when routing template is visible */
+.node:has(.curate-template-section:not(.hidden)) {
+    width: 340px;
+}
+
 .node.dragging {
     transition: none;
     box-shadow: 0 12px 32px var(--shadow), 0 0 24px var(--shadow-glow);

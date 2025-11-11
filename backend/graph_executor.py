@@ -460,8 +460,13 @@ class GraphExecutor:
         """
         model_name = curate_node['data'].get('model', 'blip2-opt-2.7b')
         model_type = curate_node['data'].get('modelType', 'vlm')
-        parameters = curate_node['data'].get('parameters', {})
+        parameters = curate_node['data'].get('parameters', {}).copy()
         ports = curate_node['data'].get('ports', [])
+        template = curate_node['data'].get('template', '')
+
+        # Add template to parameters for routing prompt construction
+        if template:
+            parameters['template'] = template
 
         logger.info(f"Executing curate routing with {model_name} ({model_type}) for {len(images)} images")
 

@@ -134,17 +134,24 @@ class CurateBaseAdapter(ABC):
 
     def _build_routing_prompt(self,
                              port_configs: List[Dict[str, Any]],
-                             context: Optional[str] = None) -> str:
+                             context: Optional[str] = None,
+                             template: Optional[str] = None) -> str:
         """
         Build a prompt for VLM-based routing.
 
         Args:
             port_configs: Port configurations with instructions
             context: Optional context (e.g., existing caption)
+            template: Optional template string with placeholders
 
         Returns:
             Formatted prompt for the model
         """
+        # If template is provided, use it with placeholder resolution
+        if template and template.strip():
+            return self._resolve_routing_template(template, port_configs, context)
+
+        # Default template fallback
         prompt_parts = [
             "Analyze this image and determine which category it belongs to.",
             ""
@@ -167,6 +174,46 @@ class CurateBaseAdapter(ABC):
         )
 
         return "\n".join(prompt_parts)
+
+    def _resolve_routing_template(self,
+                                  template: str,
+                                  port_configs: List[Dict[str, Any]],
+                                  context: Optional[str] = None) -> str:
+        """
+        Resolve template placeholders for curate node routing.
+
+        Args:
+            template: Template string with {placeholders}
+            port_configs: Port configurations
+            context: Optional context (e.g., existing caption)
+
+        Returns:
+            Resolved template string
+        """
+        import re
+
+        resolved = template
+
+        # Build reference map for all ports
+        for port in port_configs:
+            refKey = port.get('refKey', '')
+            if not refKey:
+                continue
+
+            label = port.get('label', '')
+            instruction = port.get('instruction', '')
+
+            # Replace port placeholders
+            resolved = resolved.replace(f'{{{refKey}}}', label)
+            resolved = resolved.replace(f'{{{refKey}_label}}', label)
+            resolved = resolved.replace(f'{{{refKey}_instruction}}', instruction)
+
+        # Optionally add context if provided
+        if context:
+            resolved = resolved.replace('{context}', context)
+            resolved = resolved.replace('{caption}', context)
+
+        return resolved
 
     def _parse_routing_response(self,
                                response: str,

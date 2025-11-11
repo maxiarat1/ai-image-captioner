@@ -68,8 +68,13 @@ class VLMRouterAdapter(CurateBaseAdapter):
         # Ensure RGB
         image = self._ensure_rgb(image)
 
-        # Build routing prompt
-        routing_prompt = self._build_routing_prompt(port_configs, context=caption)
+        # Extract template from parameters if provided
+        template = None
+        if parameters:
+            template = parameters.get('template', None)
+
+        # Build routing prompt (with template if provided)
+        routing_prompt = self._build_routing_prompt(port_configs, context=caption, template=template)
 
         try:
             # Use the base adapter to analyze the image with the routing prompt
@@ -157,17 +162,24 @@ class VLMRouterAdapter(CurateBaseAdapter):
 
     def _build_routing_prompt(self,
                              port_configs: List[Dict[str, Any]],
-                             context: Optional[str] = None) -> str:
+                             context: Optional[str] = None,
+                             template: Optional[str] = None) -> str:
         """
         Build an optimized routing prompt for VLMs.
 
         Args:
             port_configs: Port configurations
             context: Optional context
+            template: Optional template string with placeholders
 
         Returns:
             Routing prompt
         """
+        # If template is provided, use parent's template resolution logic
+        if template and template.strip():
+            return self._resolve_routing_template(template, port_configs, context)
+
+        # Default optimized prompt for VLMs
         prompt_parts = [
             "Carefully analyze this image and determine which category it best fits into."
         ]

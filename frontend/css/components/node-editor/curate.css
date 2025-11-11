@@ -308,3 +308,188 @@
     white-space: nowrap;
     border-width: 0;
 }
+
+/* ============================================================================
+   Template System Styles
+   ============================================================================ */
+
+/* Template Toggle Button */
+.btn-template-toggle {
+    width: 100%;
+    padding: 6px 8px;
+    margin-top: 4px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    transition: all var(--transition-smooth);
+}
+
+.btn-template-toggle:hover {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+}
+
+/* Template Section Container */
+.curate-template-section {
+    animation: slideDown 0.3s ease;
+}
+
+.curate-template-section.hidden {
+    display: none;
+}
+
+/* Port References Section */
+.curate-port-references {
+    padding: 16px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+}
+
+.curate-refs-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: var(--spacing-sm);
+}
+
+.curate-refs-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: var(--spacing-sm);
+}
+
+/* Reference Chip */
+.curate-ref-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-size: 0.8rem;
+}
+
+.curate-ref-item:hover {
+    background: var(--card-bg);
+    border-color: var(--curate-color);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px var(--curate-glow);
+}
+
+.curate-ref-item:active {
+    transform: translateY(0);
+}
+
+.curate-ref-key {
+    font-weight: 600;
+    color: var(--curate-color);
+    font-family: 'Courier New', monospace;
+    font-size: 0.85em;
+}
+
+.curate-ref-label {
+    color: var(--text-secondary);
+    font-size: 0.85em;
+}
+
+.curate-refs-help {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    font-style: italic;
+    margin-top: 8px;
+}
+
+.curate-refs-help code {
+    background: var(--bg-secondary);
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    color: var(--curate-color);
+    font-size: 0.9em;
+}
+
+/* Template Editor Wrapper */
+.curate-template-wrapper {
+    position: relative;
+    padding: 16px;
+}
+
+/* Template Textarea */
+.curate-template {
+    position: relative;
+    width: 100%;
+    min-height: 120px;
+    padding: var(--spacing-sm);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    resize: vertical;
+    z-index: 2;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    transition: border-color var(--transition-smooth), box-shadow var(--transition-smooth);
+}
+
+.curate-template:focus {
+    outline: none;
+    border-color: var(--curate-color);
+    box-shadow: 0 0 0 3px var(--curate-glow);
+}
+
+.curate-template::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.5;
+}
+
+/* Highlighting Overlay */
+.curate-highlights {
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    right: 1px;
+    bottom: 1px;
+    padding: var(--spacing-sm);
+    color: transparent;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    pointer-events: none;
+    z-index: 1;
+    overflow: hidden;
+}
+
+/* Placeholder Highlighting */
+.curate-highlights mark {
+    background: transparent;
+    color: transparent;
+    border-radius: 3px;
+    padding: 1px 3px;
+}
+
+.curate-highlights .placeholder-valid {
+    background: rgba(34, 197, 94, 0.25);
+    box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.4);
+}
+
+.curate-highlights .placeholder-invalid {
+    background: rgba(239, 68, 68, 0.25);
+    box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.4);
+}

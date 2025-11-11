@@ -99,6 +99,8 @@
                 const port = ports.find(p => p.id === portId);
                 if (port) {
                     port.label = e.target.value;
+                    // Update refKey based on new label
+                    NENodes.updatePortRefKey(node.id, portId);
                     NENodes.updateNodePorts(node.id);
                 }
             };
@@ -215,6 +217,8 @@
                             const port = (node.data.ports || []).find(p => p.id === portId);
                             if (port) {
                                 port.label = ev.target.value;
+                                // Update refKey based on new label
+                                NENodes.updatePortRefKey(node.id, portId);
                                 NENodes.updateNodePorts(node.id);
                             }
                         };
@@ -277,9 +281,169 @@
                 }
             };
         }
+
+        // Template toggle handler
+        const templateBtn = nodeEl.querySelector('.btn-template-toggle');
+        if (templateBtn) {
+            templateBtn.onclick = (e) => {
+                e.stopPropagation();
+                node.data.showTemplate = !node.data.showTemplate;
+
+                const templateSection = document.getElementById(`curate-template-${node.id}`);
+                if (templateSection) {
+                    if (node.data.showTemplate) {
+                        templateBtn.textContent = '▼ Hide Routing Template';
+                        templateSection.classList.remove('hidden');
+                        // Highlight placeholders on show
+                        NENodes.highlightCuratePlaceholders(node.id);
+                    } else {
+                        templateBtn.textContent = '▶ Show Routing Template';
+                        templateSection.classList.add('hidden');
+                    }
+                }
+            };
+        }
+
+        // Template textarea handlers
+        const templateTextarea = nodeEl.querySelector(`#curate-${node.id}-template`);
+        if (templateTextarea) {
+            templateTextarea.onclick = (e) => e.stopPropagation();
+            templateTextarea.onmousedown = (e) => e.stopPropagation();
+            templateTextarea.onfocus = (e) => e.stopPropagation();
+            templateTextarea.oninput = (e) => {
+                node.data.template = e.target.value;
+                NENodes.highlightCuratePlaceholders(node.id);
+            };
+            templateTextarea.onscroll = (e) => {
+                const highlightsDiv = document.getElementById(`curate-${node.id}-highlights`);
+                if (highlightsDiv) {
+                    highlightsDiv.scrollTop = e.target.scrollTop;
+                    highlightsDiv.scrollLeft = e.target.scrollLeft;
+                }
+            };
+        }
+
+        // Port reference chip click-to-insert handlers
+        const refItems = nodeEl.querySelectorAll('.curate-ref-item');
+        refItems.forEach(refItem => {
+            refItem.onclick = (e) => {
+                e.stopPropagation();
+                const refKey = refItem.dataset.refKey;
+                const textarea = nodeEl.querySelector(`#curate-${node.id}-template`);
+
+                if (textarea && refKey) {
+                    const start = textarea.selectionStart;
+                    const end = textarea.selectionEnd;
+                    const text = textarea.value;
+
+                    // Insert {refKey} at cursor
+                    const placeholder = `{${refKey}}`;
+                    const newText = text.substring(0, start) + placeholder + text.substring(end);
+                    textarea.value = newText;
+                    node.data.template = newText;
+
+                    // Update cursor position
+                    const newCursorPos = start + placeholder.length;
+                    textarea.setSelectionRange(newCursorPos, newCursorPos);
+
+                    textarea.focus();
+                    NENodes.highlightCuratePlaceholders(node.id);
+                }
+            };
+        });
     };
 
     // Auto-add-on-typing behavior removed. Use the explicit Add Port button instead.
+
+    // Highlight placeholders in curate template
+    NENodes.highlightCuratePlaceholders = function(nodeId) {
+        const node = NodeEditor.nodes.find(n => n.id === nodeId);
+        if (!node || node.type !== 'curate') return;
+
+        const textarea = document.getElementById(`curate-${nodeId}-template`);
+        const highlightsDiv = document.getElementById(`curate-${nodeId}-highlights`);
+
+        if (!textarea || !highlightsDiv) return;
+
+        const text = textarea.value;
+        const ports = node.data.ports || [];
+
+        // Build list of valid placeholders
+        const validKeys = [];
+        ports.forEach(port => {
+            validKeys.push(port.refKey);
+            validKeys.push(`${port.refKey}_label`);
+            validKeys.push(`${port.refKey}_instruction`);
+        });
+
+        // Regex to find all placeholders
+        const regex = /\{([^}]+)\}/g;
+        let highlightedText = text.replace(regex, (match, key) => {
+            const isValid = validKeys.includes(key);
+            const className = isValid ? 'placeholder-valid' : 'placeholder-invalid';
+            return `<mark class="${className}">${match}</mark>`;
+        });
+
+        // Escape HTML and preserve formatting
+        highlightedText = highlightedText
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/\n/g, '<br>')
+            .replace(/ /g, '&nbsp;');
+
+        // Re-apply mark tags (they were escaped above)
+        highlightedText = highlightedText
+            .replace(/&lt;mark class="placeholder-valid"&gt;/g, '<mark class="placeholder-valid">')
+            .replace(/&lt;mark class="placeholder-invalid"&gt;/g, '<mark class="placeholder-invalid">')
+            .replace(/&lt;\/mark&gt;/g, '</mark>');
+
+        highlightsDiv.innerHTML = highlightedText;
+
+        // Sync scroll position
+        highlightsDiv.scrollTop = textarea.scrollTop;
+        highlightsDiv.scrollLeft = textarea.scrollLeft;
+    };
+
+    // Update port refKey when label changes
+    NENodes.updatePortRefKey = function(nodeId, portId) {
+        const node = NodeEditor.nodes.find(n => n.id === nodeId);
+        if (!node || node.type !== 'curate') return;
+
+        const port = (node.data.ports || []).find(p => p.id === portId);
+        if (!port) return;
+
+        // Generate new refKey from label
+        const newRefKey = typeof NEUtils !== 'undefined' && NEUtils.sanitizeLabel
+            ? NEUtils.sanitizeLabel(port.label)
+            : port.label.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '').substring(0, 30);
+
+        // Check for duplicates
+        const usedRefKeys = (node.data.ports || [])
+            .filter(p => p.id !== portId)
+            .map(p => p.refKey);
+
+        let finalRefKey = newRefKey;
+        let counter = 2;
+        while (usedRefKeys.includes(finalRefKey)) {
+            finalRefKey = `${newRefKey}_${counter}`;
+            counter++;
+        }
+
+        port.refKey = finalRefKey;
+
+        // Update port reference chips display
+        const nodeEl = document.getElementById(`node-${nodeId}`);
+        if (nodeEl) {
+            const body = nodeEl.querySelector('.node-body');
+            if (body) body.innerHTML = NENodes.getNodeContent(node);
+            NENodes.attachCurateHandlers(nodeEl, node);
+            NENodes.attachCurateModelDropdownHandlers(nodeEl, node);
+        }
+
+        // Update template highlighting
+        NENodes.highlightCuratePlaceholders(nodeId);
+    };
 
     // Filter models based on curate node type
     NENodes.filterModelsForCurateType = function(availableModels, curateType) {

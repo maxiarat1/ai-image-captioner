@@ -21,10 +21,18 @@
         // Generate port ID if not provided
         const portId = portConfig.id || `port_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
+        const label = portConfig.label || `Port ${node.data.ports.length + 1}`;
+
+        // Generate refKey from label (for curate nodes template system)
+        const refKey = portConfig.refKey || (typeof NEUtils !== 'undefined' && NEUtils.sanitizeLabel
+            ? NEUtils.sanitizeLabel(label)
+            : label.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '').substring(0, 30));
+
         const newPort = {
             id: portId,
-            label: portConfig.label || `Port ${node.data.ports.length + 1}`,
+            label: label,
             instruction: portConfig.instruction || '',
+            refKey: refKey,
             isDefault: portConfig.isDefault || false
         };
 

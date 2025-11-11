@@ -253,6 +253,32 @@
                     </div>
                 </div>
 
+                <button class="btn-template-toggle" data-node-id="${node.id}">
+                    ${node.data.showTemplate ? '▼ Hide Routing Template' : '▶ Show Routing Template'}
+                </button>
+                <div class="curate-template-section ${node.data.showTemplate ? '' : 'hidden'}" id="curate-template-${node.id}">
+                    <div class="curate-port-references" id="curate-refs-${node.id}">
+                        <div class="curate-refs-label">Port References (click to insert):</div>
+                        <div class="curate-refs-list">
+                            ${ports.map(port => `
+                                <div class="curate-ref-item" data-ref-key="${port.refKey}" data-node-id="${node.id}" title="${port.label}: ${port.instruction || 'No instruction'}">
+                                    <span class="curate-ref-key">{${port.refKey}}</span>
+                                    <span class="curate-ref-label">${port.label}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div class="curate-template-wrapper">
+                        <div class="curate-highlights" id="curate-${node.id}-highlights"></div>
+                        <textarea id="curate-${node.id}-template"
+                                  name="curate-${node.id}-template"
+                                  class="curate-template"
+                                  placeholder="Build your routing prompt template..."
+                                  rows="8"
+                                  onwheel="event.stopPropagation();">${node.data.template || ''}</textarea>
+                    </div>
+                </div>
+
                 <button class="btn-advanced" data-node-id="${node.id}">
                     ${showAdvanced ? '▼ Hide Advanced' : '▶ Show Advanced'}
                 </button>

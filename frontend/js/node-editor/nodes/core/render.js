@@ -29,10 +29,18 @@
                       model: defaultModel,
                       parameters: {},
                       ports: [
-                          { id: 'port_1', label: 'Port 1', instruction: '' },
-                          { id: 'port_2', label: 'Port 2', instruction: '' }
+                          { id: 'port_1', label: 'Port 1', instruction: '', refKey: 'port_1' },
+                          { id: 'port_2', label: 'Port 2', instruction: '', refKey: 'port_2' }
                       ],
+                      template: `Analyze this image and determine which category best describes it.
+
+Available categories:
+{port_1}: {port_1_instruction}
+{port_2}: {port_2_instruction}
+
+Respond with ONLY the exact category name. Do not add explanations.`,
                       showPorts: true,
+                      showTemplate: false,
                       showAdvanced: false
                   } : {}
         };
