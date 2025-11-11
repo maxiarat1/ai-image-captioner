@@ -1,0 +1,259 @@
+/* ============================================================================
+   Node Editor - Curate Node Specific Styles
+   ============================================================================ */
+
+/* Curate Node Theming */
+.node-type-curate {
+    --curate-color: #a855f7; /* Purple theme for routing */
+    --curate-glow: rgba(168, 85, 247, 0.15);
+}
+
+.node-type-curate .node-header {
+    background: linear-gradient(135deg, var(--curate-color), #9333ea);
+}
+
+/* Model Type Selector */
+.curate-model-type-selector {
+    margin-bottom: var(--spacing-md);
+    padding: var(--spacing-sm);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+}
+
+.curate-label {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 6px;
+}
+
+.curate-model-type-select {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all var(--transition-smooth);
+}
+
+.curate-model-type-select:hover {
+    border-color: var(--curate-color);
+}
+
+.curate-model-type-select:focus {
+    outline: none;
+    border-color: var(--curate-color);
+    box-shadow: 0 0 0 3px var(--curate-glow);
+}
+
+/* Ports List */
+.curate-ports-list {
+    margin-top: var(--spacing-sm);
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    max-height: 400px;
+    overflow-y: auto;
+    animation: slideDown 0.3s ease;
+    transform-origin: top;
+}
+
+.curate-ports-list.hidden {
+    display: none;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: scaleY(0);
+    }
+    to {
+        opacity: 1;
+        transform: scaleY(1);
+    }
+}
+
+/* Custom scrollbar for ports list */
+.curate-ports-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.curate-ports-list::-webkit-scrollbar-track {
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+}
+
+.curate-ports-list::-webkit-scrollbar-thumb {
+    background: var(--curate-color);
+    border-radius: 3px;
+}
+
+.curate-ports-list::-webkit-scrollbar-thumb:hover {
+    background: #9333ea;
+}
+
+/* Port Item */
+.curate-port-item {
+    margin-bottom: var(--spacing-sm);
+    background: var(--bg-tertiary);
+    border: none; /* remove line border for cleaner look */
+    border-radius: var(--radius-md);
+    transition: all var(--transition-smooth);
+}
+
+.curate-port-item:hover {
+    /* keep the subtle glow on hover but no border color change */
+    box-shadow: 0 2px 4px var(--curate-glow);
+}
+
+/* Port Header */
+.curate-port-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: var(--spacing-sm);
+}
+
+.curate-port-label-input {
+    flex: 1;
+    min-width: 0;
+    max-width: 100%;
+    padding: 6px 8px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: all var(--transition-smooth);
+}
+
+.curate-port-label-input:hover {
+    border-color: var(--curate-color);
+}
+
+.curate-port-label-input:focus {
+    outline: none;
+    border-color: var(--curate-color);
+    box-shadow: 0 0 0 3px var(--curate-glow);
+}
+
+
+/* Port Delete Button */
+.curate-port-delete {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all var(--transition-smooth);
+}
+
+.curate-port-delete:hover {
+    background: #ef4444;
+    border-color: #dc2626;
+    color: white;
+    transform: scale(1.1);
+}
+
+.curate-port-delete:active {
+    transform: scale(1);
+}
+
+/* Port Instruction Textarea */
+.curate-port-instruction {
+    width: 100%;
+    padding: var(--spacing-sm);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-family: var(--font-primary);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    resize: vertical;
+    min-height: 50px;
+    margin-bottom: 8px;
+    transition: all var(--transition-smooth);
+}
+
+.curate-port-instruction:hover {
+    border-color: var(--curate-color);
+}
+
+.curate-port-instruction:focus {
+    outline: none;
+    border-color: var(--curate-color);
+    box-shadow: 0 0 0 3px var(--curate-glow);
+}
+
+.curate-port-instruction::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.6;
+}
+
+
+/* Route Port Styling in Ports Section */
+.node-type-curate .port-out {
+    background: var(--curate-color);
+    box-shadow: 0 0 8px var(--curate-glow);
+}
+
+.node-type-curate .port-out:hover {
+    background: #9333ea;
+    box-shadow: 0 0 12px rgba(168, 85, 247, 0.4);
+}
+
+/* Animation for adding ports */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.curate-port-item {
+    animation: slideIn 0.2s ease;
+}
+
+/* Empty state for ports list */
+.curate-ports-list:empty::after {
+    content: 'No routing ports defined';
+    display: block;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    padding: var(--spacing-md);
+    font-style: italic;
+}
+
+/* Visually Hidden (for accessibility) */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}

@@ -31,6 +31,12 @@
             prompt: { label: 'Prompt', inputs: [], outputs: ['text'] },
             conjunction: { label: 'Conjunction', inputs: ['text'], outputs: ['text'] },
             aimodel: { label: 'AI Model', inputs: ['images', 'prompt'], outputs: ['captions'] },
+            curate: {
+                label: 'Curate',
+                inputs: ['images', 'captions'],  // Images + optional captions (descriptions linked to images)
+                outputs: [],  // Dynamic outputs managed at runtime
+                allowDynamicOutputs: true
+            },
             output: { label: 'Output', inputs: ['data'], outputs: [] }
         };
     }

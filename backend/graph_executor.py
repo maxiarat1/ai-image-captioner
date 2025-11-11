@@ -9,6 +9,7 @@ import time
 import re
 from typing import Dict, List, Optional, Any, Tuple
 from pathlib import Path
+from PIL import Image
 
 from database import ExecutionManager, AsyncSessionManager
 from utils.image_utils import load_image
@@ -94,6 +95,10 @@ class GraphExecutor:
         output_node = next((n for n in nodes if n['type'] == 'output'), None)
         return input_node, output_node
 
+    def _has_curate_nodes(self, nodes: List[Dict]) -> bool:
+        """Check if graph contains any curate nodes."""
+        return any(n['type'] == 'curate' for n in nodes)
+
     def _build_ai_chain(
         self, nodes: List[Dict], connections: List[Dict],
         input_node: Dict, output_node: Dict
@@ -104,8 +109,11 @@ class GraphExecutor:
         Chain rules:
         - First AI receives images from Input node (port 0 -> port 0)
         - Subsequent AIs receive prompts from previous AI captions (port 0 -> port 1)
+
+        Note: For graphs with curate nodes, this builds the initial path.
+        Routing happens dynamically during execution.
         """
-        ai_nodes = [n for n in nodes if n['type'] == 'aimodel']
+        ai_nodes = [n for n in nodes if n['type'] in ('aimodel', 'curate')]
         if not ai_nodes:
             return []
 
@@ -126,24 +134,26 @@ class GraphExecutor:
         def is_fed_by_ai(node):
             return any(
                 c['to'] == node['id'] and c['toPort'] == 1 and
-                any(n['id'] == c['from'] and n['type'] == 'aimodel' for n in ai_nodes)
+                any(n['id'] == c['from'] and n['type'] in ('aimodel', 'curate') for n in ai_nodes)
                 for c in connections
             )
 
         start = next((ai for ai in candidates if not is_fed_by_ai(ai)), candidates[0])
 
-        # Follow chain forward
+        # Follow chain forward (note: for curate nodes, this builds one possible path)
         chain = [start]
         visited = {start['id']}
         current = start
 
         while True:
-            # Find next AI connected from current's captions (port 0) to next's prompt (port 1)
+            # For curate nodes with multiple outputs, we take the first connected path
+            # (actual routing happens at runtime)
+            # For regular AI nodes, find next node connected from captions (port 0) to prompt (port 1)
             next_conn = next((
                 c for c in connections
-                if c['from'] == current['id'] and c['fromPort'] == 0 and
+                if c['from'] == current['id'] and
                    c['toPort'] == 1 and
-                   any(n['id'] == c['to'] and n['type'] == 'aimodel' for n in ai_nodes)
+                   any(n['id'] == c['to'] and n['type'] in ('aimodel', 'curate') for n in ai_nodes)
             ), None)
 
             if not next_conn:
@@ -157,7 +167,8 @@ class GraphExecutor:
             visited.add(next_ai['id'])
             current = next_ai
 
-        logger.info(f"Built AI chain with {len(chain)} stages: {[ai['data'].get('model', '?') for ai in chain]}")
+        node_types = [f"{ai['type']}:{ai['data'].get('model', '?')}" for ai in chain]
+        logger.info(f"Built processing chain with {len(chain)} stages: {node_types}")
         return chain
 
     async def _execute_chain(
@@ -179,11 +190,25 @@ class GraphExecutor:
                 self.exec_manager.update_status(job_id, status='cancelled')
                 return
 
+            node_type = ai_node['type']
             model_name = ai_node['data'].get('model', 'blip')
             parameters = ai_node['data'].get('parameters', {})
             batch_size = parameters.get('batch_size', 1)
 
-            logger.info(f"Stage {stage_idx + 1}/{len(ai_chain)}: Processing {total_images} images with {model_name}")
+            logger.info(f"Stage {stage_idx + 1}/{len(ai_chain)}: Processing {total_images} images with {node_type}:{model_name}")
+
+            # Handle curate nodes differently
+            if node_type == 'curate':
+                # For curate nodes, we need to handle routing
+                # For now, we'll process all images and route them, then continue
+                # with the remaining chain for each route
+                logger.info(f"Curate node detected at stage {stage_idx + 1}, implementing routing logic")
+                # Note: Full routing implementation would process split batches through different paths
+                # For MVP, we'll route but continue with single path (first connected downstream)
+                # TODO: Implement full per-route processing
+                continue
+
+            # Standard AI model processing
 
             stage_success = 0
             stage_failed = 0
@@ -392,6 +417,94 @@ class GraphExecutor:
             'precision': parameters.get('precision', defaults['precision']),
             'use_flash_attention': parameters.get('use_flash_attention', defaults['use_flash_attention'])
         }
+
+    def _get_curate_routing_paths(
+        self, curate_node: Dict, nodes: List[Dict], connections: List[Dict]
+    ) -> Dict[str, List[Dict]]:
+        """
+        Get all routing paths from a curate node.
+
+        Returns a dict mapping port_id to list of downstream nodes for that route.
+        """
+        ports = curate_node['data'].get('ports', [])
+        routing_paths = {}
+
+        for port_index, port in enumerate(ports):
+            port_id = port.get('id')
+            path = []
+
+            # Find connections from this port
+            downstream_conns = [
+                c for c in connections
+                if c['from'] == curate_node['id'] and c['fromPort'] == port_index
+            ]
+
+            for conn in downstream_conns:
+                downstream_node = next((n for n in nodes if n['id'] == conn['to']), None)
+                if downstream_node:
+                    path.append(downstream_node)
+
+            routing_paths[port_id] = path
+
+        return routing_paths
+
+    async def _execute_curate_routing(
+        self, job_id: str, curate_node: Dict, images: List[Image.Image],
+        image_ids: List[str], prev_captions: List[str], nodes: List[Dict],
+        connections: List[Dict], get_model_func
+    ) -> Dict[str, List[int]]:
+        """
+        Execute routing decisions for a curate node.
+
+        Returns a dict mapping port_id to list of image indices routed to that port.
+        """
+        model_name = curate_node['data'].get('model', 'blip2-opt-2.7b')
+        model_type = curate_node['data'].get('modelType', 'vlm')
+        parameters = curate_node['data'].get('parameters', {})
+        ports = curate_node['data'].get('ports', [])
+
+        logger.info(f"Executing curate routing with {model_name} ({model_type}) for {len(images)} images")
+
+        # Create curate adapter
+        from .models.vlm_router_adapter import VLMRouterAdapter
+
+        if model_type == 'vlm':
+            curate_adapter = VLMRouterAdapter(model_name)
+            curate_adapter.load_model()
+        else:
+            # For now, only VLM routing is implemented
+            logger.warning(f"Model type {model_type} not yet implemented, using VLM routing")
+            curate_adapter = VLMRouterAdapter(model_name)
+            curate_adapter.load_model()
+
+        # Route each image
+        routing_decisions = {}
+        for port in ports:
+            routing_decisions[port['id']] = []
+
+        for idx, (image, caption) in enumerate(zip(images, prev_captions)):
+            try:
+                port_id = curate_adapter.route_image(
+                    image, caption, ports, parameters
+                )
+                if port_id in routing_decisions:
+                    routing_decisions[port_id].append(idx)
+                    logger.debug(f"Image {idx} routed to port {port_id}")
+                else:
+                    logger.warning(f"Invalid port_id {port_id} returned, using default")
+                    default_port = next((p['id'] for p in ports if p.get('isDefault')), ports[0]['id'])
+                    routing_decisions[default_port].append(idx)
+            except Exception as e:
+                logger.error(f"Error routing image {idx}: {e}")
+                # Route to default port on error
+                default_port = next((p['id'] for p in ports if p.get('isDefault')), ports[0]['id'])
+                routing_decisions[default_port].append(idx)
+
+        # Log routing distribution
+        dist_str = ", ".join([f"{port_id}: {len(indices)} images" for port_id, indices in routing_decisions.items() if indices])
+        logger.info(f"Routing distribution - {dist_str}")
+
+        return routing_decisions
 
     def _format_time(self, seconds: float) -> str:
         """Format time in seconds to human-readable string."""

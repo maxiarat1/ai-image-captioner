@@ -28,6 +28,32 @@
     transform: scale(0.98);
 }
 
+/* Ports Toggle Button */
+.btn-ports-toggle {
+    width: 100%;
+    padding: 6px 8px;
+    margin-top: 4px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-smooth);
+    text-align: left;
+}
+
+.btn-ports-toggle:hover {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+}
+
+.btn-ports-toggle:active {
+    transform: scale(0.98);
+}
+
 /* Preview Button (for Conjunction nodes) */
 .btn-preview {
     width: 100%;
