@@ -15,7 +15,6 @@
 /* Model Type Selector */
 .curate-model-type-selector {
     margin-bottom: var(--spacing-md);
-    padding: var(--spacing-sm);
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
@@ -81,22 +80,17 @@
 }
 
 /* Custom scrollbar for ports list */
+/* Hide scrollbar but keep scrolling functional */
+.curate-ports-list {
+    /* Firefox */
+    scrollbar-width: none;
+    /* IE 10+ */
+    -ms-overflow-style: none;
+}
+
 .curate-ports-list::-webkit-scrollbar {
-    width: 6px;
-}
-
-.curate-ports-list::-webkit-scrollbar-track {
-    background: var(--bg-tertiary);
-    border-radius: 3px;
-}
-
-.curate-ports-list::-webkit-scrollbar-thumb {
-    background: var(--curate-color);
-    border-radius: 3px;
-}
-
-.curate-ports-list::-webkit-scrollbar-thumb:hover {
-    background: #9333ea;
+    width: 0px;
+    height: 0px;
 }
 
 /* Port Item */
@@ -230,8 +224,30 @@
     }
 }
 
-.curate-port-item {
-    animation: slideIn 0.2s ease;
+.curate-port-item { will-change: transform, opacity; }
+
+/* Per-item enter animation */
+.curate-port-item.animate-in {
+    animation: slideIn 0.18s ease;
+}
+
+/* Per-item exit animation */
+@keyframes slideOut {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+        height: auto;
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-6px);
+        height: 0;
+        margin: 0;
+        padding: 0;
+    }
+}
+.curate-port-item.animate-out {
+    animation: slideOut 0.18s ease forwards;
 }
 
 /* Empty state for ports list */
@@ -243,6 +259,41 @@
     font-size: 0.85rem;
     padding: var(--spacing-md);
     font-style: italic;
+}
+
+/* Add Port button styles */
+.curate-add-port-wrapper {
+    padding: 6px 4px;
+    margin-top: 6px;
+}
+
+.curate-add-port-btn {
+    width: 100%;
+    display: inline-block;
+    padding: 8px 12px;
+    background: #10b981; /* green */
+    color: #ffffff;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-weight: 700;
+    font-size: 0.9rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all var(--transition-smooth);
+}
+
+.curate-add-port-btn:hover {
+    background: #059669;
+}
+
+.curate-add-port-btn:active {
+    transform: translateY(1px);
+}
+
+.curate-add-port-btn:disabled,
+.curate-add-port-btn.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 /* Visually Hidden (for accessibility) */

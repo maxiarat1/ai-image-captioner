@@ -32,7 +32,7 @@
                           { id: 'port_1', label: 'Port 1', instruction: '' },
                           { id: 'port_2', label: 'Port 2', instruction: '' }
                       ],
-                      showPorts: false,
+                      showPorts: true,
                       showAdvanced: false
                   } : {}
         };
@@ -92,12 +92,22 @@
         });
         portsSection.appendChild(inputsContainer);
 
-        // Output ports
+        // Output ports - handle dynamic outputs for curate nodes
         const outputsContainer = document.createElement('div');
         outputsContainer.className = 'node-ports-out';
-        def.outputs.forEach((portName, i) => {
-            outputsContainer.appendChild(NENodes.createPort(node, portName, i, true));
-        });
+        
+        if (def.allowDynamicOutputs && node.data.ports) {
+            // Use dynamic ports from node data
+            node.data.ports.forEach((portConfig, i) => {
+                const portName = portConfig.label || `Port ${i + 1}`;
+                outputsContainer.appendChild(NENodes.createPort(node, portName, i, true));
+            });
+        } else {
+            // Use static ports from definition
+            def.outputs.forEach((portName, i) => {
+                outputsContainer.appendChild(NENodes.createPort(node, portName, i, true));
+            });
+        }
         portsSection.appendChild(outputsContainer);
 
         el.appendChild(portsSection);

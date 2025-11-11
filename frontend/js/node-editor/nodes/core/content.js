@@ -124,7 +124,8 @@
         }
         if (node.type === 'curate') {
             const showAdvanced = node.data.showAdvanced || false;
-            const showPorts = node.data.showPorts || false;
+            // Show ports if explicitly enabled, otherwise show if ports already exist
+            const showPorts = (typeof node.data.showPorts !== 'undefined') ? node.data.showPorts : (Array.isArray(node.data.ports) && node.data.ports.length > 0);
             const availableModels = AppState.availableModels || [];
             const currentModel = node.data.model;
             const modelType = node.data.modelType || 'vlm';
@@ -138,13 +139,19 @@
                 ? ModelCategories.getCategoryForModel(currentModel)
                 : null;
 
-            const currentDisplayName = currentModel
-                ? (typeof getModelDisplayName === 'function'
-                    ? getModelDisplayName(currentModel)
-                    : currentModel.toUpperCase())
-                : 'Select Model';
+            // If there are no models for the selected curate model type, show an empty
+            // model button (prevents showing a stale/incorrect model name) and disable it.
+            const hasFilteredModels = Array.isArray(filteredModels) && filteredModels.length > 0;
 
-            const categoryIcon = currentCategory ? currentCategory.icon : '🔀';
+            const currentDisplayName = hasFilteredModels
+                ? (currentModel
+                    ? (typeof getModelDisplayName === 'function'
+                        ? getModelDisplayName(currentModel)
+                        : currentModel.toUpperCase())
+                    : 'Select Model')
+                : '';
+
+            const categoryIcon = hasFilteredModels ? (currentCategory ? currentCategory.icon : '🔀') : '';
             const categoryColor = currentCategory ? currentCategory.color : '#a855f7';
 
             // Build categorized dropdown HTML with filtered models
@@ -215,19 +222,18 @@
 
             let html = `
                 <div class="curate-model-type-selector">
-                    <label for="curate-${node.id}-model-type" class="curate-label">Model Type:</label>
                     <select id="curate-${node.id}-model-type"
                             name="curate-${node.id}-model-type"
                             class="curate-model-type-select"
                             data-key="modelType">
-                        <option value="vlm" ${modelType === 'vlm' ? 'selected' : ''}>🤖 Visual LLM (instruction-based)</option>
-                        <option value="classification" ${modelType === 'classification' ? 'selected' : ''}>🏷️ Image Classification (pre-trained)</option>
-                        <option value="zero_shot" ${modelType === 'zero_shot' ? 'selected' : ''}>🎯 Zero-Shot Classification (CLIP)</option>
+                        <option value="vlm" ${modelType === 'vlm' ? 'selected' : ''}>🤖 Visual LLM</option>
+                        <option value="classification" ${modelType === 'classification' ? 'selected' : ''}>🏷️ Image Classification</option>
+                        <option value="zero_shot" ${modelType === 'zero_shot' ? 'selected' : ''}>🎯 Zero-Shot Classification</option>
                     </select>
                 </div>
 
                 <div class="model-select-wrapper" id="model-select-${node.id}">
-                    <button class="model-select-btn" data-node-id="${node.id}" style="--category-color: ${categoryColor}">
+                    <button class="model-select-btn ${!hasFilteredModels ? 'disabled empty' : ''}" data-node-id="${node.id}" style="--category-color: ${categoryColor}" ${!hasFilteredModels ? 'disabled' : ''}>
                         <span class="model-select-icon">${categoryIcon}</span>
                         <span class="model-select-text">${currentDisplayName}</span>
                         <span class="model-select-arrow">▼</span>
@@ -240,8 +246,11 @@
                 <button class="btn-ports-toggle" data-node-id="${node.id}">
                     ${showPorts ? '▼ Hide Routing Ports' : '▶ Show Routing Ports'}
                 </button>
-                <div class="curate-ports-list ${showPorts ? '' : 'hidden'}" id="curate-ports-${node.id}">
+                <div class="curate-ports-list ${showPorts ? '' : 'hidden'}" id="curate-ports-${node.id}" onwheel="event.stopPropagation();">
                     ${portsHtml}
+                    <div class="curate-add-port-wrapper">
+                        <button class="curate-add-port-btn" data-node-id="${node.id}" title="Add port">+ Add Port</button>
+                    </div>
                 </div>
 
                 <button class="btn-advanced" data-node-id="${node.id}">
