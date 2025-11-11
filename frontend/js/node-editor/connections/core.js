@@ -8,7 +8,8 @@
         'text': '#4ECDC4',
         'prompt': '#4ECDC4',
         'captions': '#4ECDC4',
-        'data': '#FFD93D'
+        'data': '#FFD93D',
+        'route': '#A855F7'  // Purple for routing ports
     };
 
     // Connection state
@@ -35,6 +36,20 @@
      * Check if two port types are compatible
      */
     function arePortsCompatible(fromPortType, toPortType) {
+        // Route ports can accept images or text (they're flexible)
+        if (toPortType === 'route') {
+            return true;  // Route ports accept any type
+        }
+
+        // Route output can connect to images or text inputs
+        if (fromPortType === 'route') {
+            return toPortType === 'images' ||
+                   toPortType === 'text' ||
+                   toPortType === 'prompt' ||
+                   toPortType === 'captions' ||
+                   toPortType === 'data';
+        }
+
         // Images can only connect to images
         if (fromPortType === 'images' || toPortType === 'images') {
             return fromPortType === 'images' && toPortType === 'images';

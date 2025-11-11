@@ -1,25 +1,13 @@
 function addResultItemToCurrentPage(queueItem, data) {
-    const resultsGrid = document.getElementById('resultsGrid');
-    const paginationControls = document.getElementById('paginationControls');
-
     const itemIndex = AppState.allResults.length - 1;
     const itemPage = Math.ceil((itemIndex + 1) / AppState.itemsPerPage);
 
     if (itemPage === AppState.currentPage) {
-        // Calculate position within the current page (0-indexed)
-        const positionInPage = itemIndex % AppState.itemsPerPage;
-        
-        // Only add if this position should be on the current page
-        if (positionInPage < AppState.itemsPerPage) {
-            const resultDiv = createResultElement(queueItem, data);
+        const resultsGrid = document.getElementById('resultsGrid');
+        const resultDiv = createResultElement(queueItem, data);
 
-            const delayMs = positionInPage * 80;
-            resultDiv.style.animationDelay = `${delayMs}ms`;
-
-            resultsGrid.appendChild(resultDiv);
-
-            setupLazyLoadingForGrid('resultsGrid');
-        }
+        resultsGrid.appendChild(resultDiv);
+        setupLazyLoadingForGrid('resultsGrid');
     }
 
     updatePaginationControls();
@@ -31,10 +19,8 @@ function createResultElement(queueItem, data) {
     resultDiv.dataset.imageId = queueItem.image_id;
 
     resultDiv.innerHTML = `
-        <div class="result-image">
-            <div class="result-thumbnail-container" data-image-id="${queueItem.image_id}">
-                <div class="thumbnail-placeholder">📷</div>
-            </div>
+        <div class="result-image" data-image-id="${queueItem.image_id}">
+            <div class="thumbnail-placeholder">📷</div>
         </div>
         <div class="result-text">
             <p>${data.caption}</p>

@@ -72,13 +72,11 @@ function createUploadGridItem(item) {
     gridItem.dataset.imageId = item.image_id;  // NEW: use image_id
 
     gridItem.innerHTML = `
-        <div class="result-image">
-            <div class="upload-thumbnail-container" data-image-id="${item.image_id}">
-                <div class="thumbnail-placeholder">📷</div>
-            </div>
-            <button class="upload-remove-btn" data-image-id="${item.image_id}" title="Remove">×</button>
+        <div class="result-image" data-image-id="${item.image_id}">
+            <div class="thumbnail-placeholder">📷</div>
+            <button class="upload-remove-btn" title="Remove">×</button>
         </div>
-        <div class="result-text upload-item-info">
+        <div class="upload-item-info">
             <div class="upload-item-name">${item.filename}</div>
             <div class="upload-item-size">${formatFileSize(item.size)}</div>
         </div>

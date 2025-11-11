@@ -3,7 +3,7 @@
     background: linear-gradient(145deg, var(--bg-secondary), var(--bg-tertiary));
     border: 2px dashed var(--border-color);
     border-radius: var(--radius-lg);
-    padding: var(--spacing-xxl) var(--spacing-xl);
+    padding: var(--spacing-xl) var(--spacing-lg);
     text-align: center;
     transition: all var(--transition-smooth);
     box-shadow: 0 4px 16px var(--shadow-subtle);
