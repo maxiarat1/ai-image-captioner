@@ -387,26 +387,23 @@
 
         // Regex to find all placeholders
         const regex = /\{([^}]+)\}/g;
-        let highlightedText = text.replace(regex, (match, key) => {
+        // Escape HTML first
+        let escapedText = text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+
+        // Then highlight placeholders
+        let highlightedText = escapedText.replace(regex, (match, key) => {
             const isValid = validKeys.includes(key);
             const className = isValid ? 'placeholder-valid' : 'placeholder-invalid';
             return `<mark class="${className}">${match}</mark>`;
         });
 
-        // Escape HTML and preserve formatting
+        // Preserve formatting
         highlightedText = highlightedText
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
             .replace(/\n/g, '<br>')
             .replace(/ /g, '&nbsp;');
-
-        // Re-apply mark tags (they were escaped above)
-        highlightedText = highlightedText
-            .replace(/&lt;mark class="placeholder-valid"&gt;/g, '<mark class="placeholder-valid">')
-            .replace(/&lt;mark class="placeholder-invalid"&gt;/g, '<mark class="placeholder-invalid">')
-            .replace(/&lt;\/mark&gt;/g, '</mark>');
-
         highlightsDiv.innerHTML = highlightedText;
 
         // Sync scroll position
