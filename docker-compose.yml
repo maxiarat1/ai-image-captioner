@@ -20,6 +20,8 @@ services:
         CUDA_VERSION: "cu128"              # .cuda
         PYTHON_VERSION: "3.12"             # .python
         PYTORCH_VERSION: "2.8.0"           # .pytorch.version
+        TORCHVISION_VERSION: "0.23.0"      # .pytorch.torchvision
+        TORCHAUDIO_VERSION: "2.8.0"        # .pytorch.torchaudio
         PYTORCH_INDEX_URL: "https://download.pytorch.org/whl/cu128"  # .pytorch.index_url
     image: ai-image-captioner:latest
     container_name: ai-image-captioner

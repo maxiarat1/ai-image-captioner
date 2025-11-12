@@ -16,9 +16,19 @@ block_cipher = None
 # Helper: Parse requirements.txt
 # ============================================================================
 def get_packages_from_requirements():
-    """Extract package names from requirements.txt"""
+    """Extract package names from requirements.txt and normalize them"""
     spec_dir = Path(__file__).parent if '__file__' in globals() else Path.cwd()
     req_path = spec_dir.parent / 'requirements.txt' if 'backend' in str(spec_dir) else spec_dir / 'requirements.txt'
+    
+    # Map from PyPI package names to actual Python module names
+    PACKAGE_MAPPING = {
+        'opencv-python': 'cv2',
+        'opencv-python-headless': 'cv2',
+        'pillow': None,  # Already handled via PIL imports
+        'python-doctr': 'doctr',
+        'pyinstaller': None,  # Build tool, not runtime dependency
+        'chandra-ocr': None,  # Git package, handled separately
+    }
     
     packages = set()
     if req_path.exists():
@@ -26,14 +36,21 @@ def get_packages_from_requirements():
             line = line.strip()
             if not line or line.startswith('#'):
                 continue
-            # Handle git URLs (extract package name)
+            # Handle git URLs - skip them, they need manual handling
             if line.startswith('git+'):
-                packages.add(line.split('/')[-1].replace('.git', '').lower())
                 continue
             # Extract base package name
             pkg = line.split('==')[0].split('>=')[0].split('[')[0].split('<')[0].strip()
             if pkg:
-                packages.add(pkg.lower().replace('-', '_'))
+                pkg_lower = pkg.lower()
+                # Use mapped name if available
+                if pkg_lower in PACKAGE_MAPPING:
+                    mapped = PACKAGE_MAPPING[pkg_lower]
+                    if mapped:  # None means skip
+                        packages.add(mapped)
+                else:
+                    # Default: convert hyphens to underscores
+                    packages.add(pkg_lower.replace('-', '_'))
     return sorted(packages)
 
 # ============================================================================
@@ -48,11 +65,17 @@ CRITICAL_IMPORTS = [
     'transformers.image_utils', 'transformers.modeling_utils',
     'accelerate.utils', 'huggingface_hub.utils', 'packaging.version',
     'duckdb', 'timm', 'doctr', 'importlib.metadata', 'importlib_metadata',
+    'cv2',  # OpenCV
+]
+
+# Git-based packages that need manual handling
+GIT_PACKAGES = [
+    'chandra_ocr',  # From git+https://github.com/chandralegend/chandra-ocr
 ]
 
 print("Discovering dependencies...")
 auto_packages = get_packages_from_requirements()
-hidden_imports = sorted(set(CRITICAL_IMPORTS + auto_packages))
+hidden_imports = sorted(set(CRITICAL_IMPORTS + auto_packages + GIT_PACKAGES))
 print(f"  Packages to include: {len(hidden_imports)}")
 
 # Collect submodules for complex ML packages

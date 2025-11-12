@@ -14,6 +14,8 @@ ARG CUDA_VERSION
 ARG PYTHON_VERSION
 ARG PYTORCH_VERSION
 ARG PYTORCH_INDEX_URL
+ARG TORCHVISION_VERSION
+ARG TORCHAUDIO_VERSION
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -58,8 +60,8 @@ COPY requirements.txt .
 # Use PyTorch version from build args for complete version control
 RUN pip3 install --no-cache-dir \
         torch==${PYTORCH_VERSION}+${CUDA_VERSION} \
-        torchvision \
-        torchaudio \
+        torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION} \
+        torchaudio==${TORCHAUDIO_VERSION}+${CUDA_VERSION} \
         --index-url ${PYTORCH_INDEX_URL} && \
     pip3 install --no-cache-dir onnxruntime-gpu>=1.16.0 && \
     pip3 install --no-cache-dir --ignore-installed -r requirements.txt
