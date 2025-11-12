@@ -143,7 +143,7 @@
                         // Update underlying data and connection ports
                         NENodes.removeOutputPort(node.id, portId);
                         // Remove the DOM element
-                        try { portEl.remove(); } catch (err) { /* ignore */ }
+                        try { portEl.remove(); } catch (err) { console.error("Failed to remove port element in animation callback:", err); }
                         // Update connections visuals
                         if (typeof NEConnections !== 'undefined') NEConnections.updateConnections();
                     }, { once: true });
