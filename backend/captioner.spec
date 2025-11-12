@@ -61,9 +61,9 @@ for pkg in ['transformers', 'accelerate', 'timm', 'doctr']:
     if pkg in hidden_imports:
         try:
             hidden_imports += collect_submodules(pkg)
-            print(f"  ✓ {pkg}")
+            print(f"  OK: {pkg}")
         except Exception as e:
-            print(f"  ⚠ {pkg}: {e}")
+            print(f"  Warning: {pkg}: {e}")
 
 # ============================================================================
 # Configure Data Files
@@ -76,9 +76,9 @@ for pkg in ['transformers', 'tokenizers', 'duckdb', 'timm', 'doctr']:
     if pkg in hidden_imports:
         try:
             datas += collect_data_files(pkg, include_py_files=False)
-            print(f"  ✓ {pkg}")
+            print(f"  OK: {pkg}")
         except Exception as e:
-            print(f"  ⚠ {pkg}: {e}")
+            print(f"  Warning: {pkg}: {e}")
 
 # Collect metadata for packages that check versions at runtime
 print("Collecting package metadata...")
