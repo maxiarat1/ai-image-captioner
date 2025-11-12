@@ -56,6 +56,7 @@
     box-shadow: 0 0 0 2px var(--accent-primary), 0 0 18px var(--accent-glow), 0 8px 24px var(--shadow);
     transform: translateY(-1px) scale(1.01);
     animation: pulseProcessing 1.2s ease-in-out infinite;
+    border-color: var(--accent-primary);
 }
 
 @keyframes pulseProcessing {
