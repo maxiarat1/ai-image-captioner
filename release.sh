@@ -16,6 +16,20 @@ echo -e "${BLUE}AI Image Captioner - Release Manager${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
+# Validate version.json exists
+if [[ ! -f "version.json" ]]; then
+    echo -e "${RED}Error: version.json not found${NC}"
+    echo "Please run this script from the project root directory"
+    exit 1
+fi
+
+# Validate jq is installed
+if ! command -v jq &> /dev/null; then
+    echo -e "${RED}Error: jq is not installed${NC}"
+    echo "Install jq: sudo apt-get install jq (Linux) or brew install jq (Mac)"
+    exit 1
+fi
+
 # Function to show usage
 show_usage() {
     echo "Usage: ./release.sh -v VERSION [OPTIONS]"
@@ -35,7 +49,9 @@ show_usage() {
     jq -r '.build_configs | to_entries[] | "  - \(.key): Python \(.value.python), CUDA \(.value.cuda_version_display)"' version.json
     echo ""
     echo "This creates executables like:"
-    echo "  - etc. (all configs x 2 platforms)"
+    echo "  - ai-image-captioner-windows-[config].zip"
+    echo "  - ai-image-captioner-linux-[config].tar.gz"
+    echo "  - Docker images: ghcr.io/[owner]/ai-image-captioner:[version]-[config]"
     exit 0
 }
 
