@@ -112,6 +112,16 @@ REM ------------------------------------------------------------
 REM Install PyTorch stack based on configuration
 REM ------------------------------------------------------------
 if "%PYTORCH_METHOD%"=="pip" (
+    echo Checking if torch==%PYTORCH_VERSION%+%CUDA_LABEL% is available on %PYTORCH_INDEX_URL%...
+    pip install --dry-run --no-deps torch==%PYTORCH_VERSION%+%CUDA_LABEL% --index-url %PYTORCH_INDEX_URL% > pip_check.log 2>&1
+    if %errorlevel% neq 0 (
+        echo.
+        echo ERROR: The specified torch version torch==%PYTORCH_VERSION%+%CUDA_LABEL% was not found on %PYTORCH_INDEX_URL%.
+        echo Please check your version.json and ensure the version exists.
+        echo See pip_check.log for details.
+        exit /b 1
+    )
+    del pip_check.log
     echo Installing PyTorch stack via pip...
     pip install torch==%PYTORCH_VERSION%+%CUDA_LABEL% torchvision==%TORCHVISION_VERSION%+%CUDA_LABEL% torchaudio==%TORCHAUDIO_VERSION%+%CUDA_LABEL% --index-url %PYTORCH_INDEX_URL%
 ) else if "%PYTORCH_METHOD%"=="conda" (
