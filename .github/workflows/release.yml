@@ -59,22 +59,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Free up disk space
-        shell: bash
+      - name: Free up disk space (Linux)
+        if: runner.os == 'Linux'
         run: |
           echo "Disk space before cleanup:"
-          if [ "$RUNNER_OS" == "Linux" ]; then
-            df -h
-            sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost "$AGENT_TOOLSDIRECTORY" \
-                        /usr/local/lib/android /usr/share/swift /opt/hostedtoolcache
-            sudo docker system prune -af || true
-            df -h
-          else
-            Get-PSDrive
-            Remove-Item -Path "C:\hostedtoolcache" -Recurse -Force -ErrorAction SilentlyContinue
-            Remove-Item -Path "C:\Program Files\dotnet" -Recurse -Force -ErrorAction SilentlyContinue
-            Get-PSDrive
-          fi
+          df -h
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost "$AGENT_TOOLSDIRECTORY" \
+                      /usr/local/lib/android /usr/share/swift /opt/hostedtoolcache
+          sudo docker system prune -af || true
+          echo "Disk space after cleanup:"
+          df -h
+
+      - name: Free up disk space (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Write-Host "Disk space before cleanup:"
+          Get-PSDrive
+          Remove-Item -Path "C:\hostedtoolcache" -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "C:\Program Files\dotnet" -Recurse -Force -ErrorAction SilentlyContinue
+          Write-Host "Disk space after cleanup:"
+          Get-PSDrive
 
       - name: Set platform name
         id: platform
@@ -132,14 +137,13 @@ jobs:
           BASE_NAME="ai-image-captioner-${PLATFORM}-${CONFIG}"
           mkdir -p artifacts
           
-          SIZE=$(du -sb dist/ai-image-captioner | cut -f1)
-          
           if [ "$PLATFORM" == "windows" ]; then
-            # Windows: use 7z for splitting
+            # Windows: use 7z for splitting (always split for consistency)
             7z a -tzip -v2000m "${BASE_NAME}.zip" ./dist/ai-image-captioner
             mv ${BASE_NAME}.zip* artifacts/
           else
-            # Linux: split tar if needed
+            # Linux: check size and split if needed
+            SIZE=$(du -sb dist/ai-image-captioner | cut -f1)
             if [ $SIZE -gt 2000000000 ]; then
               tar -czf - -C dist ai-image-captioner | split -b 2000m - "artifacts/${BASE_NAME}.tar.gz.part"
             else
@@ -192,6 +196,10 @@ jobs:
             '.build_configs[$cfg].docker.cuda_base_version' version.json)
           CUDNN_SUFFIX=$(jq -r --arg cfg "$CONFIG_NAME" \
             '.build_configs[$cfg].docker.cudnn_suffix' version.json)
+          PYTORCH_VERSION=$(jq -r --arg cfg "$CONFIG_NAME" \
+            '.build_configs[$cfg].pytorch.version' version.json)
+          PYTORCH_INDEX=$(jq -r --arg cfg "$CONFIG_NAME" \
+            '.build_configs[$cfg].pytorch.index_url' version.json)
           
           if [ "$CUDA_BASE" == "null" ] || [ "$CUDNN_SUFFIX" == "null" ]; then
             echo "Error: Docker config missing in version.json for $CONFIG_NAME"
@@ -200,7 +208,9 @@ jobs:
           
           echo "cuda_base=$CUDA_BASE" >> $GITHUB_OUTPUT
           echo "cudnn_suffix=$CUDNN_SUFFIX" >> $GITHUB_OUTPUT
-          echo "Using CUDA base: $CUDA_BASE, cuDNN suffix: $CUDNN_SUFFIX"
+          echo "pytorch_version=$PYTORCH_VERSION" >> $GITHUB_OUTPUT
+          echo "pytorch_index=$PYTORCH_INDEX" >> $GITHUB_OUTPUT
+          echo "Using CUDA base: $CUDA_BASE, cuDNN suffix: $CUDNN_SUFFIX, PyTorch: $PYTORCH_VERSION"
 
       - name: Extract metadata for Docker
         id: meta
@@ -223,6 +233,8 @@ jobs:
             CUDA_VERSION=${{ matrix.config.cuda }}
             CUDA_BASE_VERSION=${{ steps.docker_config.outputs.cuda_base }}
             CUDNN_SUFFIX=${{ steps.docker_config.outputs.cudnn_suffix }}
+            PYTORCH_VERSION=${{ steps.docker_config.outputs.pytorch_version }}
+            PYTORCH_INDEX_URL=${{ steps.docker_config.outputs.pytorch_index }}
           cache-from: type=gha,scope=${{ matrix.config.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.config.name }}
           platforms: linux/amd64
