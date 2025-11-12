@@ -4,7 +4,7 @@ Build and test image captioning pipelines with diverse AI models using a flexibl
 
 ![License](https://img.shields.io/badge/license-MIT-purple.svg)
 ![Python](https://img.shields.io/badge/python-3.12-blue.svg)
-![CUDA](https://img.shields.io/badge/CUDA-12.8-*-svg)
+![CUDA](https://img.shields.io/badge/CUDA-12.8-green.svg)
 
 
 ![AI Image Captioner Interface](assets/Image%20Tagger.png)
