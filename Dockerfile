@@ -1,16 +1,19 @@
 # AI Image Captioner - Production Dockerfile
-# Built on NVIDIA CUDA base image for GPU support
+# 
+# Build arguments come from docker-compose.yml (which references version.json)
+# See docker-compose.yml for current configuration values
 
 # Build arguments for base image selection
-# Note: CUDA 12.8 runtime uses the 12.8.0 base image with cuDNN
-ARG CUDA_BASE_VERSION=12.8.0
-ARG CUDNN_SUFFIX=cudnn
+ARG CUDA_BASE_VERSION
+ARG CUDNN_SUFFIX
 
 FROM nvidia/cuda:${CUDA_BASE_VERSION}-${CUDNN_SUFFIX}-runtime-ubuntu22.04
 
 # Re-declare build arguments (ARG before FROM are not available after)
-ARG CUDA_VERSION=cu128
-ARG PYTHON_VERSION=3.12
+ARG CUDA_VERSION
+ARG PYTHON_VERSION
+ARG PYTORCH_VERSION
+ARG PYTORCH_INDEX_URL
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -52,7 +55,12 @@ COPY version.json .
 COPY requirements.txt .
 
 # Install Python dependencies
-RUN pip3 install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/${CUDA_VERSION} && \
+# Use PyTorch version from build args for complete version control
+RUN pip3 install --no-cache-dir \
+        torch==${PYTORCH_VERSION}+${CUDA_VERSION} \
+        torchvision \
+        torchaudio \
+        --index-url ${PYTORCH_INDEX_URL} && \
     pip3 install --no-cache-dir onnxruntime-gpu>=1.16.0 && \
     pip3 install --no-cache-dir --ignore-installed -r requirements.txt
 

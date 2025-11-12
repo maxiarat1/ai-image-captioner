@@ -1,13 +1,26 @@
+# AI Image Captioner - Docker Compose Configuration
+# 
+# Version numbers come from version.json
+# Current config: python312-cuda128 (Python 3.12, CUDA 12.8, PyTorch 2.8.0)
+#
+# To use a different configuration:
+# 1. Check available configs: jq '.build_configs | keys' version.json
+# 2. Update the build args below with values from your chosen config
+# 3. Run: docker-compose build
+
 services:
   ai-image-captioner:
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        CUDA_BASE_VERSION: 12.8.0  # Base image for CUDA 12.8
-        CUDNN_SUFFIX: cudnn
-        CUDA_VERSION: cu128           # PyTorch CUDA version
-        PYTHON_VERSION: "3.12"
+        # Values from version.json -> build_configs.python312-cuda128
+        CUDA_BASE_VERSION: "12.8.0"        # .docker.cuda_base_version
+        CUDNN_SUFFIX: "cudnn"              # .docker.cudnn_suffix
+        CUDA_VERSION: "cu128"              # .cuda
+        PYTHON_VERSION: "3.12"             # .python
+        PYTORCH_VERSION: "2.8.0"           # .pytorch.version
+        PYTORCH_INDEX_URL: "https://download.pytorch.org/whl/cu128"  # .pytorch.index_url
     image: ai-image-captioner:latest
     container_name: ai-image-captioner
 
