@@ -339,6 +339,30 @@
         // Final load of results from database
         await NEExec._loadResultsFromDatabase();
 
+        // Update output node to reflect completion and number of results
+        try {
+            const outputNode = NodeEditor.nodes.find(n => n.type === 'output');
+            if (outputNode && typeof updateOutputStats === 'function') {
+                const currentStats = outputNode.data.stats || {};
+                const resultsCount = Array.isArray(AppState.allResults) ? AppState.allResults.length : 0;
+                updateOutputStats(outputNode.id, {
+                    // Preserve existing counters where possible
+                    total: currentStats.total || 0,
+                    processed: currentStats.processed || 0,
+                    success: currentStats.success || 0,
+                    failed: currentStats.failed || 0,
+                    // Clear transient fields
+                    stage: '',
+                    speed: '',
+                    eta: '',
+                    // Signal completion via results count so UI hides idle
+                    resultsReady: resultsCount
+                });
+            }
+        } catch (e) {
+            console.warn('Could not update output stats on completion:', e);
+        }
+
         // Show download button
         const downloadBtn = document.getElementById('downloadAllBtn');
         if (downloadBtn && AppState.allResults.length > 0) {
