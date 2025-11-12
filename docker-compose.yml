@@ -3,6 +3,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        CUDA_BASE_VERSION: 12.8.0  # Base image for CUDA 12.8
+        CUDNN_SUFFIX: cudnn
+        CUDA_VERSION: cu128           # PyTorch CUDA version
+        PYTHON_VERSION: "3.12"
     image: ai-image-captioner:latest
     container_name: ai-image-captioner
 
