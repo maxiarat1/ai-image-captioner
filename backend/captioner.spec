@@ -2,124 +2,182 @@
 """
 PyInstaller spec file for AI Image Captioner Backend
 
-This builds a standalone executable that includes:
-- Flask backend server
-- PyTorch with CUDA support
-- Multiple AI vision models (BLIP, R-4B, WD-ViT, Janus)
-- All required dependencies
+Builds a standalone executable with Flask backend and PyTorch/CUDA support.
+Auto-discovers dependencies from requirements.txt
 
-Build command:
-    pyinstaller backend/captioner.spec
+Build from project root:
+    cd backend && pyinstaller captioner.spec --distpath ../dist --workpath ../build
 
-Output directories:
-    - Build artifacts: build-output/build/
-    - Final executable: build-output/dist/ai-image-captioner/
-
-Note: The executable will be large (~3-5GB) due to PyTorch and CUDA libraries.
-Models will be downloaded on first run to ~/.cache/huggingface/
+Or use build.sh script which handles paths automatically.
 """
 
 import sys
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 import os
 from pathlib import Path
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 block_cipher = None
 
-# Define output directories at project root
-project_root = Path(os.getcwd())
-build_dir = project_root / 'build-output' / 'build'
-dist_dir = project_root / 'build-output' / 'dist'
+# Auto-discover packages from requirements.txt
+def get_packages_from_requirements():
+    """Parse requirements.txt and extract package names"""
+    requirements_path = Path(__file__).parent.parent / 'requirements.txt'
+    packages = set()
+    
+    if requirements_path.exists():
+        with open(requirements_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                # Skip comments and empty lines
+                if not line or line.startswith('#'):
+                    continue
+                # Skip git URLs
+                if line.startswith('git+'):
+                    # Extract package name from git URL (e.g., Janus from git+...Janus.git)
+                    if '/' in line:
+                        pkg_name = line.split('/')[-1].replace('.git', '').lower()
+                        packages.add(pkg_name)
+                    continue
+                # Extract package name (before ==, >=, [, etc.)
+                pkg = line.split('==')[0].split('>=')[0].split('[')[0].split('<')[0].strip()
+                if pkg:
+                    packages.add(pkg.lower().replace('-', '_'))
+    
+    return sorted(packages)
 
-# Collect all submodules for critical packages
+# Auto-discover imports from Python source files
+def get_imports_from_source():
+    """Scan Python files to find import statements"""
+    backend_path = Path(__file__).parent
+    imports = set()
+    
+    # Standard library modules to ignore
+    stdlib = {
+        'os', 'sys', 'json', 'pathlib', 'io', 're', 'time', 'datetime',
+        'typing', 'collections', 'functools', 'itertools', 'base64',
+        'hashlib', 'uuid', 'logging', 'warnings', 'asyncio', 'threading',
+        'csv', 'shutil', 'tempfile', 'zipfile', 'webbrowser', 'gc',
+        'concurrent', 'abc', 'random', 'string', 'urllib', 'http',
+    }
+    
+    # Local modules to ignore (your own code, not external packages)
+    local_modules = {
+        'app', 'backend', 'config', 'database', 'graph_executor',
+        'models', 'utils', 'workers',
+    }
+    
+    # Scan all Python files in backend directory
+    for py_file in backend_path.rglob('*.py'):
+        try:
+            with open(py_file, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    # Match: import xxx or from xxx import yyy
+                    if line.startswith('import ') or line.startswith('from '):
+                        parts = line.replace('import ', ' ').replace('from ', ' ').split()
+                        if parts:
+                            # Get base module name, strip trailing commas
+                            module = parts[0].split('.')[0].strip().strip(',')
+                            # Only add if not stdlib or local module
+                            if module and module not in stdlib and module not in local_modules:
+                                imports.add(module)
+        except Exception:
+            pass
+    
+    return sorted(imports)
+
+# Base hidden imports (critical submodules that PyInstaller misses)
+# These are submodules that are dynamically imported at runtime
 hidden_imports = [
-    # Flask and CORS
+    # Flask submodules (dynamically loaded)
     'flask',
     'flask_cors',
-    'werkzeug',
-
-    # PIL/Pillow
-    'PIL',
-    'PIL.Image',
-    'PIL.ImageFile',
+    'werkzeug.security',
+    'werkzeug.routing',
+    'jinja2',
+    
+    # PIL plugins (loaded dynamically based on image format)
     'PIL.JpegImagePlugin',
     'PIL.PngImagePlugin',
     'PIL.WebPImagePlugin',
     'PIL.BmpImagePlugin',
-
-    # PyTorch and related
-    'torch',
+    
+    # PyTorch CUDA (optional runtime import)
     'torch.cuda',
-    'torch.nn',
     'torch.nn.functional',
-    'torch.utils',
     'torch.utils.data',
-    'torch.optim',
-    'torchvision',
-    'torchvision.transforms',
-
-    # Transformers and dependencies
-    'transformers',
-    'transformers.models',
+    
+    # Transformers submodules (many dynamic imports)
     'transformers.models.auto',
-    'transformers.generation',
-    'transformers.modeling_utils',
-    'transformers.tokenization_utils',
-    'transformers.tokenization_utils_base',
+    'transformers.generation.utils',
     'transformers.image_utils',
-    'transformers.utils',
-
-    # Accelerate
-    'accelerate',
+    'transformers.modeling_utils',
+    
+    # Accelerate utilities
     'accelerate.utils',
-
-    # BitsAndBytes
-    'bitsandbytes',
-
-    # Hugging Face Hub
-    'huggingface_hub',
+    
+    # Hugging Face Hub utilities
     'huggingface_hub.utils',
-
-    # Other critical imports
-    'packaging',
+    
+    # Essential utilities with dynamic imports
     'packaging.version',
-    'filelock',
-    'requests',
-    'tqdm',
-    'numpy',
-    'regex',
-    'safetensors',
-    'sentencepiece',
-    'tokenizers',
-
-    # DuckDB
-    'duckdb',
 ]
 
-# Collect all submodules for transformers (it has many dynamic imports)
-hidden_imports += collect_submodules('transformers')
-hidden_imports += collect_submodules('accelerate')
+# Auto-discover and merge all imports
+print("Auto-discovering packages from requirements.txt...")
+auto_packages = get_packages_from_requirements()
 
-# Collect data files
-datas = []
-datas += collect_data_files('transformers')
-datas += collect_data_files('accelerate')
-datas += collect_data_files('bitsandbytes')
-datas += collect_data_files('torch', include_py_files=True)
-datas += collect_data_files('torchvision', include_py_files=True)
-datas += collect_data_files('duckdb')
+print("Auto-discovering imports from source code...")
+source_imports = get_imports_from_source()
 
-# Add the frontend directory (optional - include if you want a single package)
-# Uncomment the line below to bundle frontend with backend
-datas += [('../frontend', 'frontend')]
+# Merge all discovered imports (avoid duplicates)
+all_imports = set(hidden_imports)
+all_imports.update(auto_packages)
+all_imports.update(source_imports)
 
-# Binary files and libraries
+# Convert back to list
+hidden_imports = sorted(all_imports)
+
+print(f"Total packages to include: {len(hidden_imports)}")
+print(f"  From requirements.txt: {len(auto_packages)}")
+print(f"  From source code: {len(source_imports)}")
+print(f"  Manual (critical submodules): {len(set(hidden_imports) - set(auto_packages) - set(source_imports))}")
+
+
+# Auto-collect submodules for packages that need it
+print("Collecting submodules for complex packages...")
+submodule_packages = ['transformers', 'accelerate', 'timm', 'doctr']
+for pkg in submodule_packages:
+    if pkg in auto_packages or pkg in hidden_imports:
+        try:
+            print(f"  Collecting submodules for {pkg}...")
+            hidden_imports += collect_submodules(pkg)
+        except Exception as e:
+            print(f"  Warning: Could not collect submodules for {pkg}: {e}")
+            pass
+
+# Collect data files (only essential ones to reduce size)
+datas = [
+    # Include frontend for standalone distribution
+    ('../frontend', 'frontend'),
+]
+
+# Auto-collect data files for packages that need them
+print("Collecting data files...")
+data_packages = ['transformers', 'tokenizers', 'duckdb', 'timm', 'doctr']
+for pkg in data_packages:
+    if pkg in auto_packages or pkg in hidden_imports:
+        try:
+            print(f"  Collecting data files for {pkg}...")
+            datas += collect_data_files(pkg, include_py_files=False)
+        except Exception as e:
+            print(f"  Warning: Could not collect data files for {pkg}: {e}")
+            pass
+
+print(f"Total data entries collected: {len(datas)}")
+
+# Binary files (empty - let PyInstaller auto-detect)
 binaries = []
-
-# Add CUDA libraries if available (for Windows)
-if sys.platform == 'win32':
-    # PyTorch CUDA libraries are usually included automatically
-    pass
 
 a = Analysis(
     ['app.py'],
@@ -131,14 +189,20 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=[],
     excludes=[
-        # Exclude unused modules to reduce size
-        'matplotlib',
-        'scipy',
-        'pandas',
+        # Exclude large unused packages to reduce build size
+        # (auto-excluded if not in requirements.txt)
+        'matplotlib' if 'matplotlib' not in auto_packages else None,
+        'scipy' if 'scipy' not in auto_packages else None,
+        'pandas' if 'pandas' not in auto_packages else None,
         'jupyter',
         'notebook',
         'IPython',
         'pytest',
+        'test',
+        'tests',
+        'testing',
+        'unittest',
+        'distutils',
         'setuptools',
         'wheel',
         'pip',
@@ -148,9 +212,6 @@ a = Analysis(
     cipher=block_cipher,
     noarchive=False,
 )
-
-# Set custom build directory
-a.SPECPATH = str(build_dir)
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
@@ -164,13 +225,12 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,  # Keep console for server logs
+    console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,  # Add icon path if you have one
 )
 
 coll = COLLECT(
@@ -183,8 +243,3 @@ coll = COLLECT(
     upx_exclude=[],
     name='ai-image-captioner',
 )
-
-# Override default paths
-import PyInstaller.config
-PyInstaller.config.CONF['workpath'] = str(build_dir)
-PyInstaller.config.CONF['distpath'] = str(dist_dir)
