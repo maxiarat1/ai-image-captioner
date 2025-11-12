@@ -198,6 +198,10 @@ jobs:
             '.build_configs[$cfg].docker.cudnn_suffix' version.json)
           PYTORCH_VERSION=$(jq -r --arg cfg "$CONFIG_NAME" \
             '.build_configs[$cfg].pytorch.version' version.json)
+          TORCHVISION_VERSION=$(jq -r --arg cfg "$CONFIG_NAME" \
+            '.build_configs[$cfg].pytorch.torchvision' version.json)
+          TORCHAUDIO_VERSION=$(jq -r --arg cfg "$CONFIG_NAME" \
+            '.build_configs[$cfg].pytorch.torchaudio' version.json)
           PYTORCH_INDEX=$(jq -r --arg cfg "$CONFIG_NAME" \
             '.build_configs[$cfg].pytorch.index_url' version.json)
           
@@ -209,6 +213,8 @@ jobs:
           echo "cuda_base=$CUDA_BASE" >> $GITHUB_OUTPUT
           echo "cudnn_suffix=$CUDNN_SUFFIX" >> $GITHUB_OUTPUT
           echo "pytorch_version=$PYTORCH_VERSION" >> $GITHUB_OUTPUT
+          echo "torchvision_version=$TORCHVISION_VERSION" >> $GITHUB_OUTPUT
+          echo "torchaudio_version=$TORCHAUDIO_VERSION" >> $GITHUB_OUTPUT
           echo "pytorch_index=$PYTORCH_INDEX" >> $GITHUB_OUTPUT
           echo "Using CUDA base: $CUDA_BASE, cuDNN suffix: $CUDNN_SUFFIX, PyTorch: $PYTORCH_VERSION"
 
@@ -234,6 +240,8 @@ jobs:
             CUDA_BASE_VERSION=${{ steps.docker_config.outputs.cuda_base }}
             CUDNN_SUFFIX=${{ steps.docker_config.outputs.cudnn_suffix }}
             PYTORCH_VERSION=${{ steps.docker_config.outputs.pytorch_version }}
+            TORCHVISION_VERSION=${{ steps.docker_config.outputs.torchvision_version }}
+            TORCHAUDIO_VERSION=${{ steps.docker_config.outputs.torchaudio_version }}
             PYTORCH_INDEX_URL=${{ steps.docker_config.outputs.pytorch_index }}
           cache-from: type=gha,scope=${{ matrix.config.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.config.name }}
