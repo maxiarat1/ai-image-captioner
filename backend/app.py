@@ -1064,7 +1064,18 @@ if __name__ == '__main__':
         frontend_path = os.path.join(os.path.dirname(__file__), "../frontend/index.html")
         frontend_path = os.path.abspath(frontend_path)
     
-    webbrowser.open(f"file://{frontend_path}")
+    # Open browser only if not running in Docker (where DISPLAY isn't available)
+    in_docker = os.path.exists('/.dockerenv') or os.environ.get('RUNNING_IN_DOCKER') == '1'
+    
+    if not in_docker:
+        webbrowser.open(f"file://{frontend_path}")
+    else:
+        # In Docker, print URL for user to open manually
+        logger.info("=" * 60)
+        logger.info("AI Image Captioner is running!")
+        logger.info("Open in your browser: http://localhost:5000")
+        logger.info("=" * 60)
+    
     app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE  # None = no limit
     init_models()
     flask_debug = os.environ.get("FLASK_DEBUG", "0") == "1"
