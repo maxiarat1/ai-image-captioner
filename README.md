@@ -3,7 +3,7 @@
 Build and test image captioning pipelines with diverse AI models using a flexible, node-based visual interface.
 
 ![License](https://img.shields.io/badge/license-MIT-purple.svg)
-![Python](https://img.shields.io/badge/python%20%7C%203.12-blue.svg)
+![Python](https://img.shields.io/badge/python-3.12-blue.svg)
 ![CUDA](https://img.shields.io/badge/CUDA%20%7C%2012.8-*.svg)
 
 
