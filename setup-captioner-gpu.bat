@@ -65,11 +65,14 @@ REM Get additional configuration values
 for /f "usebackq delims=" %%i in (`python -c "import json; data = json.load(open('version.json')); cfg = next((v for k, v in data['build_configs'].items() if v.get('cuda_version_display') == '%CUDA_VERSION%'), None); print(cfg['pytorch']['install_method'])"`) do set PYTORCH_METHOD=%%i
 for /f "usebackq delims=" %%i in (`python -c "import json; data = json.load(open('version.json')); cfg = next((v for k, v in data['build_configs'].items() if v.get('cuda_version_display') == '%CUDA_VERSION%'), None); print(cfg['pytorch']['version'])"`) do set PYTORCH_VERSION=%%i
 for /f "usebackq delims=" %%i in (`python -c "import json; data = json.load(open('version.json')); cfg = next((v for k, v in data['build_configs'].items() if v.get('cuda_version_display') == '%CUDA_VERSION%'), None); print(cfg['pytorch']['torchvision'])"`) do set TORCHVISION_VERSION=%%i
-for /f "usebackq delims=" %%i in (`python -c "import json; data = json.load(open('version.json')); cfg = next((v for k, v in data['build_configs'].items() if v.get('cuda_version_display') == '%CUDA_VERSION%'), None); print(cfg['pytorch']['torchaudio'])"`) do set TORCHAUDIO_VERSION=%%i
-for /f "usebackq delims=" %%i in (`python -c "import json; data = json.load(open('version.json')); cfg = next((v for k, v in data['build_configs'].items() if v.get('cuda_version_display') == '%CUDA_VERSION%'), None); print(cfg['pytorch'].get('index_url', ''))"`) do set PYTORCH_INDEX_URL=%%i
-for /f "usebackq delims=" %%i in (`python -c "import json; data = json.load(open('version.json')); cfg = next((v for k, v in data['build_configs'].items() if v.get('cuda_version_display') == '%CUDA_VERSION%'), None); print(cfg['pytorch'].get('pytorch_cuda', ''))"`) do set PYTORCH_CUDA=%%i
-for /f "usebackq delims=" %%i in (`python -c "import json; data = json.load(open('version.json')); cfg = next((v for k, v in data['build_configs'].items() if v.get('cuda_version_display') == '%CUDA_VERSION%'), None); print(cfg['flash_attention']['version'])"`) do set FA_VERSION=%%i
-for /f "usebackq delims=" %%i in (`python -c "import json; data = json.load(open('version.json')); cfg = next((v for k, v in data['build_configs'].items() if v.get('cuda_version_display') == '%CUDA_VERSION%'), None); print(cfg['flash_attention']['cuda_suffix'])"`) do set FA_CUDA_SUFFIX=%%i
+REM Parse version.json once and extract all required values in one Python call
+for /f "tokens=1,2,3,4,5 delims=|" %%a in ('python -c "import json; cfg = next((v for k, v in json.load(open('version.json'))['build_configs'].items() if v.get('cuda_version_display') == '%CUDA_VERSION%'), None); print('|'.join([cfg['pytorch']['torchaudio'], str(cfg['pytorch'].get('index_url', '')), str(cfg['pytorch'].get('pytorch_cuda', '')), cfg['flash_attention']['version'], cfg['flash_attention']['cuda_suffix']]))"') do (
+    set "TORCHAUDIO_VERSION=%%a"
+    set "PYTORCH_INDEX_URL=%%b"
+    set "PYTORCH_CUDA=%%c"
+    set "FA_VERSION=%%d"
+    set "FA_CUDA_SUFFIX=%%e"
+)
 
 REM Convert Python version to CPython ABI tag (e.g., 3.12 -> cp312)
 set PY_ABI_TAG=cp%PYTHON_VERSION:.=%
