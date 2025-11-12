@@ -548,7 +548,7 @@ class GraphExecutor:
         precision_params = self._extract_precision_params(model_name, parameters)
 
         # Create curate adapter
-        from models.vlm_router_adapter import VLMRouterAdapter
+        from backend.models.vlm_router_adapter import VLMRouterAdapter
 
         if model_type == 'vlm':
             curate_adapter = VLMRouterAdapter(model_name)
