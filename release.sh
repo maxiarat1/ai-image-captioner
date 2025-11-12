@@ -35,9 +35,7 @@ show_usage() {
     jq -r '.build_configs | to_entries[] | "  - \(.key): Python \(.value.python), CUDA \(.value.cuda_version_display)"' version.json
     echo ""
     echo "This creates executables like:"
-    echo "  - ai-image-captioner-windows-python310-cuda118.zip"
-    echo "  - ai-image-captioner-linux-python310-cuda124.tar.gz"
-    echo "  - etc. (all configs × 2 platforms)"
+    echo "  - etc. (all configs x 2 platforms)"
     exit 0
 }
 
