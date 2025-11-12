@@ -293,7 +293,7 @@ jobs:
           **Option 1: Docker (Recommended)**
 
           ```bash
-          # RTX 50 series
+          # RTX 20/30/40/50 series
           docker run --gpus all -p 5000:5000 ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python312-cuda128
           ```
 
