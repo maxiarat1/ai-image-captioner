@@ -17,7 +17,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    CUDA_HOME=/usr/local/cuda
+    CUDA_HOME=/usr/local/cuda \
+    RUNNING_IN_DOCKER=1
 
 # Install Python and system dependencies
 RUN apt-get update && apt-get install -y \
