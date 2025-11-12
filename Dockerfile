@@ -2,13 +2,14 @@
 # Built on NVIDIA CUDA base image for GPU support
 
 # Build arguments for base image selection
-ARG CUDA_BASE_VERSION=12.1.1
-ARG CUDNN_SUFFIX=cudnn8
+# Note: CUDA 12.8 runtime uses the 12.8.0 base image with cuDNN
+ARG CUDA_BASE_VERSION=12.8.0
+ARG CUDNN_SUFFIX=cudnn
 
 FROM nvidia/cuda:${CUDA_BASE_VERSION}-${CUDNN_SUFFIX}-runtime-ubuntu22.04
 
 # Re-declare build arguments (ARG before FROM are not available after)
-ARG CUDA_VERSION=cu121
+ARG CUDA_VERSION=cu128
 ARG PYTHON_VERSION=3.12
 
 # Set environment variables
@@ -25,6 +26,12 @@ RUN apt-get update && apt-get install -y \
     wget \
     curl \
     jq \
+    # OpenCV dependencies (required by doctr)
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender1 \
     && add-apt-repository ppa:deadsnakes/ppa -y \
     && apt-get update \
     && apt-get install -y \
@@ -45,6 +52,7 @@ COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip3 install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/${CUDA_VERSION} && \
+    pip3 install --no-cache-dir onnxruntime-gpu>=1.16.0 && \
     pip3 install --no-cache-dir --ignore-installed -r requirements.txt
 
 # Copy application code

@@ -5,6 +5,8 @@ flask-cors>=4.0.0
 # Image Processing
 pillow>=10.0.0
 python-doctr[torch]>=0.7.0
+opencv-python>=4.8.0
+numpy>=1.24.0
 
 # ML/AI Core
 transformers>=4.46.3
@@ -37,6 +39,3 @@ chandra-ocr>=0.1.8
 
 # Build/Distribution
 pyinstaller>=6.0.0
-
-# Optional: Flash Attention (requires compatible GPU)
-# Note: Install with: pip install flash-attn==2.7.3 --use-pep517 --no-build-isolation
