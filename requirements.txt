@@ -32,6 +32,7 @@ easydict
 
 # External Models
 git+https://github.com/deepseek-ai/Janus.git
+chandra-ocr>=0.1.8
 
 
 # Build/Distribution
