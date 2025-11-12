@@ -4,6 +4,7 @@ Graph Executor - Clean execution engine for node-based workflows.
 Processes node graphs independently in the background, surviving page refreshes.
 """
 
+import asyncio
 import logging
 import time
 import re
@@ -149,10 +150,11 @@ class GraphExecutor:
             # For curate nodes with multiple outputs, we take the first connected path
             # (actual routing happens at runtime)
             # For regular AI nodes, find next node connected from captions (port 0) to prompt (port 1)
+            # For curate nodes, accept connections to port 0 (captions input)
             next_conn = next((
                 c for c in connections
                 if c['from'] == current['id'] and
-                   c['toPort'] == 1 and
+                   (c['toPort'] == 1 or c['toPort'] == 0) and
                    any(n['id'] == c['to'] and n['type'] in ('aimodel', 'curate') for n in ai_nodes)
             ), None)
 
@@ -199,13 +201,62 @@ class GraphExecutor:
 
             # Handle curate nodes differently
             if node_type == 'curate':
-                # For curate nodes, we need to handle routing
-                # For now, we'll process all images and route them, then continue
-                # with the remaining chain for each route
-                logger.info(f"Curate node detected at stage {stage_idx + 1}, implementing routing logic")
-                # Note: Full routing implementation would process split batches through different paths
-                # For MVP, we'll route but continue with single path (first connected downstream)
-                # TODO: Implement full per-route processing
+                # Execute curate routing logic
+                logger.info(f"Stage {stage_idx + 1}/{len(ai_chain)}: Routing {total_images} images with curate node")
+
+                try:
+                    # Load ALL images for curate processing (curate processes entire batch at once)
+                    image_paths_dict = await self.async_session.get_image_paths_batch(image_ids)
+
+                    images = []
+                    for img_id in image_ids:
+                        img_path = image_paths_dict.get(img_id)
+                        if img_path:
+                            images.append(load_image(img_path))
+                        else:
+                            logger.warning(f"Image path not found for {img_id}")
+                            images.append(None)
+
+                    # Execute routing (this analyzes images and makes routing decisions)
+                    routing_decisions, stage_success, stage_failed = await self._execute_curate_routing(
+                        job_id, ai_node, images, image_ids, prev_captions, nodes, connections,
+                        get_model_func, stage_idx, len(ai_chain), start_time
+                    )
+
+                    # Log routing results (saving happens live inside _execute_curate_routing)
+                    for port_id, image_indices in routing_decisions.items():
+                        logger.info(f"  Port '{port_id}': {len(image_indices)} images routed")
+
+                    # Update totals
+                    total_success += stage_success
+                    total_failed += stage_failed
+
+                except Exception as e:
+                    logger.error(f"Curate routing error: {e}")
+                    total_failed += total_images
+                    stage_success = 0
+                    stage_failed = total_images
+
+                # Send final stage completion status to prevent race condition
+                elapsed = time.time() - start_time
+                avg_speed = total_images / elapsed if elapsed > 0 else 0
+                self.exec_manager.update_status(
+                    job_id,
+                    current_stage=stage_idx + 1,
+                    processed=total_images,
+                    success=total_success,
+                    failed=total_failed,
+                    progress={
+                        'speed': f"{avg_speed:.2f} img/s" if avg_speed > 0 else "",
+                        'eta': "",
+                        'stage_progress': f"{total_images}/{total_images}"
+                    }
+                )
+
+                # Small delay to ensure frontend polls and displays 100% completion
+                await asyncio.sleep(0.5)
+
+                # Continue to next stage in chain (captions pass through)
                 continue
 
             # Standard AI model processing
@@ -307,6 +358,25 @@ class GraphExecutor:
 
             total_success += stage_success
             total_failed += stage_failed
+
+            # Send final stage completion status to prevent race condition
+            elapsed = time.time() - start_time
+            avg_speed = total_images / elapsed if elapsed > 0 else 0
+            self.exec_manager.update_status(
+                job_id,
+                current_stage=stage_idx + 1,
+                processed=total_images,
+                success=total_success,
+                failed=total_failed,
+                progress={
+                    'speed': f"{avg_speed:.2f} img/s" if avg_speed > 0 else "",
+                    'eta': "",
+                    'stage_progress': f"{total_images}/{total_images}"
+                }
+            )
+
+            # Small delay to ensure frontend polls and displays 100% completion
+            await asyncio.sleep(0.5)
 
         # Final update
         total_time = time.time() - start_time
@@ -451,12 +521,13 @@ class GraphExecutor:
     async def _execute_curate_routing(
         self, job_id: str, curate_node: Dict, images: List[Image.Image],
         image_ids: List[str], prev_captions: List[str], nodes: List[Dict],
-        connections: List[Dict], get_model_func
-    ) -> Dict[str, List[int]]:
+        connections: List[Dict], get_model_func, stage_idx: int,
+        total_stages: int, start_time: float
+    ) -> tuple[Dict[str, List[int]], int, int]:
         """
         Execute routing decisions for a curate node.
 
-        Returns a dict mapping port_id to list of image indices routed to that port.
+        Returns a tuple of (routing_decisions, success_count, failed_count)
         """
         model_name = curate_node['data'].get('model', 'blip2-opt-2.7b')
         model_type = curate_node['data'].get('modelType', 'vlm')
@@ -470,22 +541,33 @@ class GraphExecutor:
 
         logger.info(f"Executing curate routing with {model_name} ({model_type}) for {len(images)} images")
 
+        # Get routing paths to determine which ports connect to Output (for live saving)
+        routing_paths = self._get_curate_routing_paths(curate_node, nodes, connections)
+
+        # Extract precision parameters for model loading
+        precision_params = self._extract_precision_params(model_name, parameters)
+
         # Create curate adapter
-        from .models.vlm_router_adapter import VLMRouterAdapter
+        from models.vlm_router_adapter import VLMRouterAdapter
 
         if model_type == 'vlm':
             curate_adapter = VLMRouterAdapter(model_name)
-            curate_adapter.load_model()
+            curate_adapter.load_model(precision_params, get_model_func)
         else:
             # For now, only VLM routing is implemented
             logger.warning(f"Model type {model_type} not yet implemented, using VLM routing")
             curate_adapter = VLMRouterAdapter(model_name)
-            curate_adapter.load_model()
+            curate_adapter.load_model(precision_params, get_model_func)
 
-        # Route each image
+        # Route each image with progress tracking
         routing_decisions = {}
         for port in ports:
             routing_decisions[port['id']] = []
+
+        stage_success = 0
+        stage_failed = 0
+        processed_in_stage = 0
+        total_images = len(images)
 
         for idx, (image, caption) in enumerate(zip(images, prev_captions)):
             try:
@@ -495,21 +577,77 @@ class GraphExecutor:
                 if port_id in routing_decisions:
                     routing_decisions[port_id].append(idx)
                     logger.debug(f"Image {idx} routed to port {port_id}")
+
+                    # LIVE SAVE: If this port connects to Output, save immediately
+                    downstream_nodes = routing_paths.get(port_id, [])
+                    has_output = any(n['type'] == 'output' for n in downstream_nodes)
+
+                    if has_output:
+                        try:
+                            # Check if there's a conjunction before output
+                            conj_node = next((
+                                n for n in downstream_nodes
+                                if n['type'] == 'conjunction'
+                            ), None)
+
+                            if conj_node:
+                                final_caption = self._resolve_conjunction(
+                                    conj_node, nodes, connections, prev_captions, idx
+                                )
+                            else:
+                                final_caption = prev_captions[idx]
+
+                            # Save to database immediately (live update)
+                            await self.async_session.save_caption(image_ids[idx], final_caption)
+                            logger.debug(f"Live saved: Image {idx} routed to {port_id} -> Output")
+                            stage_success += 1
+                        except Exception as e:
+                            logger.error(f"Error live-saving caption for routed image {idx}: {e}")
+                            stage_failed += 1
+                    else:
+                        # Not connected to output, still count as processed
+                        stage_success += 1
+
                 else:
                     logger.warning(f"Invalid port_id {port_id} returned, using default")
                     default_port = next((p['id'] for p in ports if p.get('isDefault')), ports[0]['id'])
                     routing_decisions[default_port].append(idx)
+                    stage_success += 1
+
             except Exception as e:
                 logger.error(f"Error routing image {idx}: {e}")
                 # Route to default port on error
                 default_port = next((p['id'] for p in ports if p.get('isDefault')), ports[0]['id'])
                 routing_decisions[default_port].append(idx)
+                stage_failed += 1
+
+            # Update progress after each image (matches AI Model pattern)
+            processed_in_stage += 1
+            total_processed = stage_idx * total_images + processed_in_stage
+
+            elapsed = time.time() - start_time
+            avg_speed = total_processed / elapsed if elapsed > 0 else 0
+            remaining = (total_images * total_stages) - total_processed
+            eta = remaining / avg_speed if avg_speed > 0 else 0
+
+            self.exec_manager.update_status(
+                job_id,
+                current_stage=stage_idx + 1,
+                processed=processed_in_stage,
+                success=stage_success,
+                failed=stage_failed,
+                progress={
+                    'speed': f"{avg_speed:.2f} img/s" if avg_speed > 0 else "",
+                    'eta': self._format_time(eta) if eta > 0 else "",
+                    'stage_progress': f"{processed_in_stage}/{total_images}"
+                }
+            )
 
         # Log routing distribution
         dist_str = ", ".join([f"{port_id}: {len(indices)} images" for port_id, indices in routing_decisions.items() if indices])
         logger.info(f"Routing distribution - {dist_str}")
 
-        return routing_decisions
+        return routing_decisions, stage_success, stage_failed
 
     def _format_time(self, seconds: float) -> str:
         """Format time in seconds to human-readable string."""

@@ -24,16 +24,24 @@ class VLMRouterAdapter(CurateBaseAdapter):
         super().__init__(base_model_name, model_type='vlm')
         self.base_adapter = None
 
-    def load_model(self) -> None:
-        """Load the underlying VLM model via its adapter."""
-        from backend.app import get_model_adapter
+    def load_model(self, precision_params: Optional[Dict] = None, get_model_func=None) -> None:
+        """Load the underlying VLM model via its adapter.
+
+        Args:
+            precision_params: Optional precision parameters (precision, use_flash_attention, etc.)
+            get_model_func: Optional model loading function (defaults to importing get_model)
+        """
+        if get_model_func is None:
+            from app import get_model
+            get_model_func = get_model
 
         try:
             # Get the base model adapter (e.g., BLIP2, DeepSeek-VL, etc.)
-            self.base_adapter = get_model_adapter(self.model_name)
+            # Pass precision_params for proper model loading configuration
+            self.base_adapter = get_model_func(self.model_name, precision_params)
             if self.base_adapter and not self.base_adapter.is_loaded():
                 self.base_adapter.load_model()
-            logger.info(f"VLM Router loaded using base model: {self.model_name}")
+            logger.info(f"VLM Router loaded using base model: {self.model_name} with params: {precision_params}")
         except Exception as e:
             logger.error(f"Failed to load VLM router model {self.model_name}: {e}")
             raise
