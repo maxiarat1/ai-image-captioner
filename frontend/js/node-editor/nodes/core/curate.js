@@ -246,7 +246,7 @@
                                 portElToRemove.classList.add('animate-out');
                                 portElToRemove.addEventListener('animationend', () => {
                                     NENodes.removeOutputPort(node.id, pid);
-                                    try { portElToRemove.remove(); } catch (err) {}
+                                    try { portElToRemove.remove(); } catch (err) { console.error("Failed to remove port element:", err); }
                                     if (typeof NEConnections !== 'undefined') NEConnections.updateConnections();
                                 }, { once: true });
                             } else {
