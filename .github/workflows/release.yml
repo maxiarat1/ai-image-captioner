@@ -33,12 +33,12 @@ jobs:
       - name: Generate build matrix from version.json
         id: configs
         run: |
-          # Extract all build configs and create matrix
           CONFIGS=$(jq -c '[.build_configs | to_entries[] | {
             name: .key,
             python: .value.python,
             cuda: .value.cuda,
-            cuda_display: .value.cuda_version_display
+            cuda_display: .value.cuda_version_display,
+            pytorch: .value.pytorch
           }]' version.json)
           echo "matrix=${CONFIGS}" >> $GITHUB_OUTPUT
           echo "Building configs:"
@@ -49,7 +49,7 @@ jobs:
     needs: setup
     strategy:
       fail-fast: false
-      max-parallel: 2  # Limit parallel builds to avoid disk space issues
+      max-parallel: 2
       matrix:
         os: [ubuntu-latest, windows-latest]
         config: ${{ fromJson(needs.setup.outputs.configs) }}
@@ -59,34 +59,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Free up disk space (Linux)
-        if: runner.os == 'Linux'
+      - name: Free up disk space
+        shell: bash
         run: |
           echo "Disk space before cleanup:"
-          df -h
-          # Remove unnecessary tools to free up space (~30GB)
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /usr/local/share/boost
-          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /usr/share/swift
-          sudo rm -rf /opt/hostedtoolcache
-          sudo docker system prune -af || true
-          echo "Disk space after cleanup:"
-          df -h
-
-      - name: Free up disk space (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          echo "Disk space before cleanup:"
-          Get-PSDrive
-          # Remove unnecessary tools to free up space
-          Remove-Item -Path "C:\hostedtoolcache" -Recurse -Force -ErrorAction SilentlyContinue
-          Remove-Item -Path "C:\Program Files\dotnet" -Recurse -Force -ErrorAction SilentlyContinue
-          echo "Disk space after cleanup:"
-          Get-PSDrive
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            df -h
+            sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost "$AGENT_TOOLSDIRECTORY" \
+                        /usr/local/lib/android /usr/share/swift /opt/hostedtoolcache
+            sudo docker system prune -af || true
+            df -h
+          else
+            Get-PSDrive
+            Remove-Item -Path "C:\hostedtoolcache" -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item -Path "C:\Program Files\dotnet" -Recurse -Force -ErrorAction SilentlyContinue
+            Get-PSDrive
+          fi
 
       - name: Set platform name
         id: platform
@@ -94,10 +82,8 @@ jobs:
         run: |
           if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
             echo "name=linux" >> $GITHUB_OUTPUT
-            echo "ext=tar.gz" >> $GITHUB_OUTPUT
           else
             echo "name=windows" >> $GITHUB_OUTPUT
-            echo "ext=zip" >> $GITHUB_OUTPUT
           fi
 
       - name: Set up Python
@@ -105,11 +91,27 @@ jobs:
         with:
           python-version: ${{ matrix.config.python }}
 
-      - name: Install dependencies
+      - name: Install PyTorch and dependencies
         shell: bash
         run: |
           python -m pip install --upgrade pip
-          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/${{ matrix.config.cuda }}
+          
+          CONFIG_NAME="${{ matrix.config.name }}"
+          
+          # Read PyTorch config from version.json at runtime
+          PYTORCH_VERSION=$(jq -r --arg cfg "$CONFIG_NAME" '.build_configs[$cfg].pytorch.version' version.json)
+          TORCHVISION=$(jq -r --arg cfg "$CONFIG_NAME" '.build_configs[$cfg].pytorch.torchvision' version.json)
+          TORCHAUDIO=$(jq -r --arg cfg "$CONFIG_NAME" '.build_configs[$cfg].pytorch.torchaudio' version.json)
+          INDEX_URL=$(jq -r --arg cfg "$CONFIG_NAME" '.build_configs[$cfg].pytorch.index_url' version.json)
+          CUDA_LABEL=$(jq -r --arg cfg "$CONFIG_NAME" '.build_configs[$cfg].cuda' version.json)
+          
+          echo "Installing PyTorch ${PYTORCH_VERSION} with CUDA ${CUDA_LABEL}"
+          
+          pip install torch==${PYTORCH_VERSION}+${CUDA_LABEL} \
+                      torchvision==${TORCHVISION}+${CUDA_LABEL} \
+                      torchaudio==${TORCHAUDIO}+${CUDA_LABEL} \
+                      --index-url "$INDEX_URL"
+          
           pip install -r requirements.txt
           pip install pyinstaller
 
@@ -118,47 +120,34 @@ jobs:
         run: |
           cd backend
           pyinstaller captioner.spec --distpath ../dist --workpath ../build
-
-      - name: Clean up build artifacts
-        shell: bash
-        run: |
-          # Remove build cache to save space
+          cd ..
           rm -rf build/
-          # Clean pip cache
           pip cache purge || true
 
-      - name: Package (Windows)
-        if: steps.platform.outputs.name == 'windows'
+      - name: Package artifacts
         shell: bash
         run: |
-          BASE_NAME="ai-image-captioner-${{ steps.platform.outputs.name }}-${{ matrix.config.name }}"
+          PLATFORM="${{ steps.platform.outputs.name }}"
+          CONFIG="${{ matrix.config.name }}"
+          BASE_NAME="ai-image-captioner-${PLATFORM}-${CONFIG}"
           mkdir -p artifacts
-          # Create split archives if size > 2GB, otherwise single archive
-          7z a -tzip -v2000m "${BASE_NAME}.zip" ./dist/ai-image-captioner
-          # Move all parts to artifacts folder
-          mv ${BASE_NAME}.zip* artifacts/
-
-      - name: Package (Linux)
-        if: steps.platform.outputs.name == 'linux'
-        run: |
-          BASE_NAME="ai-image-captioner-${{ steps.platform.outputs.name }}-${{ matrix.config.name }}"
-          mkdir -p artifacts
-          # Check size first
+          
           SIZE=$(du -sb dist/ai-image-captioner | cut -f1)
-          if [ $SIZE -gt 2000000000 ]; then
-            # Split if > 2GB
-            tar -czf - -C dist ai-image-captioner | split -b 2000m - "artifacts/${BASE_NAME}.tar.gz.part"
+          
+          if [ "$PLATFORM" == "windows" ]; then
+            # Windows: use 7z for splitting
+            7z a -tzip -v2000m "${BASE_NAME}.zip" ./dist/ai-image-captioner
+            mv ${BASE_NAME}.zip* artifacts/
           else
-            tar -czf "artifacts/${BASE_NAME}.tar.gz" -C dist ai-image-captioner
+            # Linux: split tar if needed
+            if [ $SIZE -gt 2000000000 ]; then
+              tar -czf - -C dist ai-image-captioner | split -b 2000m - "artifacts/${BASE_NAME}.tar.gz.part"
+            else
+              tar -czf "artifacts/${BASE_NAME}.tar.gz" -C dist ai-image-captioner
+            fi
           fi
-
-      - name: Final cleanup before upload
-        shell: bash
-        run: |
-          # Remove dist folder after packaging to save space
+          
           rm -rf dist/
-          echo "Disk space before upload:"
-          df -h || Get-PSDrive
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -193,27 +182,25 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Determine CUDA base version
-        id: cuda_base
+      - name: Read CUDA base config from version.json
+        id: docker_config
         run: |
-          CUDA_DISPLAY="${{ matrix.config.cuda_display }}"
-          # Map CUDA display version to available NVIDIA base image tags
-          # See: https://hub.docker.com/r/nvidia/cuda/tags
-          # CUDA 12.1 uses -cudnn8-, CUDA 12.8 uses -cudnn-
-          case "$CUDA_DISPLAY" in
-            12.1)
-              echo "version=12.1.1" >> $GITHUB_OUTPUT
-              echo "cudnn_suffix=cudnn8" >> $GITHUB_OUTPUT
-              ;;
-            12.8)
-              echo "version=12.6.2" >> $GITHUB_OUTPUT
-              echo "cudnn_suffix=cudnn" >> $GITHUB_OUTPUT
-              ;;
-            *)
-              echo "version=12.1.1" >> $GITHUB_OUTPUT
-              echo "cudnn_suffix=cudnn8" >> $GITHUB_OUTPUT
-              ;;
-          esac
+          CONFIG_NAME="${{ matrix.config.name }}"
+          
+          # Extract Docker build args from version.json
+          CUDA_BASE=$(jq -r --arg cfg "$CONFIG_NAME" \
+            '.build_configs[$cfg].docker.cuda_base_version' version.json)
+          CUDNN_SUFFIX=$(jq -r --arg cfg "$CONFIG_NAME" \
+            '.build_configs[$cfg].docker.cudnn_suffix' version.json)
+          
+          if [ "$CUDA_BASE" == "null" ] || [ "$CUDNN_SUFFIX" == "null" ]; then
+            echo "Error: Docker config missing in version.json for $CONFIG_NAME"
+            exit 1
+          fi
+          
+          echo "cuda_base=$CUDA_BASE" >> $GITHUB_OUTPUT
+          echo "cudnn_suffix=$CUDNN_SUFFIX" >> $GITHUB_OUTPUT
+          echo "Using CUDA base: $CUDA_BASE, cuDNN suffix: $CUDNN_SUFFIX"
 
       - name: Extract metadata for Docker
         id: meta
@@ -234,8 +221,8 @@ jobs:
           build-args: |
             PYTHON_VERSION=${{ matrix.config.python }}
             CUDA_VERSION=${{ matrix.config.cuda }}
-            CUDA_BASE_VERSION=${{ steps.cuda_base.outputs.version }}
-            CUDNN_SUFFIX=${{ steps.cuda_base.outputs.cudnn_suffix }}
+            CUDA_BASE_VERSION=${{ steps.docker_config.outputs.cuda_base }}
+            CUDNN_SUFFIX=${{ steps.docker_config.outputs.cudnn_suffix }}
           cache-from: type=gha,scope=${{ matrix.config.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.config.name }}
           platforms: linux/amd64
@@ -252,18 +239,9 @@ jobs:
 
       - name: Free up disk space
         run: |
-          echo "Disk space before cleanup:"
-          df -h
-          # Remove unnecessary tools to free up space for 12GB of artifacts
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /usr/local/share/boost
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /usr/share/swift
-          sudo rm -rf /opt/hostedtoolcache
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost \
+                      /usr/local/lib/android /usr/share/swift /opt/hostedtoolcache
           sudo docker system prune -af || true
-          echo "Disk space after cleanup:"
-          df -h
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -273,54 +251,57 @@ jobs:
       - name: Prepare release artifacts
         run: |
           mkdir -p release-files
-          # Copy all archive files (including split parts: .zip, .zip.001, .tar.gz, .partaa, etc.)
           find artifacts -type f \( -name "*.zip*" -o -name "*.tar.gz*" -o -name "*.part*" \) -exec cp {} release-files/ \;
-          # Remove artifacts folder to save space
           rm -rf artifacts/
           echo "Release files:"
           ls -lh release-files/
-          echo "Disk space after prep:"
-          df -h
 
       - name: Generate release notes
-        id: notes
         run: |
-          cat > release-notes.md << 'EOF'
-          ## AI Image Captioner ${{ needs.setup.outputs.release_version }}
+          VERSION="${{ needs.setup.outputs.release_version }}"
+          REPO="${{ github.repository }}"
+          
+          # Get first config for examples (assumes single config for now)
+          FIRST_CONFIG=$(jq -r '.build_configs | to_entries[0] | .key' version.json)
+          
+          cat > release-notes.md << EOF
+          ## AI Image Captioner ${VERSION}
 
           ### Quick Start
 
           **Option 1: Docker (Recommended)**
 
-          ```bash
-          # RTX 20/30/40/50 series
-          docker run --gpus all -p 5000:5000 ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python312-cuda128
-          ```
+          \`\`\`bash
+          docker run --gpus all -p 5000:5000 ghcr.io/${REPO}:${VERSION}-${FIRST_CONFIG}
+          \`\`\`
 
           **Option 2: Executable**
 
-          1. Download the appropriate file for your GPU:
-             - **Windows RTX 20/30/40/50:** `ai-image-captioner-windows-python312-cuda128.zip`
-             - **Linux RTX 20/30/40/50:** `ai-image-captioner-linux-python312-cuda128.tar.gz`
+          Download and extract the appropriate file for your platform and GPU:
 
-          2. Extract and run:
-             - **Windows:** Double-click `ai-image-captioner.exe` (extract with 7-Zip if split)
-             - **Linux:** `tar -xzf ai-image-captioner-linux-*.tar.gz && ./ai-image-captioner/ai-image-captioner`
+          EOF
+          
+          # Add download links for each config
+          jq -r '.build_configs | to_entries[] | 
+            "- **\(.key)** (Python \(.value.python), CUDA \(.value.cuda_version_display)): \(.value.description)"' \
+            version.json >> release-notes.md
+          
+          cat >> release-notes.md << 'EOF'
 
+          Then run:
+          - **Windows:** Double-click `ai-image-captioner.exe`
+          - **Linux:** `./ai-image-captioner/ai-image-captioner`
 
           API runs at `http://localhost:5000`
 
-          **Frontend UI:**
-
-          Clone the repository and serve the `frontend/` directory, or open `frontend/index.html` directly.
+          **Frontend UI:** Clone the repository and open `frontend/index.html` in your browser.
 
           ### Requirements
 
-          - NVIDIA GPU with 4GB+ VRAM (8GB+ for AI models)
-          - CUDA 12.8+ (RTX 20/30/40/50)
+          - NVIDIA GPU with 4GB+ VRAM (8GB+ recommended)
           - Docker users: `nvidia-container-toolkit`
 
-          (AI models are not baked in. They are downloaded on first run from the Hugging Face Hub.)
+          AI models download automatically on first run from Hugging Face Hub.
           EOF
 
       - name: Create Release
