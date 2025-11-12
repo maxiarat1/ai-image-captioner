@@ -235,7 +235,6 @@ class GraphExecutor:
                     logger.error(f"Curate routing error: {e}")
                     total_failed += total_images
                     stage_success = 0
-                    stage_failed = total_images
 
                 # Send final stage completion status to prevent race condition
                 elapsed = time.time() - start_time
