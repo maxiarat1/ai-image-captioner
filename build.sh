@@ -15,16 +15,16 @@ DEFAULT_CONFIG=$(jq -r '.build_configs | keys | first' version.json)
 # Read build config name (first argument or default from version.json)
 BUILD_CONFIG="${1:-$DEFAULT_CONFIG}"
 
-# Validate config exists
-if ! jq -e ".build_configs.${BUILD_CONFIG}" version.json > /dev/null 2>&1; then
+# Validate config exists (use bracket notation for keys with hyphens)
+if ! jq -e ".build_configs[\"${BUILD_CONFIG}\"]" version.json > /dev/null 2>&1; then
     echo "Error: Invalid build config '${BUILD_CONFIG}'"
     echo "Available: $(jq -r '.build_configs | keys | join(", ")' version.json)"
     exit 1
 fi
 
-PYTHON_VER=$(jq -r ".build_configs.${BUILD_CONFIG}.python" version.json)
-CUDA_VER=$(jq -r ".build_configs.${BUILD_CONFIG}.cuda" version.json)
-CUDA_DISPLAY=$(jq -r ".build_configs.${BUILD_CONFIG}.cuda_version_display" version.json)
+PYTHON_VER=$(jq -r ".build_configs[\"${BUILD_CONFIG}\"].python" version.json)
+CUDA_VER=$(jq -r ".build_configs[\"${BUILD_CONFIG}\"].cuda" version.json)
+CUDA_DISPLAY=$(jq -r ".build_configs[\"${BUILD_CONFIG}\"].cuda_version_display" version.json)
 
 echo "Building AI Image Captioner"
 echo "Config: ${BUILD_CONFIG} (Python ${PYTHON_VER}, CUDA ${CUDA_DISPLAY})"
