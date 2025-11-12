@@ -2,6 +2,7 @@ import io
 import json
 import zipfile
 import os
+import sys
 import logging
 import asyncio
 import webbrowser
@@ -1053,8 +1054,16 @@ def internal_error(e):
     return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == '__main__':
-    frontend_path = os.path.join(os.path.dirname(__file__), "../frontend/index.html")
-    frontend_path = os.path.abspath(frontend_path)
+    # Determine frontend path - works in both development and PyInstaller bundle
+    if getattr(sys, 'frozen', False):
+        # Running as PyInstaller bundle
+        base_path = sys._MEIPASS
+        frontend_path = os.path.join(base_path, "frontend", "index.html")
+    else:
+        # Running as normal Python script
+        frontend_path = os.path.join(os.path.dirname(__file__), "../frontend/index.html")
+        frontend_path = os.path.abspath(frontend_path)
+    
     webbrowser.open(f"file://{frontend_path}")
     app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE  # None = no limit
     init_models()
