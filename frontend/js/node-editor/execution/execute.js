@@ -4,6 +4,7 @@
 
     let currentJobId = null;
     let eventSource = null;
+    let activeChain = [];
 
     // Execute the graph: validate and submit to backend
     NEExec.executeGraph = async function() {
@@ -64,6 +65,9 @@
 
             // Prepare UI
             NEExec._prepareUI();
+
+            // Build the processing chain to map stages to nodes
+            activeChain = NEExec._buildProcessingChain();
 
             // Start listening to SSE
             NEExec._listenToJobUpdates(currentJobId);
@@ -142,6 +146,76 @@
     NEExec._prepareUI = function() {
         const processingControls = document.getElementById('processingControls');
         if (processingControls) processingControls.style.display = 'flex';
+    };
+
+    // Build ordered chain including AI Model and Curate nodes to mirror backend
+    NEExec._buildProcessingChain = function() {
+        const nodes = NodeEditor.nodes || [];
+        const connections = NodeEditor.connections || [];
+
+        // Aim for the same rules used in backend GraphExecutor._build_ai_chain
+        const aiNodes = nodes.filter(n => n.type === 'aimodel' || n.type === 'curate');
+        const inputNode = nodes.find(n => n.type === 'input');
+        if (!inputNode || aiNodes.length === 0) return [];
+
+        const hasConn = (fromId, fromPort, toId, toPort) =>
+            connections.some(c => c.from === fromId && c.fromPort === fromPort && c.to === toId && c.toPort === toPort);
+
+        // First AI receives images from Input (port 0 -> port 0)
+        const candidates = aiNodes.filter(n => hasConn(inputNode.id, 0, n.id, 0));
+        if (candidates.length === 0) return [];
+
+        // Choose a start that's not fed by another AI on prompt port (port 1)
+        const isFedByAi = (node) => connections.some(c => {
+            if (c.to !== node.id) return false;
+            const fromNode = nodes.find(nn => nn.id === c.from);
+            return !!fromNode && (fromNode.type === 'aimodel' || fromNode.type === 'curate') && c.toPort === 1;
+        });
+
+        const start = candidates.find(n => !isFedByAi(n)) || candidates[0];
+        const chain = [start];
+        const visited = new Set([start.id]);
+        let current = start;
+
+        // Follow chain forward; for curate nodes accept toPort 0 as well
+        while (true) {
+            const nextConn = connections.find(c => {
+                if (c.from !== current.id) return false;
+                const toNode = nodes.find(n => n.id === c.to);
+                if (!toNode) return false;
+                const isAi = toNode.type === 'aimodel' || toNode.type === 'curate';
+                const aiPortMatch = (c.toPort === 1 || c.toPort === 0);
+                return isAi && aiPortMatch;
+            });
+
+            if (!nextConn) break;
+            const nextNode = nodes.find(n => n.id === nextConn.to);
+            if (!nextNode || visited.has(nextNode.id)) break;
+
+            chain.push(nextNode);
+            visited.add(nextNode.id);
+            current = nextNode;
+        }
+
+        // Return node IDs for quick DOM lookup
+        return chain.map(n => n.id);
+    };
+
+    // Highlight the node corresponding to the current stage (1-based)
+    NEExec._highlightProcessingNode = function(stageIndex) {
+        // Clear previous highlights first (cheap and safe)
+        document.querySelectorAll('.node.processing').forEach(el => el.classList.remove('processing'));
+
+        if (!activeChain || activeChain.length === 0) return;
+        const idx = Math.max(0, Math.min((stageIndex || 1) - 1, activeChain.length - 1));
+        const nodeId = activeChain[idx];
+        const el = document.getElementById(`node-${nodeId}`);
+        if (el) el.classList.add('processing');
+    };
+
+    // Clear all processing highlights
+    NEExec._clearProcessingHighlights = function() {
+        document.querySelectorAll('.node.processing').forEach(el => el.classList.remove('processing'));
     };
 
     // Listen to job updates via SSE
@@ -229,6 +303,9 @@
                     resultsReady: 0
                 });
             }
+
+            // Update per-node processing highlight
+            NEExec._highlightProcessingNode(current_stage || 1);
         }
 
         // Handle terminal states
@@ -255,6 +332,9 @@
         // Hide processing controls
         const processingControls = document.getElementById('processingControls');
         if (processingControls) processingControls.style.display = 'none';
+
+    // Clear any node highlights
+    NEExec._clearProcessingHighlights();
 
         // Final load of results from database
         await NEExec._loadResultsFromDatabase();
@@ -285,6 +365,9 @@
         const processingControls = document.getElementById('processingControls');
         if (processingControls) processingControls.style.display = 'none';
 
+    // Clear any node highlights
+    NEExec._clearProcessingHighlights();
+
         sessionStorage.removeItem('currentJobId');
         currentJobId = null;
 
@@ -303,6 +386,9 @@
 
         const processingControls = document.getElementById('processingControls');
         if (processingControls) processingControls.style.display = 'none';
+
+    // Clear any node highlights
+    NEExec._clearProcessingHighlights();
 
         sessionStorage.removeItem('currentJobId');
         currentJobId = null;
@@ -370,6 +456,8 @@
         if (jobId) {
             currentJobId = jobId;
             NEExec._prepareUI();
+            // Rebuild chain in case of refresh/resume and let updates drive highlights
+            activeChain = NEExec._buildProcessingChain();
             NEExec._listenToJobUpdates(jobId);
             showToast('Resumed execution monitoring', false);
         }
