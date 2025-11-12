@@ -99,8 +99,9 @@
                 const port = ports.find(p => p.id === portId);
                 if (port) {
                     port.label = e.target.value;
+                    // Update refKey based on new label
+                    NENodes.updatePortRefKey(node.id, portId);
                     NENodes.updateNodePorts(node.id);
-                    NENodes.checkAndAddNewPort(nodeEl, node, portId);
                 }
             };
         });
@@ -116,7 +117,6 @@
                 const port = ports.find(p => p.id === portId);
                 if (port) {
                     port.instruction = e.target.value;
-                    NENodes.checkAndAddNewPort(nodeEl, node, portId);
                 }
             };
         });
@@ -134,14 +134,129 @@
                     return;
                 }
 
-                NENodes.removeOutputPort(node.id, portId);
-                // Re-render
-                const body = nodeEl.querySelector('.node-body');
-                if (body) body.innerHTML = NENodes.getNodeContent(node);
-                NENodes.attachCurateHandlers(nodeEl, node);
-                NENodes.attachCurateModelDropdownHandlers(nodeEl, node);
+                // Animate out the specific port element, then remove from DOM and update data
+                const portEl = nodeEl.querySelector(`.curate-port-item[data-port-id="${portId}"]`);
+                if (portEl) {
+                    // add animate-out class and remove after animation
+                    portEl.classList.add('animate-out');
+                    portEl.addEventListener('animationend', () => {
+                        // Update underlying data and connection ports
+                        NENodes.removeOutputPort(node.id, portId);
+                        // Remove the DOM element
+                        try { portEl.remove(); } catch (err) { console.error("Failed to remove port element in animation callback:", err); }
+                        // Update connections visuals
+                        if (typeof NEConnections !== 'undefined') NEConnections.updateConnections();
+                    }, { once: true });
+                } else {
+                    // Fallback: if element not found, just remove the port from data
+                    NENodes.removeOutputPort(node.id, portId);
+                }
             };
         });
+
+        // Add port button handler (explicit add instead of auto-adding on typing)
+        const addPortBtn = nodeEl.querySelector('.curate-add-port-btn');
+        if (addPortBtn) {
+            addPortBtn.onclick = (e) => {
+                e.stopPropagation();
+                const portsArr = node.data.ports || [];
+                const portNumber = portsArr.length + 1;
+
+                // Add to data first (returns new port id)
+                const newPortId = NENodes.addOutputPort(node.id, {
+                    label: `Port ${portNumber}`,
+                    instruction: ''
+                });
+
+                // Update connection ports visuals
+                if (typeof NEConnections !== 'undefined') NEConnections.updateConnections();
+
+                // Create the DOM node for the new port and append it before the add button wrapper
+                const portsContainer = nodeEl.querySelector(`#curate-ports-${node.id}`);
+                const addWrapper = portsContainer ? portsContainer.querySelector('.curate-add-port-wrapper') : null;
+                if (portsContainer) {
+                    const portHtml = `
+                    <div class="curate-port-item animate-in" data-port-id="${newPortId}">
+                        <div class="curate-port-header">
+                            <input type="text"
+                                   id="curate-${node.id}-port-${newPortId}-label"
+                                   name="curate-${node.id}-port-${newPortId}-label"
+                                   class="curate-port-label-input"
+                                   data-port-id="${newPortId}"
+                                   value="Port ${portNumber}"
+                                   placeholder="Port ${portNumber}">
+                            <button class="curate-port-delete" data-port-id="${newPortId}" title="Delete port">×</button>
+                        </div>
+                        <textarea id="curate-${node.id}-port-${newPortId}-instruction"
+                                  name="curate-${node.id}-port-${newPortId}-instruction"
+                                  class="curate-port-instruction"
+                                  data-port-id="${newPortId}"
+                                  placeholder="Describe routing criteria..."
+                                  rows="2"></textarea>
+                    </div>
+                    `;
+
+                    const temp = document.createElement('div');
+                    temp.innerHTML = portHtml.trim();
+                    const newPortEl = temp.firstChild;
+
+                    if (addWrapper) portsContainer.insertBefore(newPortEl, addWrapper);
+                    else portsContainer.appendChild(newPortEl);
+
+                    // Attach handlers only to the new element
+                    const input = newPortEl.querySelector('.curate-port-label-input');
+                    const textarea = newPortEl.querySelector('.curate-port-instruction');
+                    const deleteBtn = newPortEl.querySelector('.curate-port-delete');
+
+                    if (input) {
+                        input.onclick = (ev) => ev.stopPropagation();
+                        input.onmousedown = (ev) => ev.stopPropagation();
+                        input.onfocus = (ev) => ev.stopPropagation();
+                        input.oninput = (ev) => {
+                            const portId = ev.target.dataset.portId;
+                            const port = (node.data.ports || []).find(p => p.id === portId);
+                            if (port) {
+                                port.label = ev.target.value;
+                                // Update refKey based on new label
+                                NENodes.updatePortRefKey(node.id, portId);
+                                NENodes.updateNodePorts(node.id);
+                            }
+                        };
+                    }
+
+                    if (textarea) {
+                        textarea.onclick = (ev) => ev.stopPropagation();
+                        textarea.onmousedown = (ev) => ev.stopPropagation();
+                        textarea.onfocus = (ev) => ev.stopPropagation();
+                        textarea.oninput = (ev) => {
+                            const portId = ev.target.dataset.portId;
+                            const port = (node.data.ports || []).find(p => p.id === portId);
+                            if (port) {
+                                port.instruction = ev.target.value;
+                            }
+                        };
+                    }
+
+                    if (deleteBtn) {
+                        deleteBtn.onclick = (ev) => {
+                            ev.stopPropagation();
+                            const pid = deleteBtn.dataset.portId;
+                            const portElToRemove = nodeEl.querySelector(`.curate-port-item[data-port-id="${pid}"]`);
+                            if (portElToRemove) {
+                                portElToRemove.classList.add('animate-out');
+                                portElToRemove.addEventListener('animationend', () => {
+                                    NENodes.removeOutputPort(node.id, pid);
+                                    try { portElToRemove.remove(); } catch (err) { console.error("Failed to remove port element:", err); }
+                                    if (typeof NEConnections !== 'undefined') NEConnections.updateConnections();
+                                }, { once: true });
+                            } else {
+                                NENodes.removeOutputPort(node.id, pid);
+                            }
+                        };
+                    }
+                }
+            };
+        }
 
         // Ports toggle handler
         const portsBtn = nodeEl.querySelector('.btn-ports-toggle');
@@ -166,36 +281,174 @@
                 }
             };
         }
+
+        // Template toggle handler
+        const templateBtn = nodeEl.querySelector('.btn-template-toggle');
+        if (templateBtn) {
+            templateBtn.onclick = (e) => {
+                e.stopPropagation();
+                node.data.showTemplate = !node.data.showTemplate;
+
+                const templateSection = document.getElementById(`curate-template-${node.id}`);
+                if (templateSection) {
+                    if (node.data.showTemplate) {
+                        templateBtn.textContent = '▼ Hide Routing Template';
+                        templateSection.classList.remove('hidden');
+                        // Highlight placeholders on show
+                        NENodes.highlightCuratePlaceholders(node.id);
+                    } else {
+                        templateBtn.textContent = '▶ Show Routing Template';
+                        templateSection.classList.add('hidden');
+                    }
+                }
+            };
+        }
+
+        // Template textarea handlers
+        const templateTextarea = nodeEl.querySelector(`#curate-${node.id}-template`);
+        if (templateTextarea) {
+            templateTextarea.onclick = (e) => e.stopPropagation();
+            templateTextarea.onmousedown = (e) => e.stopPropagation();
+            templateTextarea.onfocus = (e) => e.stopPropagation();
+            templateTextarea.oninput = (e) => {
+                node.data.template = e.target.value;
+                NENodes.highlightCuratePlaceholders(node.id);
+            };
+            templateTextarea.onscroll = (e) => {
+                const highlightsDiv = document.getElementById(`curate-${node.id}-highlights`);
+                if (highlightsDiv) {
+                    highlightsDiv.scrollTop = e.target.scrollTop;
+                    highlightsDiv.scrollLeft = e.target.scrollLeft;
+                }
+            };
+        }
+
+        // Port reference chip click-to-insert handlers
+        const refItems = nodeEl.querySelectorAll('.curate-ref-item');
+        refItems.forEach(refItem => {
+            refItem.onclick = (e) => {
+                e.stopPropagation();
+                const refKey = refItem.dataset.refKey;
+                const textarea = nodeEl.querySelector(`#curate-${node.id}-template`);
+
+                if (textarea && refKey) {
+                    const start = textarea.selectionStart;
+                    const end = textarea.selectionEnd;
+                    const text = textarea.value;
+
+                    // Insert {refKey} at cursor
+                    const placeholder = `{${refKey}}`;
+                    const newText = text.substring(0, start) + placeholder + text.substring(end);
+                    textarea.value = newText;
+                    node.data.template = newText;
+
+                    // Update cursor position
+                    const newCursorPos = start + placeholder.length;
+                    textarea.setSelectionRange(newCursorPos, newCursorPos);
+
+                    textarea.focus();
+                    NENodes.highlightCuratePlaceholders(node.id);
+                }
+            };
+        });
+
+        // Forward images checkbox handler
+        const forwardImagesCheckbox = nodeEl.querySelector(`#curate-${node.id}-forward-images`);
+        if (forwardImagesCheckbox) {
+            forwardImagesCheckbox.onclick = (e) => e.stopPropagation();
+            forwardImagesCheckbox.onchange = (e) => {
+                node.data.forwardImages = e.target.checked;
+            };
+        }
     };
 
-    // Helper function to check if we should auto-add a new port
-    NENodes.checkAndAddNewPort = function(nodeEl, node, currentPortId) {
+    // Auto-add-on-typing behavior removed. Use the explicit Add Port button instead.
+
+    // Highlight placeholders in curate template
+    NENodes.highlightCuratePlaceholders = function(nodeId) {
+        const node = NodeEditor.nodes.find(n => n.id === nodeId);
+        if (!node || node.type !== 'curate') return;
+
+        const textarea = document.getElementById(`curate-${nodeId}-template`);
+        const highlightsDiv = document.getElementById(`curate-${nodeId}-highlights`);
+
+        if (!textarea || !highlightsDiv) return;
+
+        const text = textarea.value;
         const ports = node.data.ports || [];
-        const lastPort = ports[ports.length - 1];
 
-        // If user is typing in the last port and it has content, add a new empty port
-        if (lastPort && currentPortId === lastPort.id) {
-            const hasContent = lastPort.label || lastPort.instruction;
-            if (hasContent) {
-                const portNumber = ports.length + 1;
-                const newPortId = `port_${portNumber}`;
+        // Build list of valid placeholders
+        const validKeys = [];
+        ports.forEach(port => {
+            validKeys.push(port.refKey);
+            validKeys.push(`${port.refKey}_label`);
+            validKeys.push(`${port.refKey}_instruction`);
+        });
 
-                // Check if we already added this port
-                if (!ports.find(p => p.id === newPortId)) {
-                    NENodes.addOutputPort(node.id, {
-                        id: newPortId,
-                        label: `Port ${portNumber}`,
-                        instruction: ''
-                    });
+        // Regex to find all placeholders
+        const regex = /\{([^}]+)\}/g;
+        // Escape HTML first
+        let escapedText = text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
 
-                    // Re-render
-                    const body = nodeEl.querySelector('.node-body');
-                    if (body) body.innerHTML = NENodes.getNodeContent(node);
-                    NENodes.attachCurateHandlers(nodeEl, node);
-                    NENodes.attachCurateModelDropdownHandlers(nodeEl, node);
-                }
-            }
+        // Then highlight placeholders
+        let highlightedText = escapedText.replace(regex, (match, key) => {
+            const isValid = validKeys.includes(key);
+            const className = isValid ? 'placeholder-valid' : 'placeholder-invalid';
+            return `<mark class="${className}">${match}</mark>`;
+        });
+
+        // Preserve formatting
+        highlightedText = highlightedText
+            .replace(/\n/g, '<br>')
+            .replace(/ /g, '&nbsp;');
+        highlightsDiv.innerHTML = highlightedText;
+
+        // Sync scroll position
+        highlightsDiv.scrollTop = textarea.scrollTop;
+        highlightsDiv.scrollLeft = textarea.scrollLeft;
+    };
+
+    // Update port refKey when label changes
+    NENodes.updatePortRefKey = function(nodeId, portId) {
+        const node = NodeEditor.nodes.find(n => n.id === nodeId);
+        if (!node || node.type !== 'curate') return;
+
+        const port = (node.data.ports || []).find(p => p.id === portId);
+        if (!port) return;
+
+        // Generate new refKey from label
+        const newRefKey = typeof NEUtils !== 'undefined' && NEUtils.sanitizeLabel
+            ? NEUtils.sanitizeLabel(port.label)
+            : port.label.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '').substring(0, 30);
+
+        // Check for duplicates
+        const usedRefKeys = (node.data.ports || [])
+            .filter(p => p.id !== portId)
+            .map(p => p.refKey);
+
+        let finalRefKey = newRefKey;
+        let counter = 2;
+        while (usedRefKeys.includes(finalRefKey)) {
+            finalRefKey = `${newRefKey}_${counter}`;
+            counter++;
         }
+
+        port.refKey = finalRefKey;
+
+        // Update port reference chips display
+        const nodeEl = document.getElementById(`node-${nodeId}`);
+        if (nodeEl) {
+            const body = nodeEl.querySelector('.node-body');
+            if (body) body.innerHTML = NENodes.getNodeContent(node);
+            NENodes.attachCurateHandlers(nodeEl, node);
+            NENodes.attachCurateModelDropdownHandlers(nodeEl, node);
+        }
+
+        // Update template highlighting
+        NENodes.highlightCuratePlaceholders(nodeId);
     };
 
     // Filter models based on curate node type

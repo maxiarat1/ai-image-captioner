@@ -29,10 +29,19 @@
                       model: defaultModel,
                       parameters: {},
                       ports: [
-                          { id: 'port_1', label: 'Port 1', instruction: '' },
-                          { id: 'port_2', label: 'Port 2', instruction: '' }
+                          { id: 'port_1', label: 'Port 1', instruction: '', refKey: 'port_1' },
+                          { id: 'port_2', label: 'Port 2', instruction: '', refKey: 'port_2' }
                       ],
-                      showPorts: false,
+                      template: `Analyze this image and determine which category best describes it.
+
+Available categories:
+{port_1}: {port_1_instruction}
+{port_2}: {port_2_instruction}
+
+Respond with ONLY the exact category name. Do not add explanations.`,
+                      forwardImages: false,  // Whether to forward images to routed outputs
+                      showPorts: true,
+                      showTemplate: false,
                       showAdvanced: false
                   } : {}
         };
@@ -92,12 +101,22 @@
         });
         portsSection.appendChild(inputsContainer);
 
-        // Output ports
+        // Output ports - handle dynamic outputs for curate nodes
         const outputsContainer = document.createElement('div');
         outputsContainer.className = 'node-ports-out';
-        def.outputs.forEach((portName, i) => {
-            outputsContainer.appendChild(NENodes.createPort(node, portName, i, true));
-        });
+        
+        if (def.allowDynamicOutputs && node.data.ports) {
+            // Use dynamic ports from node data
+            node.data.ports.forEach((portConfig, i) => {
+                const portName = portConfig.label || `Port ${i + 1}`;
+                outputsContainer.appendChild(NENodes.createPort(node, portName, i, true));
+            });
+        } else {
+            // Use static ports from definition
+            def.outputs.forEach((portName, i) => {
+                outputsContainer.appendChild(NENodes.createPort(node, portName, i, true));
+            });
+        }
         portsSection.appendChild(outputsContainer);
 
         el.appendChild(portsSection);

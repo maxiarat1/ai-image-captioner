@@ -46,7 +46,8 @@ class R4BAdapter(BaseModelAdapter):
 
             self.quantization_config = self._create_quantization_config(precision)
 
-            self.processor = AutoProcessor.from_pretrained("YannQi/R-4B", trust_remote_code=True, use_fast=True)
+            # Many multimodal processors don't have a "fast" variant
+            self.processor = AutoProcessor.from_pretrained("YannQi/R-4B", trust_remote_code=True, use_fast=False)
 
             # Setup pad token for batch processing
             self._setup_pad_token()
@@ -64,6 +65,18 @@ class R4BAdapter(BaseModelAdapter):
 
             if precision not in ["4bit", "8bit"]:
                 self.model.to(self.device)
+
+            # Ensure generation config has a valid pad_token_id to avoid warnings during generation
+            try:
+                if hasattr(self, 'processor') and hasattr(self.processor, 'tokenizer'):
+                    tok = self.processor.tokenizer
+                    # tokenizer pad_token is ensured in _setup_pad_token(); use it (or eos) for model generation
+                    pad_id = getattr(tok, 'pad_token_id', None) or getattr(tok, 'eos_token_id', None)
+                    if pad_id is not None:
+                        self.model.generation_config.pad_token_id = pad_id
+            except Exception:
+                # Non-fatal: if we cannot set it, generation will fallback to eos automatically
+                pass
 
             self.model.eval()
             logger.info("R-4B model loaded successfully (Precision: %s)", precision)

@@ -24,16 +24,24 @@ class VLMRouterAdapter(CurateBaseAdapter):
         super().__init__(base_model_name, model_type='vlm')
         self.base_adapter = None
 
-    def load_model(self) -> None:
-        """Load the underlying VLM model via its adapter."""
-        from backend.app import get_model_adapter
+    def load_model(self, precision_params: Optional[Dict] = None, get_model_func=None) -> None:
+        """Load the underlying VLM model via its adapter.
+
+        Args:
+            precision_params: Optional precision parameters (precision, use_flash_attention, etc.)
+            get_model_func: Optional model loading function (defaults to importing get_model)
+        """
+        if get_model_func is None:
+            from app import get_model
+            get_model_func = get_model
 
         try:
             # Get the base model adapter (e.g., BLIP2, DeepSeek-VL, etc.)
-            self.base_adapter = get_model_adapter(self.model_name)
+            # Pass precision_params for proper model loading configuration
+            self.base_adapter = get_model_func(self.model_name, precision_params)
             if self.base_adapter and not self.base_adapter.is_loaded():
                 self.base_adapter.load_model()
-            logger.info(f"VLM Router loaded using base model: {self.model_name}")
+            logger.info(f"VLM Router loaded using base model: {self.model_name} with params: {precision_params}")
         except Exception as e:
             logger.error(f"Failed to load VLM router model {self.model_name}: {e}")
             raise
@@ -68,8 +76,13 @@ class VLMRouterAdapter(CurateBaseAdapter):
         # Ensure RGB
         image = self._ensure_rgb(image)
 
-        # Build routing prompt
-        routing_prompt = self._build_routing_prompt(port_configs, context=caption)
+        # Extract template from parameters if provided
+        template = None
+        if parameters:
+            template = parameters.get('template', None)
+
+        # Build routing prompt (with template if provided)
+        routing_prompt = self._build_routing_prompt(port_configs, context=caption, template=template)
 
         try:
             # Use the base adapter to analyze the image with the routing prompt
@@ -157,17 +170,24 @@ class VLMRouterAdapter(CurateBaseAdapter):
 
     def _build_routing_prompt(self,
                              port_configs: List[Dict[str, Any]],
-                             context: Optional[str] = None) -> str:
+                             context: Optional[str] = None,
+                             template: Optional[str] = None) -> str:
         """
         Build an optimized routing prompt for VLMs.
 
         Args:
             port_configs: Port configurations
             context: Optional context
+            template: Optional template string with placeholders
 
         Returns:
             Routing prompt
         """
+        # If template is provided, use parent's template resolution logic
+        if template and template.strip():
+            return self._resolve_routing_template(template, port_configs, context)
+
+        # Default optimized prompt for VLMs
         prompt_parts = [
             "Carefully analyze this image and determine which category it best fits into."
         ]

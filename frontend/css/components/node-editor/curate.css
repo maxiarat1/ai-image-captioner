@@ -15,7 +15,6 @@
 /* Model Type Selector */
 .curate-model-type-selector {
     margin-bottom: var(--spacing-md);
-    padding: var(--spacing-sm);
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
@@ -81,22 +80,17 @@
 }
 
 /* Custom scrollbar for ports list */
+/* Hide scrollbar but keep scrolling functional */
+.curate-ports-list {
+    /* Firefox */
+    scrollbar-width: none;
+    /* IE 10+ */
+    -ms-overflow-style: none;
+}
+
 .curate-ports-list::-webkit-scrollbar {
-    width: 6px;
-}
-
-.curate-ports-list::-webkit-scrollbar-track {
-    background: var(--bg-tertiary);
-    border-radius: 3px;
-}
-
-.curate-ports-list::-webkit-scrollbar-thumb {
-    background: var(--curate-color);
-    border-radius: 3px;
-}
-
-.curate-ports-list::-webkit-scrollbar-thumb:hover {
-    background: #9333ea;
+    width: 0px;
+    height: 0px;
 }
 
 /* Port Item */
@@ -230,8 +224,30 @@
     }
 }
 
-.curate-port-item {
-    animation: slideIn 0.2s ease;
+.curate-port-item { will-change: transform, opacity; }
+
+/* Per-item enter animation */
+.curate-port-item.animate-in {
+    animation: slideIn 0.18s ease;
+}
+
+/* Per-item exit animation */
+@keyframes slideOut {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+        height: auto;
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-6px);
+        height: 0;
+        margin: 0;
+        padding: 0;
+    }
+}
+.curate-port-item.animate-out {
+    animation: slideOut 0.18s ease forwards;
 }
 
 /* Empty state for ports list */
@@ -245,6 +261,41 @@
     font-style: italic;
 }
 
+/* Add Port button styles */
+.curate-add-port-wrapper {
+    padding: 6px 4px;
+    margin-top: 6px;
+}
+
+.curate-add-port-btn {
+    width: 100%;
+    display: inline-block;
+    padding: 8px 12px;
+    background: #10b981; /* green */
+    color: #ffffff;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-weight: 700;
+    font-size: 0.9rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all var(--transition-smooth);
+}
+
+.curate-add-port-btn:hover {
+    background: #059669;
+}
+
+.curate-add-port-btn:active {
+    transform: translateY(1px);
+}
+
+.curate-add-port-btn:disabled,
+.curate-add-port-btn.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 /* Visually Hidden (for accessibility) */
 .visually-hidden {
     position: absolute;
@@ -256,4 +307,217 @@
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border-width: 0;
+}
+
+/* ============================================================================
+   Template System Styles
+   ============================================================================ */
+
+/* Template Toggle Button */
+.btn-template-toggle {
+    width: 100%;
+    padding: 6px 8px;
+    margin-top: 4px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    transition: all var(--transition-smooth);
+}
+
+.btn-template-toggle:hover {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+}
+
+/* Template Section Container */
+.curate-template-section {
+    animation: slideDown 0.3s ease;
+}
+
+.curate-template-section.hidden {
+    display: none;
+}
+
+/* Port References Section */
+.curate-port-references {
+    padding: 16px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+}
+
+/* Forward Images Option */
+.curate-option-group {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+}
+
+.curate-option-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    user-select: none;
+}
+
+.curate-option-label:hover {
+    color: var(--curate-color);
+}
+
+.curate-option-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--curate-color);
+}
+
+.curate-refs-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: var(--spacing-sm);
+}
+
+.curate-refs-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: var(--spacing-sm);
+}
+
+/* Reference Chip */
+.curate-ref-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-size: 0.8rem;
+}
+
+.curate-ref-item:hover {
+    background: var(--card-bg);
+    border-color: var(--curate-color);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px var(--curate-glow);
+}
+
+.curate-ref-item:active {
+    transform: translateY(0);
+}
+
+.curate-ref-key {
+    font-weight: 600;
+    color: var(--curate-color);
+    font-family: 'Courier New', monospace;
+    font-size: 0.85em;
+}
+
+.curate-ref-label {
+    color: var(--text-secondary);
+    font-size: 0.85em;
+}
+
+.curate-refs-help {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    font-style: italic;
+    margin-top: 8px;
+}
+
+.curate-refs-help code {
+    background: var(--bg-secondary);
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    color: var(--curate-color);
+    font-size: 0.9em;
+}
+
+/* Template Editor Wrapper */
+.curate-template-wrapper {
+    position: relative;
+    padding: 16px;
+}
+
+/* Template Textarea */
+.curate-template {
+    position: relative;
+    width: 100%;
+    min-height: 120px;
+    padding: var(--spacing-sm);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    resize: vertical;
+    z-index: 2;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    transition: border-color var(--transition-smooth), box-shadow var(--transition-smooth);
+}
+
+.curate-template:focus {
+    outline: none;
+    border-color: var(--curate-color);
+    box-shadow: 0 0 0 3px var(--curate-glow);
+}
+
+.curate-template::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.5;
+}
+
+/* Highlighting Overlay */
+.curate-highlights {
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    right: 1px;
+    bottom: 1px;
+    padding: var(--spacing-sm);
+    color: transparent;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    pointer-events: none;
+    z-index: 1;
+    overflow: hidden;
+}
+
+/* Placeholder Highlighting */
+.curate-highlights mark {
+    background: transparent;
+    color: transparent;
+    border-radius: 3px;
+    padding: 1px 3px;
+}
+
+.curate-highlights .placeholder-valid {
+    background: rgba(34, 197, 94, 0.25);
+    box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.4);
+}
+
+.curate-highlights .placeholder-invalid {
+    background: rgba(239, 68, 68, 0.25);
+    box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.4);
 }
