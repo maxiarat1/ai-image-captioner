@@ -293,20 +293,15 @@ jobs:
           **Option 1: Docker (Recommended)**
 
           ```bash
-          # RTX 20/30/40 series
-          docker run --gpus all -p 5000:5000 ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python310-cuda121
-
-          # RTX 50 series
+          # RTX 20/30/40/50 series
           docker run --gpus all -p 5000:5000 ghcr.io/${{ github.repository }}:${{ needs.setup.outputs.release_version }}-python312-cuda128
           ```
 
           **Option 2: Executable**
 
           1. Download the appropriate file for your GPU:
-             - **Windows RTX 20/30/40:** `ai-image-captioner-windows-python310-cuda121.zip`
-             - **Windows RTX 50:** `ai-image-captioner-windows-python312-cuda128.zip`
-             - **Linux RTX 20/30/40:** `ai-image-captioner-linux-python310-cuda121.tar.gz`
-             - **Linux RTX 50:** `ai-image-captioner-linux-python312-cuda128.tar.gz`
+             - **Windows RTX 20/30/40/50:** `ai-image-captioner-windows-python312-cuda128.zip`
+             - **Linux RTX 20/30/40/50:** `ai-image-captioner-linux-python312-cuda128.tar.gz`
 
           2. Extract and run:
              - **Windows:** Double-click `ai-image-captioner.exe` (extract with 7-Zip if split)
@@ -322,8 +317,8 @@ jobs:
           ### Requirements
 
           - NVIDIA GPU with 4GB+ VRAM (8GB+ for AI models)
-          - CUDA 12.1+ drivers (RTX 20/30/40) or CUDA 12.8+ (RTX 50)
-          - Docker users: `nvidia-container-toolkit` (see README if you get GPU errors)
+          - CUDA 12.8+ (RTX 20/30/40/50)
+          - Docker users: `nvidia-container-toolkit`
 
           (AI models are not baked in. They are downloaded on first run from the Hugging Face Hub.)
           EOF

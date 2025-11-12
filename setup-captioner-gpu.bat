@@ -32,11 +32,57 @@ echo Using CUDA version: %CUDA_VERSION%
 echo.
 
 REM ------------------------------------------------------------
+REM Read build configuration from version.json
+REM ------------------------------------------------------------
+if not exist version.json (
+    echo Error: version.json not found in the current directory.
+    exit /b 1
+)
+
+REM Check for Python availability
+where python >nul 2>&1
+if %errorlevel% neq 0 (
+    echo Error: Python is not installed or not in PATH.
+    echo Python is required to parse version.json.
+    exit /b 1
+)
+
+REM Parse version.json using Python
+for /f "usebackq delims=" %%i in (`python -c "import json; data = json.load(open('version.json')); cfg = next((v for k, v in data['build_configs'].items() if v.get('cuda_version_display') == '%CUDA_VERSION%'), None); print(cfg['python']) if cfg else print('ERROR')"`) do set PYTHON_VERSION=%%i
+for /f "usebackq delims=" %%i in (`python -c "import json; data = json.load(open('version.json')); cfg = next((v for k, v in data['build_configs'].items() if v.get('cuda_version_display') == '%CUDA_VERSION%'), None); print(cfg['cuda']) if cfg else print('ERROR')"`) do set CUDA_LABEL=%%i
+
+if "%PYTHON_VERSION%"=="ERROR" (
+    echo Error: No matching build config found in version.json for CUDA %CUDA_VERSION%.
+    echo Available CUDA versions in version.json:
+    python -c "import json; data = json.load(open('version.json')); print('\n'.join(sorted({v.get('cuda_version_display','') for v in data['build_configs'].values()})))"
+    exit /b 1
+)
+
+echo Selected build config from version.json -^> Python: %PYTHON_VERSION%, CUDA label: %CUDA_LABEL% (display: %CUDA_VERSION%)
+echo.
+
+REM Get additional configuration values
+for /f "usebackq delims=" %%i in (`python -c "import json; data = json.load(open('version.json')); cfg = next((v for k, v in data['build_configs'].items() if v.get('cuda_version_display') == '%CUDA_VERSION%'), None); print(cfg['pytorch']['install_method'])"`) do set PYTORCH_METHOD=%%i
+for /f "usebackq delims=" %%i in (`python -c "import json; data = json.load(open('version.json')); cfg = next((v for k, v in data['build_configs'].items() if v.get('cuda_version_display') == '%CUDA_VERSION%'), None); print(cfg['pytorch']['version'])"`) do set PYTORCH_VERSION=%%i
+for /f "usebackq delims=" %%i in (`python -c "import json; data = json.load(open('version.json')); cfg = next((v for k, v in data['build_configs'].items() if v.get('cuda_version_display') == '%CUDA_VERSION%'), None); print(cfg['pytorch']['torchvision'])"`) do set TORCHVISION_VERSION=%%i
+REM Parse version.json once and extract all required values in one Python call
+for /f "tokens=1,2,3,4,5 delims=|" %%a in ('python -c "import json; cfg = next((v for k, v in json.load(open('version.json'))['build_configs'].items() if v.get('cuda_version_display') == '%CUDA_VERSION%'), None); print('|'.join([cfg['pytorch']['torchaudio'], str(cfg['pytorch'].get('index_url', '')), str(cfg['pytorch'].get('pytorch_cuda', '')), cfg['flash_attention']['version'], cfg['flash_attention']['cuda_suffix']]))"') do (
+    set "TORCHAUDIO_VERSION=%%a"
+    set "PYTORCH_INDEX_URL=%%b"
+    set "PYTORCH_CUDA=%%c"
+    set "FA_VERSION=%%d"
+    set "FA_CUDA_SUFFIX=%%e"
+)
+
+REM Convert Python version to CPython ABI tag (e.g., 3.12 -> cp312)
+set PY_ABI_TAG=cp%PYTHON_VERSION:.=%
+
+REM ------------------------------------------------------------
 REM Verify that conda is installed
 REM ------------------------------------------------------------
 where conda >nul 2>&1
 if %errorlevel% neq 0 (
-    echo ❌ Error: conda is not installed or not in PATH.
+    echo Error: conda is not installed or not in PATH.
     echo Please install Miniconda or Anaconda:
     echo   https://docs.conda.io/en/latest/miniconda.html
     exit /b 1
@@ -59,62 +105,83 @@ if %errorlevel% equ 0 (
 )
 
 REM ------------------------------------------------------------
-REM Environment creation (CUDA-specific logic)
+REM Create conda environment
 REM ------------------------------------------------------------
-echo Creating conda environment with Python 3.10...
-if "%CUDA_VERSION%"=="12.8" (
-    echo 🐉 Configuring for CUDA 12.8 (RTX 50-series or newer)...
-    call conda create -n captioner-gpu python=3.10 -y
-    call conda activate captioner-gpu
+echo Creating conda environment with Python %PYTHON_VERSION%...
+call conda create -n captioner-gpu python=%PYTHON_VERSION% -y
+call conda activate captioner-gpu
 
-    echo Installing PyTorch 2.7.1 stack...
-    pip install torch==2.7.1+cu128 torchvision==0.22.1+cu128 torchaudio==2.7.1+cu128 --index-url https://download.pytorch.org/whl/cu128
-
-    echo Installing helpers...
-    pip install packaging ninja
-
-    echo Installing FlashAttention 2.8.2 (CUDA12.x + Torch2.7)...
-    powershell -Command "Invoke-WebRequest -Uri https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.2/flash_attn-2.8.2+cu12torch2.7cxx11abiFALSE-cp310-cp310-linux_x86_64.whl -OutFile flash_attn-2.8.2.whl"
-    pip install flash_attn-2.8.2.whl --no-build-isolation
-    del flash_attn-2.8.2.whl
-
-) else (
-    echo ⚡ Configuring for CUDA 12.1 (RTX 20/30/40-series)...
-    call conda create -n captioner-gpu python=3.10 -y
-    call conda activate captioner-gpu
-
-    echo Installing PyTorch 2.5.1 stack...
-    call conda install pytorch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 pytorch-cuda=12.1 -c pytorch -c nvidia -y
-
-    echo Installing helpers...
-    pip install packaging ninja
-
-    echo Installing FlashAttention 2.8.3 (CUDA12.x + Torch2.5)...
-    powershell -Command "Invoke-WebRequest -Uri https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.5cxx11abiFALSE-cp310-cp310-linux_x86_64.whl -OutFile flash_attn-2.8.3.whl"
-    pip install flash_attn-2.8.3.whl --no-build-isolation
-    del flash_attn-2.8.3.whl
+REM ------------------------------------------------------------
+REM Install PyTorch stack based on configuration
+REM ------------------------------------------------------------
+if "%PYTORCH_METHOD%"=="pip" (
+    echo Checking if torch==%PYTORCH_VERSION%+%CUDA_LABEL% is available on %PYTORCH_INDEX_URL%...
+    pip install --dry-run --no-deps torch==%PYTORCH_VERSION%+%CUDA_LABEL% --index-url %PYTORCH_INDEX_URL% > pip_check.log 2>&1
+    if %errorlevel% neq 0 (
+        echo.
+        echo ERROR: The specified torch version torch==%PYTORCH_VERSION%+%CUDA_LABEL% was not found on %PYTORCH_INDEX_URL%.
+        echo Please check your version.json and ensure the version exists.
+        echo See pip_check.log for details.
+        exit /b 1
+    )
+    del pip_check.log
+    echo Installing PyTorch stack via pip...
+    pip install torch==%PYTORCH_VERSION%+%CUDA_LABEL% torchvision==%TORCHVISION_VERSION%+%CUDA_LABEL% torchaudio==%TORCHAUDIO_VERSION%+%CUDA_LABEL% --index-url %PYTORCH_INDEX_URL%
+) else if "%PYTORCH_METHOD%"=="conda" (
+    echo Installing PyTorch stack via conda...
+    call conda install pytorch==%PYTORCH_VERSION% torchvision==%TORCHVISION_VERSION% torchaudio==%TORCHAUDIO_VERSION% pytorch-cuda=%PYTORCH_CUDA% -c pytorch -c nvidia -y
 )
 
 REM ------------------------------------------------------------
-REM Install project dependencies (if file exists)
+REM Install build helpers
 REM ------------------------------------------------------------
-if exist requirements.txt (
-    echo Installing project dependencies...
-    pip install -r requirements.txt
-) else (
-    echo No requirements.txt found, skipping dependency installation.
-)
+echo Installing build helpers...
+python -c "import json; data = json.load(open('version.json')); cfg = next((v for k, v in data['build_configs'].items() if v.get('cuda_version_display') == '%CUDA_VERSION%'), None); [print(p) for p in cfg['additional_packages']['build_helpers']]" > helpers.tmp
+for /f "delims=" %%i in (helpers.tmp) do pip install %%i
+del helpers.tmp
 
 REM ------------------------------------------------------------
-REM Verify everything
+REM Install FlashAttention
+REM ------------------------------------------------------------
+set FA_WHEEL=flash_attn-%FA_VERSION%+%FA_CUDA_SUFFIX%-%PY_ABI_TAG%-%PY_ABI_TAG%-win_amd64.whl
+set FA_URL=https://github.com/Dao-AILab/flash-attention/releases/download/v%FA_VERSION%/%FA_WHEEL%
+echo Downloading FlashAttention wheel for Python %PYTHON_VERSION%: %FA_WHEEL%
+powershell -Command "Invoke-WebRequest -Uri '%FA_URL%' -OutFile '%FA_WHEEL%'"
+pip install %FA_WHEEL% --no-build-isolation
+del %FA_WHEEL%
+
+REM ------------------------------------------------------------
+REM Install additional packages
+REM ------------------------------------------------------------
+for /f "usebackq delims=" %%i in (`python -c "import json; data = json.load(open('version.json')); cfg = next((v for k, v in data['build_configs'].items() if v.get('cuda_version_display') == '%CUDA_VERSION%'), None); print(cfg['additional_packages'].get('doctr', ''))"`) do set DOCTR_PKG=%%i
+for /f "usebackq delims=" %%i in (`python -c "import json; data = json.load(open('version.json')); cfg = next((v for k, v in data['build_configs'].items() if v.get('cuda_version_display') == '%CUDA_VERSION%'), None); print(cfg['additional_packages'].get('onnxruntime', ''))"`) do set ONNX_PKG=%%i
+
+if not "%DOCTR_PKG%"=="" pip install %DOCTR_PKG%
+if not "%ONNX_PKG%"=="" pip install %ONNX_PKG%
+
+REM ------------------------------------------------------------
+REM Verify installation
 REM ------------------------------------------------------------
 echo.
 echo ✅ Verifying installation...
-python -c "import torch, flash_attn; print('PyTorch:', torch.__version__, '| CUDA:', torch.version.cuda, '| FlashAttention:', flash_attn.__version__)"
+python -c "import sys, traceback, platform; print(f'Python: {sys.version.split()[0]} ^| Platform: {platform.platform()}'); import torch; print(f'PyTorch: {torch.__version__}'); print(f'CUDA runtime in PyTorch: {getattr(torch.version, \"cuda\", None)}'); cuda_ok = torch.cuda.is_available(); print(f'CUDA available: {cuda_ok}'); import flash_attn; print(f'FlashAttention: {getattr(flash_attn, \"__version__\", None)}')"
+
+REM ------------------------------------------------------------
+REM Install project dependencies
+REM ------------------------------------------------------------
+echo.
+echo Installing project dependencies...
+pip install -r requirements.txt
 
 echo.
-echo 🎉 Setup complete!
-echo To activate environment: conda activate captioner-gpu
-echo To start app: cd backend && python app.py
+echo ✅ Setup complete!
+echo.
+echo To activate the environment, run:
+echo   conda activate captioner-gpu
+echo.
+echo To start the application, run:
+echo   cd backend ^&^& python app.py
+echo.
+echo Then open http://localhost:5000 in your browser
 echo.
 endlocal
