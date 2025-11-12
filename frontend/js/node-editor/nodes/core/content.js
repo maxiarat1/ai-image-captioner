@@ -386,11 +386,16 @@
                             <span class="output-results-icon">✓</span>
                             <span>Results Ready (${resultsReady})</span>
                         </div>
+                    ` : (total > 0 && processed >= total ? `
+                        <div class="output-complete">
+                            <span class="output-results-icon">✓</span>
+                            <span>Processing completed</span>
+                        </div>
                     ` : `
                         <div class="output-idle">
                             <span style="color: var(--text-secondary); font-size: 0.85rem;">Waiting for processing...</span>
                         </div>
-                    `}
+                    `)}
                 </div>
             `;
         }
