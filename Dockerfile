@@ -64,7 +64,7 @@ RUN pip3 install --no-cache-dir \
         torchaudio==${TORCHAUDIO_VERSION}+${CUDA_VERSION} \
         --index-url ${PYTORCH_INDEX_URL} && \
     pip3 install --no-cache-dir onnxruntime-gpu>=1.16.0 && \
-    pip3 install --no-cache-dir --ignore-installed -r requirements.txt
+    pip3 install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY backend/ ./backend/
