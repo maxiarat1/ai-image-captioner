@@ -8,7 +8,7 @@ import asyncio
 import webbrowser
 import threading
 from pathlib import Path
-from flask import Flask, request, jsonify, send_file, Response, stream_with_context
+from flask import Flask, request, jsonify, send_file, Response, stream_with_context, send_from_directory
 from flask_cors import CORS
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
@@ -44,7 +44,9 @@ setup_logging()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-app = Flask(__name__)
+# Determine frontend path for static files
+FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
+app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path='')
 CORS(app)
 
 # Session managers: sync for simple CRUD, async for AI inference paths
@@ -236,6 +238,11 @@ def _load_model(model_name: str, precision_params: dict, is_reload: bool):
         logger.exception("Failed to load %s model: %s", model_name, e)
         models[model_name] = None
         raise
+
+@app.route('/')
+def index():
+    """Serve the frontend UI."""
+    return send_from_directory(app.static_folder, 'index.html')
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -1073,7 +1080,6 @@ if __name__ == '__main__':
         # In Docker, print URL for user to open manually
         logger.info("=" * 60)
         logger.info("AI Image Captioner is running!")
-        logger.info("Open in your browser: http://localhost:5000")
         logger.info("=" * 60)
     
     app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE  # None = no limit
