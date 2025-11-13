@@ -205,6 +205,20 @@ jobs:
           PYTORCH_INDEX=$(jq -r --arg cfg "$CONFIG_NAME" \
             '.build_configs[$cfg].pytorch.index_url' version.json)
           
+          # Extract FlashAttention config
+          FA_VERSION=$(jq -r --arg cfg "$CONFIG_NAME" \
+            '.build_configs[$cfg].flash_attention.version' version.json)
+          FA_CUDA_SUFFIX=$(jq -r --arg cfg "$CONFIG_NAME" \
+            '.build_configs[$cfg].flash_attention.cuda_suffix' version.json)
+          
+          # Extract additional packages
+          BUILD_HELPERS=$(jq -r --arg cfg "$CONFIG_NAME" \
+            '.build_configs[$cfg].additional_packages.build_helpers | join(",")' version.json)
+          DOCTR_PACKAGE=$(jq -r --arg cfg "$CONFIG_NAME" \
+            '.build_configs[$cfg].additional_packages.doctr' version.json)
+          ONNXRUNTIME_PACKAGE=$(jq -r --arg cfg "$CONFIG_NAME" \
+            '.build_configs[$cfg].additional_packages.onnxruntime' version.json)
+          
           if [ "$CUDA_BASE" == "null" ] || [ "$CUDNN_SUFFIX" == "null" ]; then
             echo "Error: Docker config missing in version.json for $CONFIG_NAME"
             exit 1
@@ -216,7 +230,12 @@ jobs:
           echo "torchvision_version=$TORCHVISION_VERSION" >> $GITHUB_OUTPUT
           echo "torchaudio_version=$TORCHAUDIO_VERSION" >> $GITHUB_OUTPUT
           echo "pytorch_index=$PYTORCH_INDEX" >> $GITHUB_OUTPUT
-          echo "Using CUDA base: $CUDA_BASE, cuDNN suffix: $CUDNN_SUFFIX, PyTorch: $PYTORCH_VERSION"
+          echo "fa_version=$FA_VERSION" >> $GITHUB_OUTPUT
+          echo "fa_cuda_suffix=$FA_CUDA_SUFFIX" >> $GITHUB_OUTPUT
+          echo "build_helpers=$BUILD_HELPERS" >> $GITHUB_OUTPUT
+          echo "doctr_package=$DOCTR_PACKAGE" >> $GITHUB_OUTPUT
+          echo "onnxruntime_package=$ONNXRUNTIME_PACKAGE" >> $GITHUB_OUTPUT
+          echo "Using CUDA base: $CUDA_BASE, cuDNN suffix: $CUDNN_SUFFIX, PyTorch: $PYTORCH_VERSION, FlashAttention: $FA_VERSION"
 
       - name: Extract metadata for Docker
         id: meta
@@ -243,6 +262,11 @@ jobs:
             TORCHVISION_VERSION=${{ steps.docker_config.outputs.torchvision_version }}
             TORCHAUDIO_VERSION=${{ steps.docker_config.outputs.torchaudio_version }}
             PYTORCH_INDEX_URL=${{ steps.docker_config.outputs.pytorch_index }}
+            FLASH_ATTENTION_VERSION=${{ steps.docker_config.outputs.fa_version }}
+            FLASH_ATTENTION_CUDA_SUFFIX=${{ steps.docker_config.outputs.fa_cuda_suffix }}
+            BUILD_HELPERS=${{ steps.docker_config.outputs.build_helpers }}
+            DOCTR_PACKAGE=${{ steps.docker_config.outputs.doctr_package }}
+            ONNXRUNTIME_PACKAGE=${{ steps.docker_config.outputs.onnxruntime_package }}
           cache-from: type=gha,scope=${{ matrix.config.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.config.name }}
           platforms: linux/amd64
