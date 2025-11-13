@@ -39,10 +39,17 @@ Note: Requires [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/clo
 ### Option 2: Download Executable
 
 1. Download from [Releases](https://github.com/maxiarat1/ai-image-captioner/releases)
-2. Run the executable:
+2. Extract the archive:
+   - **Windows**: If split archives (`.zip.001`, `.zip.002`), use 7-Zip to extract `.zip.001`
+   - **Linux**: If split archives (`.tar.gz.partaa`, `.tar.gz.partab`):
+     ```bash
+     cat ai-image-captioner-linux-*.tar.gz.part* > ai-image-captioner.tar.gz
+     tar -xzf ai-image-captioner.tar.gz
+     ```
+3. Run the executable:
    - Windows: `ai-image-captioner.exe`
-   - Linux: `./ai-image-captioner`
-3. Open `frontend/index.html` in your browser
+   - Linux: `./ai-image-captioner/ai-image-captioner`
+4. Open `frontend/index.html` in your browser
 
 ### Option 3: From Source
 

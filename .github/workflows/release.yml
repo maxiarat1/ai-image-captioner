@@ -100,23 +100,38 @@ jobs:
         shell: bash
         run: |
           python -m pip install --upgrade pip
-          
+
           CONFIG_NAME="${{ matrix.config.name }}"
-          
+
           # Read PyTorch config from version.json at runtime
           PYTORCH_VERSION=$(jq -r --arg cfg "$CONFIG_NAME" '.build_configs[$cfg].pytorch.version' version.json)
           TORCHVISION=$(jq -r --arg cfg "$CONFIG_NAME" '.build_configs[$cfg].pytorch.torchvision' version.json)
           TORCHAUDIO=$(jq -r --arg cfg "$CONFIG_NAME" '.build_configs[$cfg].pytorch.torchaudio' version.json)
           INDEX_URL=$(jq -r --arg cfg "$CONFIG_NAME" '.build_configs[$cfg].pytorch.index_url' version.json)
           CUDA_LABEL=$(jq -r --arg cfg "$CONFIG_NAME" '.build_configs[$cfg].cuda' version.json)
-          
+
+          # Read additional packages config
+          DOCTR_PACKAGE=$(jq -r --arg cfg "$CONFIG_NAME" '.build_configs[$cfg].additional_packages.doctr' version.json)
+          ONNXRUNTIME_PACKAGE=$(jq -r --arg cfg "$CONFIG_NAME" '.build_configs[$cfg].additional_packages.onnxruntime' version.json)
+
           echo "Installing PyTorch ${PYTORCH_VERSION} with CUDA ${CUDA_LABEL}"
-          
+
           pip install torch==${PYTORCH_VERSION}+${CUDA_LABEL} \
                       torchvision==${TORCHVISION}+${CUDA_LABEL} \
                       torchaudio==${TORCHAUDIO}+${CUDA_LABEL} \
                       --index-url "$INDEX_URL"
-          
+
+          # Install additional packages before requirements.txt
+          if [ "$DOCTR_PACKAGE" != "null" ] && [ -n "$DOCTR_PACKAGE" ]; then
+            echo "Installing doctr: $DOCTR_PACKAGE"
+            pip install "$DOCTR_PACKAGE"
+          fi
+
+          if [ "$ONNXRUNTIME_PACKAGE" != "null" ] && [ -n "$ONNXRUNTIME_PACKAGE" ]; then
+            echo "Installing onnxruntime: $ONNXRUNTIME_PACKAGE"
+            pip install "$ONNXRUNTIME_PACKAGE"
+          fi
+
           pip install -r requirements.txt
           pip install pyinstaller
 
@@ -374,13 +389,25 @@ jobs:
           cat >> release-notes.md << 'EOF'
 
           **Windows:**
-          - Double-click `ai-image-captioner.exe`
-            (Use 7-Zip for extracting split archives if needed.)
+          ```powershell
+          # If you have split archives (.zip.001, .zip.002, etc.), combine them first:
+          # Using 7-Zip: Right-click the .zip.001 file → 7-Zip → Extract Here
+
+          # Then extract and run:
+          ai-image-captioner.exe
+          ```
 
           **Linux:**
           ```bash
-          tar -xzf ai-image-captioner-linux-*.tar.gz \
-            && ./ai-image-captioner/ai-image-captioner
+          # If you have split archives (.tar.gz.partaa, .tar.gz.partab, etc.), combine them first:
+          cat ai-image-captioner-linux-*.tar.gz.part* > ai-image-captioner-linux.tar.gz
+          tar -xzf ai-image-captioner-linux.tar.gz
+
+          # Or if you have a single archive:
+          tar -xzf ai-image-captioner-linux-*.tar.gz
+
+          # Then run:
+          ./ai-image-captioner/ai-image-captioner
           ```
 
           ---
