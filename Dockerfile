@@ -6,8 +6,10 @@
 # Build arguments for base image selection
 ARG CUDA_BASE_VERSION
 ARG CUDNN_SUFFIX
+ARG PYTHON_VERSION
 
-FROM nvidia/cuda:${CUDA_BASE_VERSION}-${CUDNN_SUFFIX}-runtime-ubuntu22.04
+# Build final image with CUDA + Python from Ubuntu repos
+FROM nvidia/cuda:${CUDA_BASE_VERSION}-${CUDNN_SUFFIX}-runtime-ubuntu24.04
 
 # Re-declare build arguments (ARG before FROM are not available after)
 ARG CUDA_VERSION
@@ -16,6 +18,11 @@ ARG PYTORCH_VERSION
 ARG PYTORCH_INDEX_URL
 ARG TORCHVISION_VERSION
 ARG TORCHAUDIO_VERSION
+ARG FLASH_ATTENTION_VERSION
+ARG FLASH_ATTENTION_CUDA_SUFFIX
+ARG BUILD_HELPERS
+ARG DOCTR_PACKAGE
+ARG ONNXRUNTIME_PACKAGE
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -25,46 +32,69 @@ ENV DEBIAN_FRONTEND=noninteractive \
     CUDA_HOME=/usr/local/cuda \
     RUNNING_IN_DOCKER=1
 
-# Install Python and system dependencies
+# Install system dependencies including Python from Ubuntu repos
 RUN apt-get update && apt-get install -y \
-    software-properties-common \
+    python3 \
+    python3-pip \
+    python3-dev \
     git \
     wget \
     curl \
-    jq \
+    ca-certificates \
     # OpenCV dependencies (required by doctr)
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
     libxrender1 \
-    && add-apt-repository ppa:deadsnakes/ppa -y \
-    && apt-get update \
-    && apt-get install -y \
-    python${PYTHON_VERSION} \
-    python${PYTHON_VERSION}-dev \
-    && rm -rf /var/lib/apt/lists/* \
-    && ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python3 \
-    && python3 --version \
-    && curl -sS https://bootstrap.pypa.io/get-pip.py | python3 \
-    && python3 -m pip --version
+    && rm -rf /var/lib/apt/lists/*
+
+# Create symlinks for python and pip
+RUN ln -sf /usr/bin/python3 /usr/bin/python && \
+    ln -sf /usr/bin/pip3 /usr/bin/pip
+
+# Verify Python installation
+RUN python3 --version && pip3 --version
 
 # Create app directory
 WORKDIR /app
 
-# Copy version config and requirements first (for layer caching)
-COPY version.json .
+# Copy requirements first (for layer caching)
 COPY requirements.txt .
 
-# Install Python dependencies
-# Use PyTorch version from build args for complete version control
-RUN pip3 install --no-cache-dir \
+# Install Python dependencies following the same flow as setup-captioner-gpu.sh
+# Step 1: Install PyTorch stack
+RUN pip3 install --no-cache-dir --break-system-packages \
         torch==${PYTORCH_VERSION}+${CUDA_VERSION} \
         torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION} \
         torchaudio==${TORCHAUDIO_VERSION}+${CUDA_VERSION} \
-        --index-url ${PYTORCH_INDEX_URL} && \
-    pip3 install --no-cache-dir onnxruntime-gpu>=1.16.0 && \
-    pip3 install --no-cache-dir -r requirements.txt
+        --index-url ${PYTORCH_INDEX_URL}
+
+# Step 2: Install build helpers (e.g., ninja, packaging)
+RUN if [ -n "${BUILD_HELPERS}" ]; then \
+        echo "${BUILD_HELPERS}" | tr ',' '\n' | xargs pip3 install --no-cache-dir --break-system-packages; \
+    fi
+
+# Step 3: Install FlashAttention wheel
+RUN PY_ABI_TAG=$(echo "cp${PYTHON_VERSION}" | tr -d '.') && \
+    FA_WHEEL="flash_attn-${FLASH_ATTENTION_VERSION}+${FLASH_ATTENTION_CUDA_SUFFIX}-${PY_ABI_TAG}-${PY_ABI_TAG}-linux_x86_64.whl" && \
+    FA_URL="https://github.com/Dao-AILab/flash-attention/releases/download/v${FLASH_ATTENTION_VERSION}/${FA_WHEEL}" && \
+    wget -q "$FA_URL" && \
+    pip3 install --no-cache-dir --break-system-packages "$FA_WHEEL" --no-build-isolation && \
+    rm "$FA_WHEEL"
+
+# Step 4: Install doctr package
+RUN if [ -n "${DOCTR_PACKAGE}" ]; then \
+        pip3 install --no-cache-dir --break-system-packages ${DOCTR_PACKAGE}; \
+    fi
+
+# Step 5: Install onnxruntime-gpu
+RUN if [ -n "${ONNXRUNTIME_PACKAGE}" ]; then \
+        pip3 install --no-cache-dir --break-system-packages ${ONNXRUNTIME_PACKAGE}; \
+    fi
+
+# Step 6: Install project dependencies from requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 
 # Copy application code
 COPY backend/ ./backend/
