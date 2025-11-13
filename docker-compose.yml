@@ -14,7 +14,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        # Values from version.json -> build_configs.python312-cuda128
+        # Value@s from version.json -> build_configs.python312-cuda128
         CUDA_BASE_VERSION: "12.8.0"        # .docker.cuda_base_version
         CUDNN_SUFFIX: "cudnn"              # .docker.cudnn_suffix
         CUDA_VERSION: "cu128"              # .cuda
@@ -23,6 +23,13 @@ services:
         TORCHVISION_VERSION: "0.23.0"      # .pytorch.torchvision
         TORCHAUDIO_VERSION: "2.8.0"        # .pytorch.torchaudio
         PYTORCH_INDEX_URL: "https://download.pytorch.org/whl/cu128"  # .pytorch.index_url
+        # FlashAttention configuration
+        FLASH_ATTENTION_VERSION: "2.8.3"   # .flash_attention.version
+        FLASH_ATTENTION_CUDA_SUFFIX: "cu12torch2.8cxx11abiTRUE"  # .flash_attention.cuda_suffix
+        # Additional packages
+        BUILD_HELPERS: "packaging,ninja"   # .additional_packages.build_helpers (comma-separated)
+        DOCTR_PACKAGE: "python-doctr[torch]"  # .additional_packages.doctr
+        ONNXRUNTIME_PACKAGE: "onnxruntime-gpu"  # .additional_packages.onnxruntime
     image: ai-image-captioner:latest
     container_name: ai-image-captioner
 
@@ -43,6 +50,10 @@ services:
     volumes:
       # Persist user config
       - ./user_config.json:/app/user_config.json
+      # Persist database files (REQUIRED - stores image metadata and captions)
+      - ai-image-captioner-data:/app/backend/data
+      # Persist thumbnails (optional - avoids regenerating on restart)
+      - ai-image-captioner-thumbnails:/app/backend/thumbnails
       # Cache Hugging Face models (optional - speeds up restarts)
       - huggingface-cache:/root/.cache/huggingface
       # Mount frontend for live editing (development only)
@@ -52,6 +63,9 @@ services:
     environment:
       - CUDA_VISIBLE_DEVICES=0
       - DEBUG_MODE=False
+      # HuggingFace logging - shows model download/loading progress
+      - TRANSFORMERS_VERBOSITY=info
+      - HF_HUB_VERBOSITY=info
 
     # Restart policy
     restart: unless-stopped
@@ -66,4 +80,8 @@ services:
 
 volumes:
   huggingface-cache:
+    driver: local
+  ai-image-captioner-data:
+    driver: local
+  ai-image-captioner-thumbnails:
     driver: local
