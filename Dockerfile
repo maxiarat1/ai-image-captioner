@@ -79,7 +79,8 @@ RUN if [ -n "${BUILD_HELPERS}" ]; then \
 RUN PY_ABI_TAG=$(echo "cp${PYTHON_VERSION}" | tr -d '.') && \
     FA_WHEEL="flash_attn-${FLASH_ATTENTION_VERSION}+${FLASH_ATTENTION_CUDA_SUFFIX}-${PY_ABI_TAG}-${PY_ABI_TAG}-linux_x86_64.whl" && \
     FA_URL="https://github.com/Dao-AILab/flash-attention/releases/download/v${FLASH_ATTENTION_VERSION}/${FA_WHEEL}" && \
-    wget -q "$FA_URL" && \
+    echo "Downloading FlashAttention from: $FA_URL" && \
+    wget "$FA_URL" || (echo "ERROR: Failed to download FlashAttention wheel from $FA_URL" && exit 1) && \
     pip3 install --no-cache-dir --break-system-packages "$FA_WHEEL" --no-build-isolation && \
     rm "$FA_WHEEL"
 
