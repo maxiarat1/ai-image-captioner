@@ -314,48 +314,84 @@ jobs:
         run: |
           VERSION="${{ needs.setup.outputs.release_version }}"
           REPO="${{ github.repository }}"
-          
-          # Get first config for examples (assumes single config for now)
+
+          # Get first config (for Docker example)
           FIRST_CONFIG=$(jq -r '.build_configs | to_entries[0] | .key' version.json)
-          
+
           cat > release-notes.md << EOF
           ## AI Image Captioner ${VERSION}
 
           ### Quick Start
 
-          **Option 1: Docker (Recommended)**
+          ---
+
+          ### **Option 1: Docker (Recommended)**
+
+          **Recommended:** Full setup with persistent volumes
 
           \`\`\`bash
-          docker run --gpus all -p 5000:5000 ghcr.io/${REPO}:${VERSION}-${FIRST_CONFIG}
+          docker run --gpus all -p 5000:5000 \
+            -v ai-captioner-data:/app/backend/data \
+            -v ai-captioner-thumbnails:/app/backend/thumbnails \
+            -v huggingface-cache:/root/.cache/huggingface \
+            ghcr.io/${REPO}:${VERSION}-${FIRST_CONFIG}
           \`\`\`
 
-          **Option 2: Executable**
+          \`\`\`bash
+          docker start -a ai-captioner
+          \`\`\`
 
-          Download and extract the appropriate file for your platform and GPU:
+          #### What each volume does:
+
+          1. **ai-captioner-data:/app/backend/data** — **Required**
+
+            - Stores all database files (image metadata, captions, sessions)
+            - Without this, all data is lost on restart
+
+          2. **huggingface-cache:/root/.cache/huggingface** — **Highly recommended**
+
+            - Caches downloaded AI models
+            - Without this, models re-download every time the container restarts
+
+          3. **ai-captioner-thumbnails:/app/backend/thumbnails** — Optional
+
+            - Stores generated thumbnails
+            - Improves UI loading performance
+
+          ---
+
+          ### **Option 2: Executable**
+
+          Extract and run the appropriate build:
 
           EOF
-          
-          # Add download links for each config
-          jq -r '.build_configs | to_entries[] | 
+
+          # Add build config links
+          jq -r '.build_configs | to_entries[] |
             "- **\(.key)** (Python \(.value.python), CUDA \(.value.cuda_version_display)): \(.value.description)"' \
             version.json >> release-notes.md
-          
+
           cat >> release-notes.md << 'EOF'
 
-          Then run:
-          - **Windows:** Double-click `ai-image-captioner.exe`
-          - **Linux:** `./ai-image-captioner/ai-image-captioner`
+          **Windows:**
+          - Double-click `ai-image-captioner.exe`
+            (Use 7-Zip for extracting split archives if needed.)
 
-          API runs at `http://localhost:5000`
+          **Linux:**
+          ```bash
+          tar -xzf ai-image-captioner-linux-*.tar.gz \
+            && ./ai-image-captioner/ai-image-captioner
+          ```
 
-          **Frontend UI:** Clone the repository and open `frontend/index.html` in your browser.
+          ---
 
-          ### Requirements
+          ### **Frontend UI**
 
-          - NVIDIA GPU with 4GB+ VRAM (8GB+ recommended)
-          - Docker users: `nvidia-container-toolkit`
+          Clone the repository and open `frontend/index.html` in your browser.
 
-          AI models download automatically on first run from Hugging Face Hub.
+          ---
+
+          AI models will automatically download on first run from the Hugging Face Hub.
           EOF
 
       - name: Create Release
