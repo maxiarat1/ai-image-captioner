@@ -63,6 +63,8 @@ python backend/app.py
 
 ## Usage
 
+https://github.com/user-attachments/assets/5d59ddf6-b471-4e3b-a7dd-146893297a79
+
 1. Upload images to the Input node
 2. Connect nodes: Input → AI Model → Output
 3. Add Prompt or Conjunction nodes for custom templates
