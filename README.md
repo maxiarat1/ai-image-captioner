@@ -17,10 +17,27 @@ Build and test image captioning pipelines with diverse AI models using a flexibl
 - **Real-time Stats** - Live progress tracking with speed & ETA
 - **Flexible Export** - ZIP with embedded EXIF/PNG metadata
 
+## System Requirements
+
+**Minimum:**
+- RAM: 16GB
+- Disk: 10GB (for models and data)
+- GPU (recommended): 8GB+ VRAM, CUDA 12.1 or 12.8
+- CPU mode: Works but significantly slower
+
+**Software:**
+- Python 3.12
+- NVIDIA GPU with CUDA support (for GPU mode)
+- Conda/Miniconda (for source installation)
+- Docker with NVIDIA Container Toolkit (for Docker installation)
+
 ## Quick Start
 
 ### Option 1: Docker (Recommended)
-- Pull and run pre-built image
+
+Docker provides the simplest setup with no dependency management required.
+
+**Pull and run pre-built image:**
 ```bash
 docker run --gpus all -p 5000:5000 \
   -v ai-captioner-data:/app/backend/data \
@@ -28,15 +45,19 @@ docker run --gpus all -p 5000:5000 \
   -v huggingface-cache:/root/.cache/huggingface \
   ghcr.io/maxiarat1/ai-image-captioner:latest-python312-cuda128
 ```
-- OR build locally with docker-compose
+
+**OR build locally with docker-compose:**
 ```bash
 git clone https://github.com/maxiarat1/ai-image-captioner.git
 cd ai-image-captioner
 docker-compose up
 ```
-Note: Requires [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+
+**Note:** GPU support requires [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
 
 ### Option 2: Download Executable
+
+Pre-built executables are available for Windows and Linux with CUDA 12.8 support.
 
 1. Download from [Releases](https://github.com/maxiarat1/ai-image-captioner/releases)
 2. Extract the archive:
@@ -53,13 +74,52 @@ Note: Requires [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/clo
 
 ### Option 3: From Source
 
+Install from source with conda for full control over your environment.
+
+**Prerequisites:**
+- [Conda](https://docs.conda.io/en/latest/miniconda.html) or Anaconda
+- Git
+- For GPU: NVIDIA GPU with CUDA 12.1+ drivers
+
+**Linux/macOS:**
 ```bash
 git clone https://github.com/maxiarat1/ai-image-captioner.git
 cd ai-image-captioner
-./setup-captioner-gpu.sh
-conda activate captioner-gpu
-python backend/app.py
+
+# GPU installation (auto-detects CUDA version)
+./setup.sh --gpu
+
+# OR specify CUDA version
+./setup.sh --gpu --cuda 12.8
+
+# OR CPU-only installation
+./setup.sh --cpu
+
+# Activate environment and run
+conda activate captioner-gpu  # or captioner-cpu
+cd backend && python app.py
 ```
+
+**Windows:**
+```cmd
+git clone https://github.com/maxiarat1/ai-image-captioner.git
+cd ai-image-captioner
+
+REM GPU installation (auto-detects CUDA version)
+setup.bat /gpu
+
+REM OR specify CUDA version
+setup.bat /gpu /cuda 12.8
+
+REM OR CPU-only installation
+setup.bat /cpu
+
+REM Activate environment and run
+conda activate captioner-gpu
+cd backend && python app.py
+```
+
+Then open http://localhost:5000 in your browser.
 
 ## Usage
 
