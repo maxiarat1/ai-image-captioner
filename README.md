@@ -17,20 +17,6 @@ Build and test image captioning pipelines with diverse AI models using a flexibl
 - **Real-time Stats** - Live progress tracking with speed & ETA
 - **Flexible Export** - ZIP with embedded EXIF/PNG metadata
 
-## System Requirements
-
-**Minimum:**
-- RAM: 16GB
-- Disk: 10GB (for models and data)
-- GPU (recommended): 8GB+ VRAM, CUDA 12.1 or 12.8
-- CPU mode: Works but significantly slower
-
-**Software:**
-- Python 3.12
-- NVIDIA GPU with CUDA support (for GPU mode)
-- Conda/Miniconda (for source installation)
-- Docker with NVIDIA Container Toolkit (for Docker installation)
-
 ## Quick Start
 
 ### Option 1: Docker (Recommended)
