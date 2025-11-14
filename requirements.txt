@@ -1,21 +1,28 @@
+# ============================================================================
+# Core Dependencies - Compatible with both CPU and GPU
+# ============================================================================
+# NOTE: PyTorch is installed separately by setup scripts based on platform
+#       (CPU-only or CUDA-enabled versions)
+# NOTE: GPU-specific packages (bitsandbytes, flash-attn, onnxruntime-gpu)
+#       are installed by setup scripts only when --gpu flag is used
+
 # Web Framework
 flask[async]>=2.3.0
 flask-cors>=4.0.0
 
 # Image Processing
 pillow>=10.0.0
-python-doctr>=0.7.0
+python-doctr>=0.7.0        # Works on CPU, GPU-accelerated with torch backend
 opencv-python>=4.8.0
 numpy>=1.24.0
 
-# ML/AI Core
+# ML/AI Core - CPU compatible, GPU-accelerated when available
 transformers>=4.46.3
 accelerate>=0.24.0
 timm>=0.9.0
 huggingface-hub>=0.17.0
 
-# Model Optimization
-bitsandbytes>=0.41.0
+# Model Storage/Loading
 safetensors>=0.4.3,<0.6.0
 
 # Database
@@ -29,13 +36,12 @@ matplotlib>=3.5.0
 
 # Tensor Operations
 einops
-addict 
+addict
 easydict
 
 # External Models
 git+https://github.com/deepseek-ai/Janus.git
 chandra-ocr>=0.1.8
-
 
 # Build/Distribution
 pyinstaller>=6.0.0

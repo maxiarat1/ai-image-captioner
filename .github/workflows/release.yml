@@ -133,6 +133,19 @@ jobs:
           fi
 
           pip install -r requirements.txt
+
+          # Install GPU-specific packages
+          GPU_PACKAGES=$(jq -r --arg cfg "$CONFIG_NAME" '.build_configs[$cfg].gpu_specific_packages[]?' version.json)
+          if [ -n "$GPU_PACKAGES" ]; then
+            echo "Installing GPU-specific packages:"
+            echo "$GPU_PACKAGES" | while read -r pkg; do
+              if [ -n "$pkg" ]; then
+                echo "  - $pkg"
+                pip install "$pkg"
+              fi
+            done
+          fi
+
           pip install pyinstaller
 
       - name: Build executable
