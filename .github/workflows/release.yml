@@ -112,7 +112,6 @@ jobs:
 
           # Read additional packages config
           DOCTR_PACKAGE=$(jq -r --arg cfg "$CONFIG_NAME" '.build_configs[$cfg].additional_packages.doctr' version.json)
-          ONNXRUNTIME_PACKAGE=$(jq -r --arg cfg "$CONFIG_NAME" '.build_configs[$cfg].additional_packages.onnxruntime' version.json)
 
           echo "Installing PyTorch ${PYTORCH_VERSION} with CUDA ${CUDA_LABEL}"
 
@@ -127,14 +126,9 @@ jobs:
             pip install "$DOCTR_PACKAGE"
           fi
 
-          if [ "$ONNXRUNTIME_PACKAGE" != "null" ] && [ -n "$ONNXRUNTIME_PACKAGE" ]; then
-            echo "Installing onnxruntime: $ONNXRUNTIME_PACKAGE"
-            pip install "$ONNXRUNTIME_PACKAGE"
-          fi
-
           pip install -r requirements.txt
 
-          # Install GPU-specific packages
+          # Install GPU-specific packages (bitsandbytes, onnxruntime-gpu, etc.)
           GPU_PACKAGES=$(jq -r --arg cfg "$CONFIG_NAME" '.build_configs[$cfg].gpu_specific_packages[]?' version.json)
           if [ -n "$GPU_PACKAGES" ]; then
             echo "Installing GPU-specific packages:"

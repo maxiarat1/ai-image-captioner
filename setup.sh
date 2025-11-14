@@ -246,11 +246,7 @@ PY
         pip install $(echo "$ADD_PACKAGES" | jq -r '.doctr')
     fi
 
-    if [[ -n "$(echo "$ADD_PACKAGES" | jq -r '.onnxruntime')" ]]; then
-        pip install $(echo "$ADD_PACKAGES" | jq -r '.onnxruntime')
-    fi
-
-    # Install GPU-specific packages
+    # Install GPU-specific packages (bitsandbytes, onnxruntime-gpu, etc.)
     if [[ -n "$GPU_PACKAGES" ]]; then
         echo "Installing GPU-specific packages..."
         for pkg in $GPU_PACKAGES; do
@@ -396,7 +392,7 @@ PY
         if [[ -n "$DOCTR_PKG" && "$DOCTR_PKG" != "null" ]]; then
             pip install "$DOCTR_PKG"
         else
-            pip install python-doctr[torch]
+            pip install python-doctr
         fi
 
         if [[ -n "$ONNX_PKG" && "$ONNX_PKG" != "null" ]]; then
@@ -405,7 +401,7 @@ PY
             pip install onnxruntime
         fi
     else
-        pip install python-doctr[torch]
+        pip install python-doctr
         pip install onnxruntime
     fi
 

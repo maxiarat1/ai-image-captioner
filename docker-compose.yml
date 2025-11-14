@@ -28,8 +28,9 @@ services:
         FLASH_ATTENTION_CUDA_SUFFIX: "cu12torch2.8cxx11abiTRUE"  # .flash_attention.cuda_suffix
         # Additional packages
         BUILD_HELPERS: "packaging,ninja"   # .additional_packages.build_helpers (comma-separated)
-        DOCTR_PACKAGE: "python-doctr[torch]"  # .additional_packages.doctr
-        ONNXRUNTIME_PACKAGE: "onnxruntime-gpu"  # .additional_packages.onnxruntime
+        DOCTR_PACKAGE: "python-doctr"  # .additional_packages.doctr
+        # GPU-specific packages (installed only for GPU builds)
+        GPU_SPECIFIC_PACKAGES: "bitsandbytes>=0.41.0,onnxruntime-gpu"  # .gpu_specific_packages (comma-separated)
     image: ai-image-captioner:latest
     container_name: ai-image-captioner
 

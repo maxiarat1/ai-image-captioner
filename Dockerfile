@@ -3,10 +3,10 @@
 # Build arguments come from docker-compose.yml (which references version.json)
 # See docker-compose.yml for current configuration values
 
-# Build arguments for base image selection
-ARG CUDA_BASE_VERSION
-ARG CUDNN_SUFFIX
-ARG PYTHON_VERSION
+# Build arguments for base image selection (with defaults matching version.json)
+ARG CUDA_BASE_VERSION=12.8.0
+ARG CUDNN_SUFFIX=cudnn
+ARG PYTHON_VERSION=3.12
 
 # Build final image with CUDA + Python from Ubuntu repos
 FROM nvidia/cuda:${CUDA_BASE_VERSION}-${CUDNN_SUFFIX}-runtime-ubuntu24.04
@@ -22,7 +22,7 @@ ARG FLASH_ATTENTION_VERSION
 ARG FLASH_ATTENTION_CUDA_SUFFIX
 ARG BUILD_HELPERS
 ARG DOCTR_PACKAGE
-ARG ONNXRUNTIME_PACKAGE
+ARG GPU_SPECIFIC_PACKAGES
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -89,13 +89,18 @@ RUN if [ -n "${DOCTR_PACKAGE}" ]; then \
         pip3 install --no-cache-dir --break-system-packages ${DOCTR_PACKAGE}; \
     fi
 
-# Step 5: Install onnxruntime-gpu
-RUN if [ -n "${ONNXRUNTIME_PACKAGE}" ]; then \
-        pip3 install --no-cache-dir --break-system-packages ${ONNXRUNTIME_PACKAGE}; \
-    fi
-
-# Step 6: Install project dependencies from requirements.txt
+# Step 5: Install project dependencies from requirements.txt
 RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
+
+# Step 6: Install GPU-specific packages (bitsandbytes, onnxruntime-gpu, etc.)
+RUN if [ -n "${GPU_SPECIFIC_PACKAGES}" ]; then \
+        echo "Installing GPU-specific packages: ${GPU_SPECIFIC_PACKAGES}"; \
+        echo "${GPU_SPECIFIC_PACKAGES}" | tr ',' '\n' | while read pkg; do \
+            if [ -n "$pkg" ]; then \
+                pip3 install --no-cache-dir --break-system-packages "$pkg"; \
+            fi \
+        done; \
+    fi
 
 # Copy application code
 COPY backend/ ./backend/

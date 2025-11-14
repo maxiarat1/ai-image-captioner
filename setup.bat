@@ -179,12 +179,10 @@ if "%MODE%"=="gpu" (
 
     REM Install additional packages
     for /f "usebackq delims=" %%i in (`python -c "import json; data = json.load(open('version.json')); cfg = next((v for k, v in data['build_configs'].items() if v.get('cuda_version_display') == '!CUDA_VERSION!'), None); print(cfg['additional_packages'].get('doctr', ''))"`) do set DOCTR_PKG=%%i
-    for /f "usebackq delims=" %%i in (`python -c "import json; data = json.load(open('version.json')); cfg = next((v for k, v in data['build_configs'].items() if v.get('cuda_version_display') == '!CUDA_VERSION!'), None); print(cfg['additional_packages'].get('onnxruntime', ''))"`) do set ONNX_PKG=%%i
 
     if not "!DOCTR_PKG!"=="" pip install !DOCTR_PKG!
-    if not "!ONNX_PKG!"=="" pip install !ONNX_PKG!
 
-    REM Install GPU-specific packages
+    REM Install GPU-specific packages (bitsandbytes, onnxruntime-gpu, etc.)
     echo Installing GPU-specific packages...
     python -c "import json; data = json.load(open('version.json')); cfg = next((v for k, v in data['build_configs'].items() if v.get('cuda_version_display') == '!CUDA_VERSION!'), None); pkgs = cfg.get('gpu_specific_packages', []); [print(p) for p in pkgs]" > gpu_pkgs.tmp
     for /f "delims=" %%i in (gpu_pkgs.tmp) do (
@@ -271,7 +269,7 @@ REM ============================================================
     )
 
     REM Install additional CPU packages from config
-    for /f "usebackq delims=" %%i in (`python -c "import json; cfg = json.load(open('version.json')).get('cpu_config', {}).get('additional_packages', {}); print(cfg.get('doctr', 'python-doctr[torch]'))"`) do set DOCTR_PKG=%%i
+    for /f "usebackq delims=" %%i in (`python -c "import json; cfg = json.load(open('version.json')).get('cpu_config', {}).get('additional_packages', {}); print(cfg.get('doctr', 'python-doctr'))"`) do set DOCTR_PKG=%%i
     for /f "usebackq delims=" %%i in (`python -c "import json; cfg = json.load(open('version.json')).get('cpu_config', {}).get('additional_packages', {}); print(cfg.get('onnxruntime', 'onnxruntime'))"`) do set ONNX_PKG=%%i
 
     pip install !DOCTR_PKG!

@@ -22,12 +22,12 @@
         "cudnn_suffix": "cudnn"
       },
       "additional_packages": {
-        "doctr": "python-doctr[torch]",
-        "onnxruntime": "onnxruntime-gpu",
+        "doctr": "python-doctr",
         "build_helpers": ["packaging", "ninja"]
       },
       "gpu_specific_packages": [
-        "bitsandbytes>=0.41.0"
+        "bitsandbytes>=0.41.0",
+        "onnxruntime-gpu"
       ]
     }
   },
@@ -40,7 +40,7 @@
       "install_method": "pip"
     },
     "additional_packages": {
-      "doctr": "python-doctr[torch]",
+      "doctr": "python-doctr",
       "onnxruntime": "onnxruntime"
     }
   }
