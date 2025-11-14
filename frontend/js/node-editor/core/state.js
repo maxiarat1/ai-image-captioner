@@ -29,11 +29,11 @@
         window.NODES = {
             input: { label: 'Input', inputs: [], outputs: ['images'] },
             prompt: { label: 'Prompt', inputs: [], outputs: ['text'] },
-            conjunction: { label: 'Conjunction', inputs: ['text'], outputs: ['text'] },
+            conjunction: { label: 'Conjunction', inputs: ['captions'], outputs: ['captions'] },
             aimodel: { label: 'AI Model', inputs: ['images', 'prompt'], outputs: ['captions'] },
             curate: {
                 label: 'Curate',
-                inputs: ['captions'],  // Captions from previous AI models
+                inputs: ['images', 'captions'],  // Images and captions from previous nodes
                 outputs: [],  // Dynamic outputs managed at runtime
                 allowDynamicOutputs: true
             },
