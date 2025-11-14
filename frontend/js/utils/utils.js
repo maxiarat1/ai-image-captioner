@@ -64,3 +64,14 @@ async function getModelDisplayNameAsync(modelName) {
 
     return getModelDisplayName(modelName);
 }
+
+// Export for modules if needed (backwards compatible with global usage)
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        generateId,
+        formatFileSize,
+        fetchAvailableModels,
+        getModelDisplayName,
+        getModelDisplayNameAsync
+    };
+}
