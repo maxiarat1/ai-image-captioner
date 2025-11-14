@@ -351,15 +351,6 @@
                 }
             };
         });
-
-        // Forward images checkbox handler
-        const forwardImagesCheckbox = nodeEl.querySelector(`#curate-${node.id}-forward-images`);
-        if (forwardImagesCheckbox) {
-            forwardImagesCheckbox.onclick = (e) => e.stopPropagation();
-            forwardImagesCheckbox.onchange = (e) => {
-                node.data.forwardImages = e.target.checked;
-            };
-        }
     };
 
     // Auto-add-on-typing behavior removed. Use the explicit Add Port button instead.
@@ -455,20 +446,18 @@
     NENodes.filterModelsForCurateType = function(availableModels, curateType) {
         if (!availableModels || availableModels.length === 0) return [];
 
-        // Model categories for each curate type
-        const modelMappings = {
-            'vlm': ['multimodal', 'general'],  // Visual LLMs - BLIP2, LLaVA, Janus, etc.
-            'classification': ['anime'],  // Classification models - WD14, ViT, etc.
-            'zero_shot': ['multimodal']  // Zero-shot - CLIP-based models
-        };
+        // For VLM mode: only show models with vlm_capable = true
+        if (curateType === 'vlm') {
+            return availableModels.filter(model => model.vlm_capable === true);
+        }
 
-        const allowedCategories = modelMappings[curateType] || ['multimodal'];
+        // For classification and zero_shot: disabled for now (return empty array)
+        if (curateType === 'classification' || curateType === 'zero_shot') {
+            return [];
+        }
 
-        // Filter models by category
-        return availableModels.filter(model => {
-            const category = model.category || 'general';
-            return allowedCategories.includes(category);
-        });
+        // Default fallback: VLM models only
+        return availableModels.filter(model => model.vlm_capable === true);
     };
 
     try {

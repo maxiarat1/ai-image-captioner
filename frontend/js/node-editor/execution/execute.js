@@ -25,8 +25,20 @@
         // Validate AI model chain
         const chain = NEExec._buildAiModelChain(inputNode, outputNode);
         if (chain.length === 0) {
-            showToast('Add an AI Model node and connect it to Input');
+            showToast('Add an AI Model or Curate node and connect it to Input');
             return;
+        }
+
+        // Warn if no caption-generating nodes (only Curate nodes without VLM)
+        const hasAiModel = chain.some(n => {
+            if (n.type === 'aimodel') return true;
+            // Curate with VLM model can generate routing analysis
+            if (n.type === 'curate' && n.data.modelType === 'vlm' && n.data.model) return true;
+            return false;
+        });
+        if (!hasAiModel) {
+            showToast('No AI Model in workflow - no captions will be generated (routing only)', 'warning', 4000);
+            // Don't return - allow execution, just warn
         }
 
         // Prepare graph definition
@@ -82,7 +94,7 @@
 
     // Build AI model chain (same validation logic as before)
     NEExec._buildAiModelChain = function(inputNode, outputNode) {
-        const aimodels = NodeEditor.nodes.filter(n => n.type === 'aimodel');
+        const aimodels = NodeEditor.nodes.filter(n => n.type === 'aimodel' || n.type === 'curate');
         if (aimodels.length === 0) return [];
 
         const hasConn = (fromId, fromPort, toId, toPort) =>
@@ -97,7 +109,7 @@
 
         const isFedByPrevAi = (node) => NodeEditor.connections.some(c => {
             const fromNode = NodeEditor.nodes.find(nn => nn.id === c.from);
-            return c.to === node.id && c.toPort === 1 && fromNode && fromNode.type === 'aimodel';
+            return c.to === node.id && c.toPort === 1 && fromNode && (fromNode.type === 'aimodel' || fromNode.type === 'curate');
         });
 
         const start = starts.find(n => !isFedByPrevAi(n)) || starts[0];
@@ -111,12 +123,12 @@
 
             let nextConn = outgoing.find(c => {
                 const toNode = NodeEditor.nodes.find(n => n.id === c.to);
-                return toNode && toNode.type === 'aimodel' && c.toPort === 1;
+                return toNode && (toNode.type === 'aimodel' || toNode.type === 'curate') && c.toPort === 1;
             });
 
             if (!nextConn) break;
 
-            const next = NodeEditor.nodes.find(n => n.id === nextConn.to && n.type === 'aimodel');
+            const next = NodeEditor.nodes.find(n => n.id === nextConn.to && (n.type === 'aimodel' || n.type === 'curate'));
             if (!next || visited.has(next.id)) break;
 
             chain.push(next);

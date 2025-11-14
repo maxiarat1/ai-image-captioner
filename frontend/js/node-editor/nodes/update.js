@@ -34,6 +34,9 @@
             const sourceNode = NodeEditor.nodes.find(n => n.id === conn.from);
             if (!sourceNode) return;
 
+            // Skip Curate nodes - they're routing nodes, not content generators
+            if (sourceNode.type === 'curate') return;
+
             const sourceDef = NODES[sourceNode.type];
             const portType = sourceDef.outputs[conn.fromPort];
             const baseLabel = sourceDef.label.replace(/\s+/g, '_');

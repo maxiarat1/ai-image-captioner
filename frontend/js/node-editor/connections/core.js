@@ -1,3 +1,16 @@
+/**
+ * CONNECTION SYSTEM GUIDE
+ *
+ * Port types are defined in state.js NODES object.
+ * For dynamic ports (e.g., Curate), use getOutputPortType() helper.
+ *
+ * To add new node type:
+ * 1. Define in state.js: inputs: [...], outputs: [...]
+ * 2. Add port colors in PORT_COLORS below
+ * 3. Update arePortsCompatible() for connection rules
+ * 4. For dynamic ports: add logic in ports.js getOutputPortType()
+ */
+
 // Connections: creation, rendering, updates, and deletion
 (function() {
     const NEConnections = {};
@@ -55,9 +68,14 @@
             return fromPortType === 'images' && toPortType === 'images';
         }
 
-        // Text-based ports can connect to each other
-        const textTypes = ['text', 'prompt', 'captions'];
-        if (textTypes.includes(fromPortType) && textTypes.includes(toPortType)) {
+        // Text-based port compatibility rules
+        // 'captions' can connect to anything text-based (allows AI chaining)
+        if (fromPortType === 'captions' && ['text', 'prompt', 'captions'].includes(toPortType)) {
+            return true;
+        }
+
+        // 'text' and 'prompt' can connect to each other but NOT to 'captions'
+        if (['text', 'prompt'].includes(fromPortType) && ['text', 'prompt'].includes(toPortType)) {
             return true;
         }
 
@@ -332,7 +350,9 @@
             if (fromNode && toNode) {
                 const fromDef = NODES[fromNode.type];
                 const toDef = NODES[toNode.type];
-                const fromPortType = fromDef.outputs[connectionState.fromPort];
+                const fromPortType = typeof NENodes.getOutputPortType === 'function'
+                    ? NENodes.getOutputPortType(fromNode, connectionState.fromPort)
+                    : fromDef.outputs[connectionState.fromPort];
                 const toPortType = toDef.inputs[targetPort.portIndex];
 
                 // Check for circular dependency
@@ -422,7 +442,9 @@
         // Get port types
         const fromDef = NODES[fromNodeObj.type];
         const toDef = NODES[toNodeObj.type];
-        const fromPortType = fromDef.outputs[fromPort];
+        const fromPortType = typeof NENodes.getOutputPortType === 'function'
+            ? NENodes.getOutputPortType(fromNodeObj, fromPort)
+            : fromDef.outputs[fromPort];
         const toPortType = toDef.inputs[toPort];
 
         // Validate compatibility
@@ -441,8 +463,8 @@
         }
 
         // Remove any existing connection to the same input port (single input rule)
-        // Exception: Conjunction nodes can accept multiple connections on their text input
-        const allowMultiple = toNodeObj.type === 'conjunction' && toPortType === 'text';
+        // Exception: Conjunction nodes can accept multiple connections on their captions input
+        const allowMultiple = toNodeObj.type === 'conjunction' && toPortType === 'captions';
         if (!allowMultiple) {
             const existingToInput = NodeEditor.connections.find(c =>
                 c.to === toNode && c.toPort === toPort

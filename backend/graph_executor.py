@@ -150,7 +150,7 @@ class GraphExecutor:
             # For curate nodes with multiple outputs, we take the first connected path
             # (actual routing happens at runtime)
             # For regular AI nodes, find next node connected from captions (port 0) to prompt (port 1)
-            # For curate nodes, accept connections to port 0 (captions input)
+            # For curate nodes, accept connections to port 0 (images) or port 1 (captions)
             next_conn = next((
                 c for c in connections
                 if c['from'] == current['id'] and
@@ -177,7 +177,19 @@ class GraphExecutor:
         self, job_id: str, ai_chain: List[Dict], image_ids: List[str],
         nodes: List[Dict], connections: List[Dict], output_node: Dict, get_model_func
     ) -> None:
-        """Execute the AI chain stage-by-stage."""
+        """
+        Execute the AI chain stage-by-stage.
+
+        ARCHITECTURE NOTE - Image Indexing System:
+        - image_ids (List[str]): Filenames serve as authoritative identifiers
+        - prev_captions (List[str]): Parallel array indexed by position
+        - images (List[PIL.Image]): Parallel array indexed by position
+
+        Array index 'idx' maps to specific image via image_ids[idx].
+        All database operations use image_id as key, NOT array position.
+        This ensures captions stay tied to correct images through routing,
+        filtering, and workflow changes.
+        """
         total_images = len(image_ids)
         start_time = time.time()
 
@@ -491,9 +503,10 @@ class GraphExecutor:
         self, curate_node: Dict, nodes: List[Dict], connections: List[Dict]
     ) -> Dict[str, List[Dict]]:
         """
-        Get all routing paths from a curate node.
+        Get all routing paths from a curate node using BFS traversal.
 
         Returns a dict mapping port_id to list of downstream nodes for that route.
+        Traverses through intermediate nodes (e.g., Conjunction) to find full paths.
         """
         ports = curate_node['data'].get('ports', [])
         routing_paths = {}
@@ -501,17 +514,42 @@ class GraphExecutor:
         for port_index, port in enumerate(ports):
             port_id = port.get('id')
             path = []
+            visited = set()
+            queue = []
 
-            # Find connections from this port
-            downstream_conns = [
+            # Find initial connections from this port
+            initial_conns = [
                 c for c in connections
                 if c['from'] == curate_node['id'] and c['fromPort'] == port_index
             ]
 
-            for conn in downstream_conns:
+            # Add initial downstream nodes to queue
+            for conn in initial_conns:
                 downstream_node = next((n for n in nodes if n['id'] == conn['to']), None)
-                if downstream_node:
+                if downstream_node and downstream_node['id'] not in visited:
+                    queue.append(downstream_node)
+                    visited.add(downstream_node['id'])
                     path.append(downstream_node)
+
+            # BFS traversal to find all nodes in this routing path
+            while queue:
+                current_node = queue.pop(0)
+
+                # Stop traversal at terminal nodes
+                if current_node['type'] in ['output', 'aimodel', 'curate']:
+                    continue
+
+                # Find connections from current node
+                outgoing_conns = [
+                    c for c in connections if c['from'] == current_node['id']
+                ]
+
+                for conn in outgoing_conns:
+                    next_node = next((n for n in nodes if n['id'] == conn['to']), None)
+                    if next_node and next_node['id'] not in visited:
+                        queue.append(next_node)
+                        visited.add(next_node['id'])
+                        path.append(next_node)
 
             routing_paths[port_id] = path
 
@@ -547,7 +585,7 @@ class GraphExecutor:
         precision_params = self._extract_precision_params(model_name, parameters)
 
         # Create curate adapter
-        from backend.models.vlm_router_adapter import VLMRouterAdapter
+        from models.vlm_router_adapter import VLMRouterAdapter
 
         if model_type == 'vlm':
             curate_adapter = VLMRouterAdapter(model_name)

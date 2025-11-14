@@ -77,6 +77,12 @@ CATEGORIES = {
         'color': '#8b5cf6',
         'description': 'Advanced vision-language models'
     },
+    'classification': {
+        'name': 'Classification',
+        'icon': '🏷️',
+        'color': '#f59e0b',
+        'description': 'Image classification and object recognition'
+    },
     'ocr': {
         'name': 'OCR & Text',
         'icon': '📝',
@@ -90,91 +96,106 @@ MODEL_METADATA = {
         'category': 'general',
         'description': "Fast, basic image captioning",
         'adapter': BlipAdapter,
-        'adapter_args': {}
+        'adapter_args': {},
+        'vlm_capable': True
     },
     'blip2': {
         'category': 'general',
         'description': "BLIP2-OPT-2.7B - Enhanced captioning",
         'adapter': Blip2Adapter,
-        'adapter_args': {'model_id': "Salesforce/blip2-opt-2.7b"}
+        'adapter_args': {'model_id': "Salesforce/blip2-opt-2.7b"},
+        'vlm_capable': True
     },
     'r4b': {
         'category': 'general',
         'description': "Advanced reasoning model with configurable parameters",
         'adapter': R4BAdapter,
-        'adapter_args': {}
+        'adapter_args': {},
+        'vlm_capable': True
     },
     'wdvit': {
         'category': 'anime',
         'description': "WD-ViT Large Tagger v3 - Anime-style image tagging model with ViT backbone",
         'adapter': WdVitAdapter,
-        'adapter_args': {'model_id': "SmilingWolf/wd-vit-large-tagger-v3"}
+        'adapter_args': {'model_id': "SmilingWolf/wd-vit-large-tagger-v3"},
+        'vlm_capable': False
     },
     'wdeva02': {
         'category': 'anime',
         'description': "WD-EVA02 Large Tagger v3 - Anime-style image tagging model with EVA02 backbone (improved accuracy)",
         'adapter': WdVitAdapter,
-        'adapter_args': {'model_id': "SmilingWolf/wd-eva02-large-tagger-v3"}
+        'adapter_args': {'model_id': "SmilingWolf/wd-eva02-large-tagger-v3"},
+        'vlm_capable': False
     },
     'wd14-convnext': {
         'category': 'anime',
         'description': "WD v1.4 ConvNext Tagger v2 - Fast ONNX-based anime tagging (optimized inference)",
         'adapter': Wd14ConvNextAdapter,
-        'adapter_args': {'model_id': "SmilingWolf/wd-v1-4-convnext-tagger-v2"}
+        'adapter_args': {'model_id': "SmilingWolf/wd-v1-4-convnext-tagger-v2"},
+        'vlm_capable': False
     },
     'janus-1.3b': {
         'category': 'multimodal',
         'description': "Janus 1.3B - Multimodal vision-language model with efficient architecture",
         'adapter': JanusAdapter,
-        'adapter_args': {'model_id': "deepseek-ai/Janus-1.3B"}
+        'adapter_args': {'model_id': "deepseek-ai/Janus-1.3B"},
+        'vlm_capable': True
     },
     'janus-pro-1b': {
         'category': 'multimodal',
         'description': "Janus Pro 1B - Compact professional-grade vision model",
         'adapter': JanusAdapter,
-        'adapter_args': {'model_id': "deepseek-ai/Janus-Pro-1B"}
+        'adapter_args': {'model_id': "deepseek-ai/Janus-Pro-1B"},
+        'vlm_capable': True
     },
     'janus-pro-7b': {
         'category': 'multimodal',
         'description': "Janus Pro 7B - Advanced multimodal model with superior reasoning capabilities",
         'adapter': JanusAdapter,
-        'adapter_args': {'model_id': "deepseek-ai/Janus-Pro-7B"}
+        'adapter_args': {'model_id': "deepseek-ai/Janus-Pro-7B"},
+        'vlm_capable': True
     },
     'lfm2-vl-3b': {
         'category': 'multimodal',
         'description': "LFM2-VL-3B - LiquidAI's vision-language model with chat capabilities",
         'adapter': LFM2Adapter,
-        'adapter_args': {'model_id': "LiquidAI/LFM2-VL-3B"}
+        'adapter_args': {'model_id': "LiquidAI/LFM2-VL-3B"},
+        'vlm_capable': True
     },
     'nanonets-ocr-s': {
         'category': 'ocr',
         'description': "Nanonets OCR-S - Lightweight OCR (tables/equations/HTML) via Transformers",
         'adapter': NanonetsOCRAdapter,
-        'adapter_args': {'model_id': "nanonets/Nanonets-OCR-s"}
+        'adapter_args': {'model_id': "nanonets/Nanonets-OCR-s"},
+        'vlm_capable': False
     },
     'chandra-ocr': {
         'category': 'ocr',
         'description': "Chandra OCR - Advanced layout-aware text extraction with table/equation support",
         'adapter': ChandraAdapter,
-        'adapter_args': {'model_id': "datalab-to/chandra"}
+        'adapter_args': {'model_id': "datalab-to/chandra"},
+        'vlm_capable': False
     },
     'trocr-large-printed': {
         'category': 'ocr',
         'description': "TrOCR Large Printed - Microsoft's transformer-based OCR for printed text",
         'adapter': TrOCRAdapter,
-        'adapter_args': {'model_id': "microsoft/trocr-large-printed"}
+        'adapter_args': {'model_id': "microsoft/trocr-large-printed"},
+        'vlm_capable': False
     },
     'llava-phi3': {
         'category': 'multimodal',
         'description': "LLaVA-Phi-3-Mini - Compact and efficient vision-language model",
         'adapter': LlavaPhiAdapter,
-        'adapter_args': {'model_id': "xtuner/llava-phi-3-mini-hf"}
+        'adapter_args': {'model_id': "xtuner/llava-phi-3-mini-hf"},
+        'vlm_capable': True
     },
     'vit-classifier': {
-        'category': 'general',
+        'category': 'classification',
         'description': "Google ViT Base - ImageNet classification model (1000 object classes)",
         'adapter': VitClassifierAdapter,
-        'adapter_args': {'model_id': "google/vit-base-patch16-224"}
+        'adapter_args': {'model_id': "google/vit-base-patch16-224"},
+        'vlm_capable': False
     }
 }
 
@@ -274,7 +295,9 @@ def model_info():
 def list_models():
     available_models = [
         {"name": name, "loaded": models[name] is not None and models[name].is_loaded(),
-         "description": MODEL_METADATA[name]['description']}
+         "description": MODEL_METADATA[name]['description'],
+         "category": MODEL_METADATA[name].get('category', 'general'),
+         "vlm_capable": MODEL_METADATA[name].get('vlm_capable', False)}
         for name in MODEL_METADATA.keys()
     ]
     return jsonify({"models": available_models})
@@ -290,7 +313,8 @@ def get_model_categories():
             {
                 "name": name,
                 "description": MODEL_METADATA[name]['description'],
-                "loaded": models[name] is not None and models[name].is_loaded()
+                "loaded": models[name] is not None and models[name].is_loaded(),
+                "vlm_capable": MODEL_METADATA[name].get('vlm_capable', False)
             }
             for name, metadata in MODEL_METADATA.items()
             if metadata.get('category') == category_id
