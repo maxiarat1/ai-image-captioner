@@ -18,6 +18,7 @@ if os.environ.get("TAGGER_FORCE_CPU", "0") == "1":
     os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 
 from app.models import CATEGORIES, MODEL_METADATA, validate_model_name, get_available_models
+from app.services import ModelManager
 from utils.image_utils import load_image, image_to_base64
 from utils.logging_utils import setup_logging
 from database import SessionManager, AsyncSessionManager, ExecutionManager
@@ -46,64 +47,9 @@ execution_manager = ExecutionManager()
 # Active graph executors (job_id -> GraphExecutor)
 active_executors = {}
 
-# Model instance cache and info cache
-models = {name: None for name in MODEL_METADATA.keys()}
-_model_info_cache = {}
+# Model manager for handling model lifecycle
+model_manager = ModelManager()
 
-def init_models():
-    logger.info("Model registry ready. Models load on first use.")
-    logger.info("Available models: %s", ", ".join(get_available_models()))
-
-def get_model(model_name, precision_params=None, force_reload=False):
-    if not validate_model_name(model_name):
-        raise ValueError(f"Unknown model: {model_name}")
-
-    for other_name, other_model in models.items():
-        if other_name != model_name and other_model is not None:
-            logger.info("Switching model: unloading %s", other_name)
-            other_model.unload()
-            models[other_name] = None
-
-    should_reload = force_reload or _needs_precision_reload(model_name, precision_params)
-
-    if models[model_name] is None or should_reload:
-        _load_model(model_name, precision_params, should_reload)
-
-    return models[model_name]
-
-def _needs_precision_reload(model_name: str, precision_params: dict) -> bool:
-    if not precision_params or model_name not in PRECISION_DEFAULTS:
-        return False
-    current_model = models[model_name]
-    return current_model and hasattr(current_model, 'current_precision_params') and \
-           current_model.current_precision_params != precision_params
-
-def _load_model(model_name: str, precision_params: dict, is_reload: bool):
-    if is_reload and models[model_name]:
-        models[model_name].unload()
-        models[model_name] = None
-
-    try:
-        metadata = MODEL_METADATA[model_name]
-        action = "Reloading" if is_reload else "Loading"
-        logger.info("%s %s model on-demand…", action, model_name)
-
-        adapter = metadata['adapter'](**metadata['adapter_args'])
-
-        if precision_params:
-            adapter.load_model(**precision_params)
-            adapter.current_precision_params = precision_params.copy()
-        else:
-            adapter.load_model()
-            if model_name in PRECISION_DEFAULTS:
-                adapter.current_precision_params = PRECISION_DEFAULTS[model_name]
-
-        models[model_name] = adapter
-
-    except Exception as e:
-        logger.exception("Failed to load %s model: %s", model_name, e)
-        models[model_name] = None
-        raise
 
 @app.route('/')
 def index():
@@ -113,33 +59,25 @@ def index():
 @app.route('/health', methods=['GET'])
 def health_check():
     model_status = {f"{name}_loaded": model is not None and model.is_loaded()
-                    for name, model in models.items()}
-    return jsonify({"status": "ok", "models_available": list(models.keys()), **model_status})
+                    for name, model in model_manager.models.items()}
+    return jsonify({"status": "ok", "models_available": list(model_manager.models.keys()), **model_status})
 
 @app.route('/model/info', methods=['GET'])
 def model_info():
     model_name = request.args.get('model', 'blip')
-    if not validate_model_name(model_name):
-        return jsonify({"error": f"Unknown model: {model_name}"}), 400
-
-    if model_name not in _model_info_cache:
-        try:
-            metadata = MODEL_METADATA[model_name]
-            adapter = metadata['adapter'](**metadata['adapter_args'])
-            _model_info_cache[model_name] = {
-                "name": model_name,
-                "parameters": adapter.get_available_parameters()
-            }
-        except Exception as e:
-            logger.exception("Error getting model info: %s", e)
-            return jsonify({"error": str(e)}), 500
-
-    return jsonify(_model_info_cache[model_name])
+    try:
+        info = model_manager.get_model_info(model_name)
+        return jsonify(info)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.exception("Error getting model info: %s", e)
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/models', methods=['GET'])
 def list_models():
     available_models = [
-        {"name": name, "loaded": models[name] is not None and models[name].is_loaded(),
+        {"name": name, "loaded": model_manager.is_loaded(name),
          "description": MODEL_METADATA[name]['description'],
          "category": MODEL_METADATA[name].get('category', 'general'),
          "vlm_capable": MODEL_METADATA[name].get('vlm_capable', False)}
@@ -158,7 +96,7 @@ def get_model_categories():
             {
                 "name": name,
                 "description": MODEL_METADATA[name]['description'],
-                "loaded": models[name] is not None and models[name].is_loaded(),
+                "loaded": model_manager.is_loaded(name),
                 "vlm_capable": MODEL_METADATA[name].get('vlm_capable', False)
             }
             for name, metadata in MODEL_METADATA.items()
@@ -375,16 +313,16 @@ def reload_model():
     try:
         data = request.get_json() or {}
         model_name = data.get('model', 'r4b')
-        if not validate_model_name(model_name):
-            return jsonify({"error": f"Unknown model: {model_name}"}), 400
-
         precision_params = data.get('precision_params')
-        model_adapter = get_model(model_name, precision_params, force_reload=True)
+
+        model_adapter = model_manager.get_model(model_name, precision_params, force_reload=True)
         return jsonify({
             "success": True,
             "message": f"Model {model_name} reloaded successfully",
             "loaded": model_adapter.is_loaded()
         })
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
         logger.exception("Error reloading model: %s", e)
         return jsonify({"error": str(e)}), 500
@@ -394,14 +332,11 @@ def unload_model():
     try:
         data = request.get_json() or {}
         model_name = data.get('model', 'r4b')
-        if not validate_model_name(model_name):
-            return jsonify({"error": f"Unknown model: {model_name}"}), 400
 
-        if models[model_name]:
-            models[model_name].unload()
-            models[model_name] = None
-
+        model_manager.unload_model(model_name)
         return jsonify({"success": True, "message": f"Model {model_name} unloaded successfully"})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
         logger.exception("Error unloading model: %s", e)
         return jsonify({"error": str(e)}), 500
@@ -634,7 +569,7 @@ async def generate_caption():
 
         precision_params = _extract_precision_params(model_name, parameters)
         image = load_image(image_source)
-        model_adapter = get_model(model_name, precision_params)
+        model_adapter = model_manager.get_model(model_name, precision_params)
 
         if not model_adapter or not model_adapter.is_loaded():
             return jsonify({"error": f"Model {model_name} not available"}), 500
@@ -699,7 +634,7 @@ async def generate_captions_batch():
 
         # Get model
         precision_params = _extract_precision_params(model_name, parameters)
-        model_adapter = get_model(model_name, precision_params)
+        model_adapter = model_manager.get_model(model_name, precision_params)
 
         if not model_adapter or not model_adapter.is_loaded():
             return jsonify({"error": f"Model {model_name} not available"}), 500
@@ -835,7 +770,7 @@ def execute_graph():
 
         def run_executor():
             try:
-                asyncio.run(executor.execute(job_id, get_model))
+                asyncio.run(executor.execute(job_id, model_manager.get_model))
             finally:
                 # Cleanup
                 active_executors.pop(job_id, None)
@@ -952,6 +887,6 @@ if __name__ == '__main__':
         logger.info("=" * 60)
     
     app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE  # None = no limit
-    init_models()
+    model_manager.initialize()
     flask_debug = os.environ.get("FLASK_DEBUG", "0") == "1"
     app.run(debug=flask_debug, host='0.0.0.0', port=5000)
