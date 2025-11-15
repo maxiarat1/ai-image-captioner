@@ -1,21 +1,17 @@
 """
-Graph Executor - Clean execution engine for node-based workflows.
+Graph Executor - True graph-based execution engine for node workflows.
 
-Simplified architecture with clear separation of concerns:
-- GraphParser: validates graph structure
-- ChainBuilder: constructs execution sequence
-- PromptResolver: handles all prompt/conjunction logic
-- ProgressTracker: unified progress updates
-- NodeExecutors: handle node-specific processing
+Architecture:
+- GraphExecutor: orchestrates execution by following actual graph connections
+- Nodes are executed only when their inputs are ready
+- Data flows through connections naturally
+- Only data reaching Output node is saved
 """
 
-import asyncio
 import logging
 import time
 import re
-from typing import Dict, List, Optional, Any, Tuple
-from PIL import Image
-
+from typing import Dict, List, Optional, Set, Tuple
 from database import ExecutionManager, AsyncSessionManager
 from utils.image_utils import load_image
 
@@ -23,123 +19,51 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================================================
-# Helper Classes - Single Responsibility Components
+# Graph Topology Helper
 # ============================================================================
 
-class GraphParser:
-    """Validates and extracts graph structure."""
+class GraphTopology:
+    """Analyzes graph structure and provides connection information."""
     
-    @staticmethod
-    def parse(graph: Dict[str, Any]) -> Tuple[List[Dict], List[Dict]]:
-        """Extract and validate nodes and connections."""
-        nodes = graph.get('nodes', [])
-        connections = graph.get('connections', [])
-        return nodes, connections
-    
-    @staticmethod
-    def find_io_nodes(nodes: List[Dict]) -> Tuple[Optional[Dict], Optional[Dict]]:
-        """Find required Input and Output nodes."""
-        input_node = next((n for n in nodes if n['type'] == 'input'), None)
-        output_node = next((n for n in nodes if n['type'] == 'output'), None)
-        return input_node, output_node
-
-
-class ChainBuilder:
-    """Constructs execution chain from graph topology."""
-    
-    @staticmethod
-    def build(nodes: List[Dict], connections: List[Dict], 
-              input_node: Dict, output_node: Dict) -> List[Dict]:
-        """
-        Build sequential chain of AI/curate nodes.
+    def __init__(self, nodes: List[Dict], connections: List[Dict]):
+        self.nodes = {n['id']: n for n in nodes}
+        self.connections = connections
         
-        Chain starts from Input node (port 0) and follows connections
-        through AI/curate nodes. Verifies the chain reaches the Output node.
-        """
-        ai_nodes = [n for n in nodes if n['type'] in ('aimodel', 'curate')]
-        if not ai_nodes:
-            return []
+        # Build adjacency map for fast lookups
+        self.outgoing = {}  # node_id -> [(target_id, from_port, to_port)]
+        self.incoming = {}  # node_id -> [(source_id, from_port, to_port)]
         
-        # Find first AI connected to Input
-        first_ai = ChainBuilder._find_first_node(ai_nodes, connections, input_node)
-        if not first_ai:
-            return []
-        
-        # Follow chain forward
-        chain = [first_ai]
-        visited = {first_ai['id']}
-        current = first_ai
-        
-        while True:
-            next_node = ChainBuilder._find_next_node(current, ai_nodes, connections, visited)
-            if not next_node:
-                break
-            chain.append(next_node)
-            visited.add(next_node['id'])
-            current = next_node
-        
-        # Verify the last node in chain connects to Output
-        last_node = chain[-1]
-        if not ChainBuilder._connects_to_output(last_node, output_node, connections, nodes):
-            logger.warning(f"Chain does not connect to Output node. Last node: {last_node['id']}")
-            return []
-        
-        logger.info(f"Built chain with {len(chain)} stages: {[n['type'] for n in chain]}")
-        return chain
-    
-    @staticmethod
-    def _find_first_node(ai_nodes: List[Dict], connections: List[Dict], 
-                         input_node: Dict) -> Optional[Dict]:
-        """Find first AI node connected to Input."""
-        for node in ai_nodes:
-            if any(c['from'] == input_node['id'] and c['to'] == node['id'] 
-                   for c in connections):
-                return node
-        return None
-    
-    @staticmethod
-    def _find_next_node(current: Dict, ai_nodes: List[Dict], 
-                       connections: List[Dict], visited: set) -> Optional[Dict]:
-        """Find next AI node in chain."""
         for conn in connections:
-            if conn['from'] == current['id']:
-                next_node = next((n for n in ai_nodes if n['id'] == conn['to']), None)
-                if next_node and next_node['id'] not in visited:
-                    return next_node
-        return None
-    
-    @staticmethod
-    def _connects_to_output(node: Dict, output_node: Dict, 
-                           connections: List[Dict], nodes: List[Dict]) -> bool:
-        """
-        Check if node has a path to the Output node.
-        
-        Uses BFS to traverse the graph and check if Output is reachable.
-        This handles both direct connections and paths through intermediate nodes.
-        """
-        visited = set()
-        queue = [node['id']]
-        
-        while queue:
-            current_id = queue.pop(0)
-            if current_id in visited:
-                continue
-            visited.add(current_id)
+            from_id = conn['from']
+            to_id = conn['to']
+            from_port = conn.get('fromPort', 0)
+            to_port = conn.get('toPort', 0)
             
-            # Check all outgoing connections
-            for conn in connections:
-                if conn['from'] == current_id:
-                    target_id = conn['to']
-                    
-                    # Found Output!
-                    if target_id == output_node['id']:
-                        return True
-                    
-                    # Add to queue to continue search
-                    if target_id not in visited:
-                        queue.append(target_id)
-        
-        return False
+            if from_id not in self.outgoing:
+                self.outgoing[from_id] = []
+            self.outgoing[from_id].append((to_id, from_port, to_port))
+            
+            if to_id not in self.incoming:
+                self.incoming[to_id] = []
+            self.incoming[to_id].append((from_id, from_port, to_port))
+    
+    def get_downstream_nodes(self, node_id: str, from_port: int = None) -> List[Tuple[str, int, int]]:
+        """Get all nodes connected to this node's outputs."""
+        edges = self.outgoing.get(node_id, [])
+        if from_port is not None:
+            edges = [(tid, fp, tp) for tid, fp, tp in edges if fp == from_port]
+        return edges
+    
+    def get_upstream_nodes(self, node_id: str, to_port: int = None) -> List[Tuple[str, int, int]]:
+        """Get all nodes connected to this node's inputs."""
+        edges = self.incoming.get(node_id, [])
+        if to_port is not None:
+            edges = [(sid, fp, tp) for sid, fp, tp in edges if tp == to_port]
+        return edges
+    
+    def find_node_by_type(self, node_type: str) -> Optional[Dict]:
+        """Find first node of given type."""
+        return next((n for n in self.nodes.values() if n['type'] == node_type), None)
 
 
 class PromptResolver:
@@ -283,137 +207,253 @@ class PromptResolver:
         return resolved
 
 
-class ProgressTracker:
-    """Unified progress tracking and updates."""
+class ExecutionState:
+    """
+    Simple execution state tracker - inspired by LangGraph.
     
-    def __init__(self, exec_manager: ExecutionManager, job_id: str, 
-                 total_images: int, total_stages: int):
+    Tracks basic counters without complex stage logic.
+    Updates happen naturally as nodes execute.
+    """
+    
+    def __init__(self, exec_manager: ExecutionManager, job_id: str, total_images: int):
         self.exec_manager = exec_manager
         self.job_id = job_id
         self.total_images = total_images
-        self.total_stages = total_stages
         self.start_time = time.time()
-        self.total_success = 0
-        self.total_failed = 0
+        self.processed = 0
+        self.success = 0
+        self.failed = 0
     
-    def update_progress(self, stage_idx: int, processed_in_stage: int, 
-                       stage_success: int, stage_failed: int):
-        """Send progress update to database."""
-        elapsed = time.time() - self.start_time
-        total_processed = stage_idx * self.total_images + processed_in_stage
-        
-        avg_speed = total_processed / elapsed if elapsed > 0 else 0
-        remaining = (self.total_images * self.total_stages) - total_processed
-        eta = remaining / avg_speed if avg_speed > 0 else 0
-        
-        self.exec_manager.update_status(
-            self.job_id,
-            current_stage=stage_idx + 1,
-            processed=processed_in_stage,
-            success=self.total_success + stage_success,
-            failed=self.total_failed + stage_failed,
-            progress={
-                'speed': f"{avg_speed:.2f} img/s" if avg_speed > 0 else "",
-                'eta': self._format_time(eta) if eta > 0 else "",
-                'stage_progress': f"{processed_in_stage}/{self.total_images}"
-            }
-        )
-    
-    def finalize_stage(self, stage_idx: int, stage_success: int, stage_failed: int):
-        """Mark stage as complete."""
-        self.total_success += stage_success
-        self.total_failed += stage_failed
-        
-        self.exec_manager.update_status(
-            self.job_id,
-            current_stage=stage_idx + 1,
-            processed=self.total_images,
-            success=self.total_success,
-            failed=self.total_failed,
-            progress={
-                'speed': "",
-                'eta': "",
-                'stage_progress': f"{self.total_images}/{self.total_images}"
-            }
-        )
-    
-    def finalize_job(self):
-        """Mark job as complete with final stats."""
-        total_time = time.time() - self.start_time
-        avg_speed = self.total_images / total_time if total_time > 0 else 0
-        
-        self.exec_manager.update_status(
-            self.job_id,
-            processed=self.total_images,
-            success=self.total_success,
-            failed=self.total_failed,
-            progress={
-                'total_time': self._format_time(total_time),
-                'avg_speed': f"{avg_speed:.2f} img/s" if avg_speed > 0 else ""
-            }
-        )
-    
-    @staticmethod
-    def _format_time(seconds: float) -> str:
-        """Format time in seconds to human-readable string."""
-        if seconds < 60:
-            return f"~{int(seconds)}s"
-        elif seconds < 3600:
-            mins = int(seconds / 60)
-            secs = int(seconds % 60)
-            return f"~{mins}m {secs}s"
+    def increment(self, success: bool = True):
+        """Increment counters when an image is processed."""
+        self.processed += 1
+        if success:
+            self.success += 1
         else:
-            hours = int(seconds / 3600)
-            mins = int((seconds % 3600) / 60)
-            return f"~{hours}h {mins}m"
-
-
-# ============================================================================
-# Node Executors - Handle Specific Node Types
-# ============================================================================
-
-class AIModelExecutor:
-    """Executes AI model nodes."""
+            self.failed += 1
     
-    def __init__(self, async_session: AsyncSessionManager, prompt_resolver: PromptResolver,
-                 nodes: List[Dict], connections: List[Dict]):
-        self.async_session = async_session
-        self.prompt_resolver = prompt_resolver
-        self.nodes = nodes
-        self.connections = connections
-    
-    async def execute(self, ai_node: Dict, image_ids: List[str], 
-                     prev_captions: List[str], get_model_func, 
-                     output_node: Dict) -> Tuple[int, int]:
-        """
-        Execute AI model node.
+    def update(self):
+        """Send current state to database."""
+        elapsed = time.time() - self.start_time
+        speed = self.processed / elapsed if elapsed > 0 else 0
         
-        Only saves to database if this node connects to the Output node.
-        Returns (success_count, failed_count).
+        self.exec_manager.update_status(
+            self.job_id,
+            processed=self.processed,
+            success=self.success,
+            failed=self.failed,
+            progress={
+                'speed': f"{speed:.1f} img/s" if speed > 0 else "",
+                'progress': f"{self.processed}/{self.total_images}"
+            }
+        )
+
+
+# ============================================================================
+# Main Executor - Graph Execution
+# ============================================================================
+
+class GraphExecutor:
+    """
+    True graph executor - follows actual connections, not predefined chains.
+    
+    Execution flow:
+    1. Start at Input node with images
+    2. Follow connections to see what's downstream
+    3. Execute nodes when their data is ready
+    4. Pass data through connections
+    5. Save only what reaches Output node
+    """
+    
+    def __init__(self, exec_manager: ExecutionManager, async_session: AsyncSessionManager):
+        self.exec_manager = exec_manager
+        self.async_session = async_session
+        self.should_cancel = False
+    
+    async def execute(self, job_id: str, get_model_func) -> None:
+        """Execute a job by following the graph structure."""
+        job = self.exec_manager.get_job(job_id)
+        if not job:
+            logger.error(f"Job {job_id} not found")
+            return
+        
+        try:
+            self.exec_manager.update_status(job_id, status='running')
+            
+            graph = job['graph']
+            image_ids = job['image_ids']
+            nodes = graph.get('nodes', [])
+            connections = graph.get('connections', [])
+            
+            # Build topology
+            topology = GraphTopology(nodes, connections)
+            
+            # Find Input and Output nodes
+            input_node = topology.find_node_by_type('input')
+            output_node = topology.find_node_by_type('output')
+            
+            if not input_node or not output_node:
+                raise ValueError("Graph must have Input and Output nodes")
+            
+            # Check if there's any path from Input to Output
+            if not self._has_path_to_output(input_node['id'], output_node['id'], topology):
+                raise ValueError("No path from Input to Output node")
+            
+            # Execute the graph
+            await self._execute_graph(
+                job_id, image_ids, topology, input_node, output_node, get_model_func
+            )
+            
+            self.exec_manager.update_status(job_id, status='completed')
+            logger.info(f"Job {job_id} completed successfully")
+            
+        except Exception as e:
+            logger.exception(f"Job {job_id} failed: {e}")
+            self.exec_manager.update_status(job_id, status='failed', error=str(e))
+    
+    def _has_path_to_output(self, start_id: str, output_id: str, topology: GraphTopology) -> bool:
+        """Check if there's any path from start to output."""
+        visited = set()
+        queue = [start_id]
+        
+        while queue:
+            current_id = queue.pop(0)
+            if current_id in visited:
+                continue
+            visited.add(current_id)
+            
+            if current_id == output_id:
+                return True
+            
+            for target_id, _, _ in topology.get_downstream_nodes(current_id):
+                if target_id not in visited:
+                    queue.append(target_id)
+        
+        return False
+    
+    def cancel(self):
+        """Signal cancellation of current execution."""
+        self.should_cancel = True
+    
+    
+    async def _execute_graph(
+        self, job_id: str, image_ids: List[str], topology: GraphTopology,
+        input_node: Dict, output_node: Dict, get_model_func
+    ) -> None:
         """
-        model_name = ai_node['data'].get('model', 'blip')
-        parameters = ai_node['data'].get('parameters', {})
+        Execute graph by following connections from Input to Output.
+        
+        This is the TRUE graph execution - we traverse the actual graph structure.
+        """
+        prompt_resolver = PromptResolver(list(topology.nodes.values()), topology.connections)
+        state = ExecutionState(self.exec_manager, job_id, len(image_ids))
+        
+        # Initialize captions for all images
+        captions = {img_id: '' for img_id in image_ids}
+        
+        # Start from Input node and follow what's connected
+        downstream = topology.get_downstream_nodes(input_node['id'])
+        if not downstream:
+            raise ValueError("Nothing connected to Input node")
+        
+        # Process all nodes connected from Input
+        for target_id, from_port, to_port in downstream:
+            if from_port != 0:  # Only follow main output (port 0) from Input
+                continue
+            
+            target_node = topology.nodes.get(target_id)
+            if not target_node:
+                continue
+            
+            await self._execute_node_and_downstream(
+                target_node, captions, image_ids, topology, output_node,
+                prompt_resolver, get_model_func, set(), state
+            )
+    
+    async def _execute_node_and_downstream(
+        self, node: Dict, captions: Dict[str, str], image_ids: List[str],
+        topology: GraphTopology, output_node: Dict, prompt_resolver: PromptResolver,
+        get_model_func, visited: Set[str], state: ExecutionState
+    ) -> None:
+        """
+        Execute a node and follow its outputs downstream.
+        
+        This recursively processes the graph by following connections.
+        """
+        if self.should_cancel or node['id'] in visited:
+            return
+        
+        visited.add(node['id'])
+        node_type = node['type']
+        
+        logger.info(f"Executing node: {node_type} ({node['id']})")
+        
+        # Execute based on node type
+        if node_type == 'aimodel':
+            await self._execute_ai_model(
+                node, captions, image_ids, topology, output_node,
+                prompt_resolver, get_model_func, state
+            )
+        elif node_type == 'curate':
+            await self._execute_curate(
+                node, captions, image_ids, topology, output_node,
+                prompt_resolver, get_model_func, visited, state
+            )
+            return  # Curate handles its own downstream routing
+        elif node_type == 'output':
+            # Save captions that reached Output
+            await self._save_final_captions(captions, image_ids, node, prompt_resolver)
+            return  # Output is terminal
+        elif node_type in ['prompt', 'conjunction']:
+            # These don't execute, just pass through
+            pass
+        
+        # Follow downstream connections
+        for target_id, _, _ in topology.get_downstream_nodes(node['id']):
+            target_node = topology.nodes.get(target_id)
+            if target_node:
+                await self._execute_node_and_downstream(
+                    target_node, captions, image_ids, topology, output_node,
+                    prompt_resolver, get_model_func, visited, state
+                )
+    
+    async def _execute_ai_model(
+        self, node: Dict, captions: Dict[str, str], image_ids: List[str],
+        topology: GraphTopology, output_node: Dict, prompt_resolver: PromptResolver,
+        get_model_func, state: ExecutionState
+    ) -> None:
+        """Execute an AI model node - just generate captions, don't save."""
+        model_name = node['data'].get('model', 'blip')
+        parameters = node['data'].get('parameters', {})
         batch_size = parameters.get('batch_size', 1)
         
-        logger.info(f"Processing {len(image_ids)} images with {model_name}")
+        # Get static prompt
+        base_prompt = prompt_resolver.get_static_prompt(node)
         
-        stage_success = 0
-        stage_failed = 0
-        base_prompt = self.prompt_resolver.get_static_prompt(ai_node)
+        # Get precision params
+        from config import PRECISION_DEFAULTS
+        precision_params = None
+        if model_name in PRECISION_DEFAULTS:
+            defaults = PRECISION_DEFAULTS[model_name]
+            precision_params = {
+                'precision': parameters.get('precision', defaults['precision']),
+                'use_flash_attention': parameters.get('use_flash_attention', 
+                                                     defaults['use_flash_attention'])
+            }
+        
+        # Load model
+        model_adapter = get_model_func(model_name, precision_params)
+        if not model_adapter or not model_adapter.is_loaded():
+            raise ValueError(f"Model {model_name} not available")
         
         # Process in batches
+        prev_captions = [captions.get(img_id, '') for img_id in image_ids]
+        
         for batch_start in range(0, len(image_ids), batch_size):
             batch_end = min(batch_start + batch_size, len(image_ids))
             batch_ids = image_ids[batch_start:batch_end]
             
             try:
-                # Load model
-                precision_params = self._extract_precision_params(model_name, parameters)
-                model_adapter = get_model_func(model_name, precision_params)
-                
-                if not model_adapter or not model_adapter.is_loaded():
-                    raise ValueError(f"Model {model_name} not available")
-                
                 # Load images
                 image_paths = await self.async_session.get_image_paths_batch(batch_ids)
                 images = []
@@ -426,325 +466,136 @@ class AIModelExecutor:
                         valid_indices.append(batch_start + i)
                 
                 if not images:
-                    stage_failed += len(batch_ids)
+                    for _ in batch_ids:
+                        state.increment(success=False)
                     continue
                 
                 # Build prompts
                 prompts = [
-                    self.prompt_resolver.get_prompt_for_image(
-                        ai_node, prev_captions, idx, base_prompt
-                    )
+                    prompt_resolver.get_prompt_for_image(node, prev_captions, idx, base_prompt)
                     for idx in valid_indices
                 ]
                 
                 # Generate captions
                 if len(images) > 1 and batch_size > 1:
-                    captions = model_adapter.generate_captions_batch(images, prompts, parameters)
+                    new_captions = model_adapter.generate_captions_batch(images, prompts, parameters)
                 else:
-                    captions = [model_adapter.generate_caption(images[0], prompts[0], parameters)]
+                    new_captions = [model_adapter.generate_caption(images[0], prompts[0], parameters)]
                 
-                # Store results
-                for idx, caption in zip(valid_indices, captions):
-                    prev_captions[idx] = caption
+                # Update captions dict and state
+                for idx, caption in zip(valid_indices, new_captions):
+                    captions[image_ids[idx]] = caption
+                    state.increment(success=True)
+                
+                # Periodic status update
+                if batch_start % (batch_size * 5) == 0:  # Update every 5 batches
+                    state.update()
                     
-                    # Save to database ONLY if this node connects to Output
-                    if self._node_connects_to_output(ai_node, output_node):
-                        final_caption = self.prompt_resolver.resolve_output(
-                            ai_node, output_node, prev_captions, idx
-                        )
-                        await self.async_session.save_caption(image_ids[idx], final_caption)
-                
-                stage_success += len(captions)
-                
             except Exception as e:
-                logger.error(f"Batch processing error: {e}")
-                stage_failed += len(batch_ids)
+                logger.error(f"Batch error: {e}")
+                for _ in batch_ids:
+                    state.increment(success=False)
         
-        return stage_success, stage_failed
+        # Final update after node
+        state.update()
     
-    def _node_connects_to_output(self, node: Dict, output_node: Dict) -> bool:
-        """
-        Check if this node has a path to the Output node.
-        
-        Delegates to ChainBuilder's connection verification logic.
-        """
-        return ChainBuilder._connects_to_output(node, output_node, self.connections, self.nodes)
-    
-    @staticmethod
-    def _extract_precision_params(model_name: str, parameters: Dict) -> Optional[Dict]:
-        """Extract precision parameters for model loading."""
-        from config import PRECISION_DEFAULTS
-        
-        if model_name not in PRECISION_DEFAULTS:
-            return None
-        
-        defaults = PRECISION_DEFAULTS[model_name]
-        return {
-            'precision': parameters.get('precision', defaults['precision']),
-            'use_flash_attention': parameters.get('use_flash_attention', 
-                                                 defaults['use_flash_attention'])
-        }
-
-
-class CurateExecutor:
-    """Executes curate routing nodes."""
-    
-    def __init__(self, async_session: AsyncSessionManager, prompt_resolver: PromptResolver,
-                 nodes: List[Dict], connections: List[Dict]):
-        self.async_session = async_session
-        self.prompt_resolver = prompt_resolver
-        self.nodes = nodes
-        self.connections = connections
-    
-    async def execute(self, curate_node: Dict, images: List[Image.Image],
-                     image_ids: List[str], prev_captions: List[str],
-                     get_model_func, output_node: Dict) -> Tuple[int, int]:
-        """
-        Execute curate routing node.
-        
-        Returns (success_count, failed_count).
-        """
-        model_name = curate_node['data'].get('model', 'blip2-opt-2.7b')
-        model_type = curate_node['data'].get('modelType', 'vlm')
-        parameters = curate_node['data'].get('parameters', {}).copy()
-        ports = curate_node['data'].get('ports', [])
-        template = curate_node['data'].get('template', '')
+    async def _execute_curate(
+        self, node: Dict, captions: Dict[str, str], image_ids: List[str],
+        topology: GraphTopology, output_node: Dict, prompt_resolver: PromptResolver,
+        get_model_func, visited: Set[str], state: ExecutionState
+    ) -> None:
+        """Execute curate node - routes images to different paths."""
+        model_name = node['data'].get('model', 'blip2-opt-2.7b')
+        parameters = node['data'].get('parameters', {}).copy()
+        ports = node['data'].get('ports', [])
+        template = node['data'].get('template', '')
         
         if template:
             parameters['template'] = template
         
-        logger.info(f"Routing {len(images)} images with {model_name}")
-        
         # Load model
-        precision_params = AIModelExecutor._extract_precision_params(model_name, parameters)
-        from models.vlm_router_adapter import VLMRouterAdapter
+        from config import PRECISION_DEFAULTS
+        precision_params = None
+        if model_name in PRECISION_DEFAULTS:
+            defaults = PRECISION_DEFAULTS[model_name]
+            precision_params = {
+                'precision': parameters.get('precision', defaults['precision']),
+                'use_flash_attention': parameters.get('use_flash_attention', 
+                                                     defaults['use_flash_attention'])
+            }
         
+        from models.vlm_router_adapter import VLMRouterAdapter
         curate_adapter = VLMRouterAdapter(model_name)
         curate_adapter.load_model(precision_params, get_model_func)
         
-        # Get routing paths to determine which connect to output
-        routing_paths = self._get_routing_paths(curate_node)
+        # Load all images
+        image_paths = await self.async_session.get_image_paths_batch(image_ids)
+        images = []
+        for img_id in image_ids:
+            img_path = image_paths.get(img_id)
+            if img_path:
+                images.append(load_image(img_path))
+            else:
+                images.append(None)
         
-        # Route each image
-        routing_decisions = {port['id']: [] for port in ports}
-        stage_success = 0
-        stage_failed = 0
+        # Route each image and collect by port
+        routing = {port['id']: [] for port in ports}
+        prev_captions = [captions.get(img_id, '') for img_id in image_ids]
         
         for idx, (image, caption) in enumerate(zip(images, prev_captions)):
+            if image is None:
+                state.increment(success=False)
+                continue
+            
             try:
                 port_id = curate_adapter.route_image(image, caption, ports, parameters)
-                
-                if port_id not in routing_decisions:
-                    # Invalid port, use default
+                if port_id not in routing:
                     port_id = next((p['id'] for p in ports if p.get('isDefault')), ports[0]['id'])
-                
-                routing_decisions[port_id].append(idx)
-                
-                # Save immediately if this port connects to output
-                if self._port_connects_to_output(port_id, routing_paths, output_node):
-                    final_caption = self._resolve_output_for_port(
-                        port_id, routing_paths, prev_captions, idx
-                    )
-                    await self.async_session.save_caption(image_ids[idx], final_caption)
-                
-                stage_success += 1
-                
+                routing[port_id].append(idx)
+                state.increment(success=True)
             except Exception as e:
-                logger.error(f"Routing error for image {idx}: {e}")
+                logger.error(f"Routing error: {e}")
                 default_port = next((p['id'] for p in ports if p.get('isDefault')), ports[0]['id'])
-                routing_decisions[default_port].append(idx)
-                stage_failed += 1
+                routing[default_port].append(idx)
+                state.increment(success=False)
         
-        # Log distribution
-        dist = ", ".join([f"{pid}: {len(indices)}" for pid, indices in routing_decisions.items() if indices])
-        logger.info(f"Routing distribution - {dist}")
+        # Update after routing
+        state.update()
         
-        return stage_success, stage_failed
-    
-    def _get_routing_paths(self, curate_node: Dict) -> Dict[str, List[Dict]]:
-        """Get downstream nodes for each port using BFS."""
-        ports = curate_node['data'].get('ports', [])
-        routing_paths = {}
-        
+        # Follow each port's downstream path
         for port_index, port in enumerate(ports):
-            path = []
-            visited = set()
-            queue = []
+            port_id = port['id']
+            routed_indices = routing.get(port_id, [])
+            if not routed_indices:
+                continue
             
-            # Find initial connections from this port
-            for conn in self.connections:
-                if conn['from'] == curate_node['id'] and conn['fromPort'] == port_index:
-                    downstream = next((n for n in self.nodes if n['id'] == conn['to']), None)
-                    if downstream and downstream['id'] not in visited:
-                        queue.append(downstream)
-                        visited.add(downstream['id'])
-                        path.append(downstream)
+            # Get images routed to this port
+            port_image_ids = [image_ids[idx] for idx in routed_indices]
+            port_captions = {img_id: captions[img_id] for img_id in port_image_ids}
             
-            # BFS traversal
-            while queue:
-                current = queue.pop(0)
-                
-                # Stop at terminal nodes
-                if current['type'] in ['output', 'aimodel', 'curate']:
+            # Follow this port's downstream connections
+            for target_id, from_port, to_port in topology.get_downstream_nodes(node['id']):
+                if from_port != port_index:
                     continue
                 
-                # Follow connections
-                for conn in self.connections:
-                    if conn['from'] == current['id']:
-                        next_node = next((n for n in self.nodes if n['id'] == conn['to']), None)
-                        if next_node and next_node['id'] not in visited:
-                            queue.append(next_node)
-                            visited.add(next_node['id'])
-                            path.append(next_node)
+                target_node = topology.nodes.get(target_id)
+                if target_node:
+                    await self._execute_node_and_downstream(
+                        target_node, port_captions, port_image_ids, topology, output_node,
+                        prompt_resolver, get_model_func, visited.copy(), state
+                    )
             
-            routing_paths[port['id']] = path
-        
-        return routing_paths
+            # Update main captions dict
+            captions.update(port_captions)
     
-    def _port_connects_to_output(self, port_id: str, routing_paths: Dict, 
-                                 output_node: Dict) -> bool:
-        """Check if port routes to output."""
-        downstream = routing_paths.get(port_id, [])
-        return any(n['type'] == 'output' for n in downstream)
-    
-    def _resolve_output_for_port(self, port_id: str, routing_paths: Dict,
-                                 prev_captions: List[str], img_index: int) -> str:
-        """Resolve output caption for routed port (handles conjunctions)."""
-        downstream = routing_paths.get(port_id, [])
-        
-        # Check for conjunction before output
-        conj_node = next((n for n in downstream if n['type'] == 'conjunction'), None)
-        if conj_node:
-            return self.prompt_resolver._resolve_conjunction(conj_node, prev_captions, img_index)
-        
-        return prev_captions[img_index]
-
-
-# ============================================================================
-# Main Executor - Orchestrates Everything
-# ============================================================================
-
-class GraphExecutor:
-    """
-    Main orchestrator for graph execution.
-    
-    Coordinates parsing, chain building, and execution using specialized components.
-    """
-    
-    def __init__(self, exec_manager: ExecutionManager, async_session: AsyncSessionManager):
-        self.exec_manager = exec_manager
-        self.async_session = async_session
-        self.should_cancel = False
-    
-    async def execute(self, job_id: str, get_model_func) -> None:
-        """
-        Execute a job by ID.
-        
-        Args:
-            job_id: Job identifier
-            get_model_func: Function to get model adapter (from app.py)
-        """
-        job = self.exec_manager.get_job(job_id)
-        if not job:
-            logger.error(f"Job {job_id} not found")
-            return
-        
-        try:
-            # Mark as running
-            self.exec_manager.update_status(job_id, status='running')
-            
-            graph = job['graph']
-            image_ids = job['image_ids']
-            
-            # Parse graph
-            nodes, connections = GraphParser.parse(graph)
-            input_node, output_node = GraphParser.find_io_nodes(nodes)
-            
-            if not input_node or not output_node:
-                raise ValueError("Graph must have Input and Output nodes")
-            
-            # Build execution chain
-            ai_chain = ChainBuilder.build(nodes, connections, input_node, output_node)
-            if not ai_chain:
-                raise ValueError("No AI models connected from Input to Output")
-            
-            # Initialize components
-            prompt_resolver = PromptResolver(nodes, connections)
-            progress_tracker = ProgressTracker(
-                self.exec_manager, job_id, len(image_ids), len(ai_chain)
-            )
-            
-            self.exec_manager.update_status(job_id, total_stages=len(ai_chain))
-            
-            # Execute chain
-            await self._execute_chain(
-                job_id, ai_chain, image_ids, nodes, connections,
-                output_node, get_model_func, prompt_resolver, progress_tracker
-            )
-            
-            # Mark as completed
-            self.exec_manager.update_status(job_id, status='completed')
-            logger.info(f"Job {job_id} completed successfully")
-            
-        except Exception as e:
-            logger.exception(f"Job {job_id} failed: {e}")
-            self.exec_manager.update_status(job_id, status='failed', error=str(e))
-    
-    def cancel(self):
-        """Signal cancellation of current execution."""
-        self.should_cancel = True
-    
-    async def _execute_chain(
-        self, job_id: str, ai_chain: List[Dict], image_ids: List[str],
-        nodes: List[Dict], connections: List[Dict], output_node: Dict,
-        get_model_func, prompt_resolver: PromptResolver, 
-        progress_tracker: ProgressTracker
+    async def _save_final_captions(
+        self, captions: Dict[str, str], image_ids: List[str],
+        output_node: Dict, prompt_resolver: PromptResolver
     ) -> None:
-        """Execute the AI chain stage-by-stage."""
-        prev_captions = [''] * len(image_ids)
+        """Save captions that reached the Output node."""
+        for img_id in image_ids:
+            caption = captions.get(img_id, '')
+            if caption:  # Only save non-empty captions
+                await self.async_session.save_caption(img_id, caption)
         
-        ai_executor = AIModelExecutor(self.async_session, prompt_resolver, nodes, connections)
-        curate_executor = CurateExecutor(
-            self.async_session, prompt_resolver, nodes, connections
-        )
-        
-        for stage_idx, node in enumerate(ai_chain):
-            if self.should_cancel:
-                logger.info(f"Job {job_id} cancelled at stage {stage_idx + 1}")
-                self.exec_manager.update_status(job_id, status='cancelled')
-                return
-            
-            node_type = node['type']
-            
-            logger.info(f"Stage {stage_idx + 1}/{len(ai_chain)}: {node_type}")
-            
-            # Execute node
-            if node_type == 'curate':
-                # Load all images for curate
-                image_paths = await self.async_session.get_image_paths_batch(image_ids)
-                images = []
-                for img_id in image_ids:
-                    img_path = image_paths.get(img_id)
-                    if img_path:
-                        images.append(load_image(img_path))
-                    else:
-                        logger.warning(f"Image path not found for {img_id}")
-                        images.append(None)
-                
-                stage_success, stage_failed = await curate_executor.execute(
-                    node, images, image_ids, prev_captions, get_model_func, output_node
-                )
-            else:
-                # AI model execution
-                stage_success, stage_failed = await ai_executor.execute(
-                    node, image_ids, prev_captions, get_model_func, output_node
-                )
-            
-            # Update progress
-            progress_tracker.finalize_stage(stage_idx, stage_success, stage_failed)
-            
-            # Small delay for frontend polling
-            await asyncio.sleep(0.5)
-        
-        # Final stats
-        progress_tracker.finalize_job()
+        logger.info(f"Saved {len([c for c in captions.values() if c])} captions to database")
