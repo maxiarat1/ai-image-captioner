@@ -11,7 +11,6 @@ from pathlib import Path
 from flask import Flask, request, jsonify, send_file, Response, stream_with_context, send_from_directory
 from flask_cors import CORS
 from PIL import Image
-from PIL.PngImagePlugin import PngInfo
 
 if os.environ.get("TAGGER_FORCE_CPU", "0") == "1":
     os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
@@ -19,6 +18,8 @@ if os.environ.get("TAGGER_FORCE_CPU", "0") == "1":
 
 from app.models import CATEGORIES, MODEL_METADATA, validate_model_name, get_available_models
 from app.services import ModelManager
+from app.utils import extract_precision_params, embed_caption_in_image
+from app.middleware import register_error_handlers
 from utils.image_utils import load_image, image_to_base64
 from utils.logging_utils import setup_logging
 from database import SessionManager, AsyncSessionManager, ExecutionManager
@@ -38,6 +39,9 @@ logger.setLevel(logging.DEBUG)
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path='')
 CORS(app)
+
+# Register error handlers
+register_error_handlers(app)
 
 # Session managers: sync for simple CRUD, async for AI inference paths
 session_manager = SessionManager()
@@ -567,7 +571,7 @@ async def generate_caption():
         except json.JSONDecodeError:
             parameters = {}
 
-        precision_params = _extract_precision_params(model_name, parameters)
+        precision_params = extract_precision_params(model_name, parameters)
         image = load_image(image_source)
         model_adapter = model_manager.get_model(model_name, precision_params)
 
@@ -633,7 +637,7 @@ async def generate_captions_batch():
             return jsonify({"error": "No valid images found"}), 404
 
         # Get model
-        precision_params = _extract_precision_params(model_name, parameters)
+        precision_params = extract_precision_params(model_name, parameters)
         model_adapter = model_manager.get_model(model_name, precision_params)
 
         if not model_adapter or not model_adapter.is_loaded():
@@ -672,35 +676,6 @@ async def generate_captions_batch():
         logger.exception("Error generating batch captions: %s", e)
         return jsonify({"error": str(e)}), 500
 
-def _extract_precision_params(model_name: str, parameters: dict) -> dict:
-    if not parameters or model_name not in PRECISION_DEFAULTS:
-        return None
-    defaults = PRECISION_DEFAULTS[model_name]
-    return {
-        'precision': parameters.get('precision', defaults['precision']),
-        'use_flash_attention': parameters.get('use_flash_attention', defaults['use_flash_attention'])
-    }
-
-def _embed_caption_in_image(image: Image.Image, caption: str, filename: str) -> bytes:
-    output = io.BytesIO()
-    file_ext = Path(filename).suffix.lower()
-
-    if image.format == 'JPEG' or file_ext in ('.jpg', '.jpeg'):
-        exif = image.getexif()
-        exif[0x010E] = caption
-        image.save(output, format='JPEG', exif=exif, quality=95)
-    elif image.format == 'PNG' or file_ext == '.png':
-        metadata = PngInfo()
-        metadata.add_text("Description", caption)
-        image.save(output, format='PNG', pnginfo=metadata)
-    else:
-        if image.mode in ('RGBA', 'LA', 'P'):
-            image = image.convert('RGB')
-        exif = Image.Exif()
-        exif[0x010E] = caption
-        image.save(output, format='JPEG', exif=exif, quality=95)
-
-    return output.getvalue()
 
 @app.route('/export/metadata', methods=['POST'])
 def export_with_metadata():
@@ -729,7 +704,7 @@ def export_with_metadata():
                 else:
                     image, filename = load_image(img_file.read()), img_file.filename
 
-                image_bytes = _embed_caption_in_image(image, caption, filename)
+                image_bytes = embed_caption_in_image(image, caption, filename)
                 zip_file.writestr(filename, image_bytes)
 
         zip_buffer.seek(0)
@@ -854,15 +829,6 @@ def cancel_graph_execution(job_id):
         logger.exception("Error cancelling job: %s", e)
         return jsonify({"error": str(e)}), 500
 
-
-@app.errorhandler(413)
-def too_large(_):
-    return jsonify({"error": "File too large"}), 413
-
-@app.errorhandler(500)
-def internal_error(e):
-    logger.exception("Internal server error: %s", e)
-    return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == '__main__':
     # Determine frontend path - works in both development and PyInstaller bundle
