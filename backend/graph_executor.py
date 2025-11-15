@@ -54,7 +54,7 @@ class ChainBuilder:
         Build sequential chain of AI/curate nodes.
         
         Chain starts from Input node (port 0) and follows connections
-        through AI/curate nodes. Stops at cycles or dead ends.
+        through AI/curate nodes. Verifies the chain reaches the Output node.
         """
         ai_nodes = [n for n in nodes if n['type'] in ('aimodel', 'curate')]
         if not ai_nodes:
@@ -77,6 +77,12 @@ class ChainBuilder:
             chain.append(next_node)
             visited.add(next_node['id'])
             current = next_node
+        
+        # Verify the last node in chain connects to Output
+        last_node = chain[-1]
+        if not ChainBuilder._connects_to_output(last_node, output_node, connections, nodes):
+            logger.warning(f"Chain does not connect to Output node. Last node: {last_node['id']}")
+            return []
         
         logger.info(f"Built chain with {len(chain)} stages: {[n['type'] for n in chain]}")
         return chain
@@ -101,6 +107,39 @@ class ChainBuilder:
                 if next_node and next_node['id'] not in visited:
                     return next_node
         return None
+    
+    @staticmethod
+    def _connects_to_output(node: Dict, output_node: Dict, 
+                           connections: List[Dict], nodes: List[Dict]) -> bool:
+        """
+        Check if node has a path to the Output node.
+        
+        Uses BFS to traverse the graph and check if Output is reachable.
+        This handles both direct connections and paths through intermediate nodes.
+        """
+        visited = set()
+        queue = [node['id']]
+        
+        while queue:
+            current_id = queue.pop(0)
+            if current_id in visited:
+                continue
+            visited.add(current_id)
+            
+            # Check all outgoing connections
+            for conn in connections:
+                if conn['from'] == current_id:
+                    target_id = conn['to']
+                    
+                    # Found Output!
+                    if target_id == output_node['id']:
+                        return True
+                    
+                    # Add to queue to continue search
+                    if target_id not in visited:
+                        queue.append(target_id)
+        
+        return False
 
 
 class PromptResolver:
@@ -336,16 +375,20 @@ class ProgressTracker:
 class AIModelExecutor:
     """Executes AI model nodes."""
     
-    def __init__(self, async_session: AsyncSessionManager, prompt_resolver: PromptResolver):
+    def __init__(self, async_session: AsyncSessionManager, prompt_resolver: PromptResolver,
+                 nodes: List[Dict], connections: List[Dict]):
         self.async_session = async_session
         self.prompt_resolver = prompt_resolver
+        self.nodes = nodes
+        self.connections = connections
     
     async def execute(self, ai_node: Dict, image_ids: List[str], 
                      prev_captions: List[str], get_model_func, 
-                     is_last_stage: bool, output_node: Dict) -> Tuple[int, int]:
+                     output_node: Dict) -> Tuple[int, int]:
         """
         Execute AI model node.
         
+        Only saves to database if this node connects to the Output node.
         Returns (success_count, failed_count).
         """
         model_name = ai_node['data'].get('model', 'blip')
@@ -404,8 +447,8 @@ class AIModelExecutor:
                 for idx, caption in zip(valid_indices, captions):
                     prev_captions[idx] = caption
                     
-                    # Save to database if last stage
-                    if is_last_stage:
+                    # Save to database ONLY if this node connects to Output
+                    if self._node_connects_to_output(ai_node, output_node):
                         final_caption = self.prompt_resolver.resolve_output(
                             ai_node, output_node, prev_captions, idx
                         )
@@ -418,6 +461,14 @@ class AIModelExecutor:
                 stage_failed += len(batch_ids)
         
         return stage_success, stage_failed
+    
+    def _node_connects_to_output(self, node: Dict, output_node: Dict) -> bool:
+        """
+        Check if this node has a path to the Output node.
+        
+        Delegates to ChainBuilder's connection verification logic.
+        """
+        return ChainBuilder._connects_to_output(node, output_node, self.connections, self.nodes)
     
     @staticmethod
     def _extract_precision_params(model_name: str, parameters: Dict) -> Optional[Dict]:
@@ -652,7 +703,7 @@ class GraphExecutor:
         """Execute the AI chain stage-by-stage."""
         prev_captions = [''] * len(image_ids)
         
-        ai_executor = AIModelExecutor(self.async_session, prompt_resolver)
+        ai_executor = AIModelExecutor(self.async_session, prompt_resolver, nodes, connections)
         curate_executor = CurateExecutor(
             self.async_session, prompt_resolver, nodes, connections
         )
@@ -664,7 +715,6 @@ class GraphExecutor:
                 return
             
             node_type = node['type']
-            is_last_stage = (stage_idx == len(ai_chain) - 1)
             
             logger.info(f"Stage {stage_idx + 1}/{len(ai_chain)}: {node_type}")
             
@@ -687,7 +737,7 @@ class GraphExecutor:
             else:
                 # AI model execution
                 stage_success, stage_failed = await ai_executor.execute(
-                    node, image_ids, prev_captions, get_model_func, is_last_stage, output_node
+                    node, image_ids, prev_captions, get_model_func, output_node
                 )
             
             # Update progress
