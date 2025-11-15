@@ -1,35 +1,20 @@
-import io
-import json
-import zipfile
 import os
 import sys
 import logging
-import asyncio
 import webbrowser
-import threading
 from pathlib import Path
-from flask import Flask, request, jsonify, send_file, Response, stream_with_context, send_from_directory
+from flask import Flask, send_from_directory
 from flask_cors import CORS
-from PIL import Image
-
 if os.environ.get("TAGGER_FORCE_CPU", "0") == "1":
     os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
     os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
-
-from app.models import CATEGORIES, MODEL_METADATA, validate_model_name, get_available_models
+from app.models import CATEGORIES, MODEL_METADATA
 from app.services import ModelManager
-from app.utils import extract_precision_params, embed_caption_in_image
 from app.middleware import register_error_handlers
 from app.routes import register_blueprints
-from utils.image_utils import load_image, image_to_base64
 from utils.logging_utils import setup_logging
 from database import SessionManager, AsyncSessionManager, ExecutionManager
-from graph_executor import GraphExecutor
-from config import (
-    SUPPORTED_IMAGE_FORMATS,
-    THUMBNAIL_SIZE,
-    MAX_FILE_SIZE,
-)
+from config import MAX_FILE_SIZE
 
 setup_logging()
 logger = logging.getLogger(__name__)
