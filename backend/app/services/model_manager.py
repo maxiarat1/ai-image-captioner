@@ -113,7 +113,8 @@ class ModelManager:
         if model_name not in self._model_info_cache:
             try:
                 metadata = MODEL_METADATA[model_name]
-                adapter = metadata['adapter'](**metadata['adapter_args'])
+                # The adapter is now a callable that returns the adapter instance
+                adapter = metadata['adapter']()
                 self._model_info_cache[model_name] = {
                     "name": model_name,
                     "parameters": adapter.get_available_parameters()
@@ -194,8 +195,10 @@ class ModelManager:
             action = "Reloading" if is_reload else "Loading"
             logger.info("%s %s model on-demand…", action, model_name)
 
-            # Create adapter instance
-            adapter = metadata['adapter'](**metadata['adapter_args'])
+            # Create adapter instance using factory
+            # The adapter is now a callable that returns the adapter
+            adapter_factory = metadata['adapter']
+            adapter = adapter_factory()
 
             # Load model with precision parameters
             if precision_params:
