@@ -7,6 +7,10 @@ from flask import Blueprint, request, jsonify
 from utils.image_utils import load_image, image_to_base64
 from config import SUPPORTED_IMAGE_FORMATS
 from app.utils.route_decorators import handle_route_errors
+from app.utils.request_validators import (
+    extract_json_fields, extract_query_params, RequestField,
+    non_empty_list, to_int
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,23 +24,23 @@ def init_routes(session_manager):
     @handle_route_errors("registering folder")
     def register_folder():
         """Register all images from a folder path."""
-        folder_path = request.get_json().get('folder_path', '')
-        if not folder_path:
-            raise ValueError("No folder path provided")
+        data = extract_json_fields(
+            RequestField('folder_path', required=True, error_message="No folder path provided")
+        )
 
-        images = session_manager.register_folder(folder_path)
+        images = session_manager.register_folder(data['folder_path'])
         return {"success": True, "images": images, "total": len(images)}
 
     @bp.route('/session/register-files', methods=['POST'])
     @handle_route_errors("registering files")
     def register_files():
         """Pre-register files before upload."""
-        data = request.get_json()
-        file_metadata_list = data.get('files', [])
-        if not file_metadata_list:
-            raise ValueError("No files provided")
+        data = extract_json_fields(
+            RequestField('files', required=True, validator=non_empty_list,
+                        error_message="No files provided")
+        )
 
-        image_ids = session_manager.register_files(file_metadata_list)
+        image_ids = session_manager.register_files(data['files'])
         return {"success": True, "image_ids": image_ids, "total": len(image_ids)}
 
     @bp.route('/upload/batch', methods=['POST'])
@@ -67,11 +71,13 @@ def init_routes(session_manager):
     @handle_route_errors("listing images")
     def list_images():
         """Get paginated list of images."""
-        page = int(request.args.get('page', 1))
-        per_page = int(request.args.get('per_page', 50))
-        search = request.args.get('search', '')
+        params = extract_query_params(
+            RequestField('page', default='1', transform=to_int),
+            RequestField('per_page', default='50', transform=to_int),
+            RequestField('search', default='')
+        )
 
-        result = session_manager.list_images(page, per_page, search)
+        result = session_manager.list_images(params['page'], params['per_page'], params['search'])
         return result
 
     @bp.route('/image/<image_id>', methods=['GET'])
@@ -114,11 +120,11 @@ def init_routes(session_manager):
     @bp.route('/scan-folder', methods=['POST'])
     @handle_route_errors("scanning folder")
     def scan_folder():
-        folder_path = request.get_json().get('folder_path', '')
-        if not folder_path:
-            raise ValueError("No folder path provided")
+        data = extract_json_fields(
+            RequestField('folder_path', required=True, error_message="No folder path provided")
+        )
 
-        folder = Path(folder_path).resolve()
+        folder = Path(data['folder_path']).resolve()
         if not folder.exists():
             raise ValueError("Folder does not exist")
         if not folder.is_dir():

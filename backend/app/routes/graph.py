@@ -8,6 +8,7 @@ import logging
 from flask import Blueprint, request, Response, stream_with_context
 from graph_executor import GraphExecutor
 from app.utils.route_decorators import handle_route_errors
+from app.utils.request_validators import extract_json_fields, RequestField, non_empty_list, non_empty_dict
 
 logger = logging.getLogger(__name__)
 
@@ -21,21 +22,21 @@ def init_routes(model_manager, session_manager, async_session_manager, execution
     @handle_route_errors("executing graph")
     def execute_graph():
         """Submit a graph for execution."""
-        data = request.get_json()
-        graph = data.get('graph', {})
-        image_ids = data.get('image_ids', [])
-        clear_previous = data.get('clear_previous', True)
-
-        if not graph or not image_ids:
-            raise ValueError("Missing graph or image_ids")
+        data = extract_json_fields(
+            RequestField('graph', required=True, validator=non_empty_dict,
+                        error_message="Missing graph"),
+            RequestField('image_ids', required=True, validator=non_empty_list,
+                        error_message="Missing image_ids"),
+            RequestField('clear_previous', default=True)
+        )
 
         # Clear previous captions if requested
-        if clear_previous:
+        if data['clear_previous']:
             session_manager.clear_all_captions()
             logger.info("Cleared previous captions before execution")
 
         # Create job
-        job_id = execution_manager.create_job(graph, image_ids)
+        job_id = execution_manager.create_job(data['graph'], data['image_ids'])
 
         # Start execution in background thread
         executor = GraphExecutor(execution_manager, async_session_manager)
