@@ -3,6 +3,7 @@ Model information and management routes.
 """
 import logging
 from flask import Blueprint, request, jsonify
+from app.utils.route_decorators import handle_route_errors
 
 logger = logging.getLogger(__name__)
 
@@ -13,24 +14,21 @@ def init_routes(model_manager, categories, model_metadata):
     """Initialize routes with dependencies."""
 
     @bp.route('/health', methods=['GET'])
+    @handle_route_errors("health check")
     def health_check():
         model_status = {f"{name}_loaded": model is not None and model.is_loaded()
                         for name, model in model_manager.models.items()}
-        return jsonify({"status": "ok", "models_available": list(model_manager.models.keys()), **model_status})
+        return {"status": "ok", "models_available": list(model_manager.models.keys()), **model_status}
 
     @bp.route('/model/info', methods=['GET'])
+    @handle_route_errors("getting model info")
     def model_info():
         model_name = request.args.get('model', 'blip')
-        try:
-            info = model_manager.get_model_info(model_name)
-            return jsonify(info)
-        except ValueError as e:
-            return jsonify({"error": str(e)}), 400
-        except Exception as e:
-            logger.exception("Error getting model info: %s", e)
-            return jsonify({"error": str(e)}), 500
+        info = model_manager.get_model_info(model_name)
+        return info
 
     @bp.route('/models', methods=['GET'])
+    @handle_route_errors("listing models")
     def list_models():
         available_models = [
             {"name": name, "loaded": model_manager.is_loaded(name),
@@ -39,9 +37,10 @@ def init_routes(model_manager, categories, model_metadata):
              "vlm_capable": model_metadata[name].get('vlm_capable', False)}
             for name in model_metadata.keys()
         ]
-        return jsonify({"models": available_models})
+        return {"models": available_models}
 
     @bp.route('/models/categories', methods=['GET'])
+    @handle_route_errors("getting model categories")
     def get_model_categories():
         """Get models organized by categories with category metadata."""
         categories_data = []
@@ -68,9 +67,10 @@ def init_routes(model_manager, categories, model_metadata):
                     "models": category_models
                 })
 
-        return jsonify({"categories": categories_data})
+        return {"categories": categories_data}
 
     @bp.route('/models/metadata', methods=['GET'])
+    @handle_route_errors("getting models metadata")
     def models_metadata():
         """Get comprehensive metadata about all models for documentation."""
         model_details = {
@@ -94,7 +94,7 @@ def init_routes(model_manager, categories, model_metadata):
         available_models = [name for name in model_metadata.keys()]
         active_models = {name: details for name, details in model_details.items() if name in available_models}
 
-        return jsonify({
+        return {
             'model_count': len(available_models),
             'models': active_models,
             'export_formats': 4,
@@ -109,39 +109,29 @@ def init_routes(model_manager, categories, model_metadata):
                 {'name': 'CUDA', 'description': 'GPU acceleration'},
                 {'name': 'DuckDB', 'description': 'Embedded analytics database'}
             ]
-        })
+        }
 
     @bp.route('/model/reload', methods=['POST'])
+    @handle_route_errors("reloading model")
     def reload_model():
-        try:
-            data = request.get_json() or {}
-            model_name = data.get('model', 'r4b')
-            precision_params = data.get('precision_params')
+        data = request.get_json() or {}
+        model_name = data.get('model', 'r4b')
+        precision_params = data.get('precision_params')
 
-            model_adapter = model_manager.get_model(model_name, precision_params, force_reload=True)
-            return jsonify({
-                "success": True,
-                "message": f"Model {model_name} reloaded successfully",
-                "loaded": model_adapter.is_loaded()
-            })
-        except ValueError as e:
-            return jsonify({"error": str(e)}), 400
-        except Exception as e:
-            logger.exception("Error reloading model: %s", e)
-            return jsonify({"error": str(e)}), 500
+        model_adapter = model_manager.get_model(model_name, precision_params, force_reload=True)
+        return {
+            "success": True,
+            "message": f"Model {model_name} reloaded successfully",
+            "loaded": model_adapter.is_loaded()
+        }
 
     @bp.route('/model/unload', methods=['POST'])
+    @handle_route_errors("unloading model")
     def unload_model():
-        try:
-            data = request.get_json() or {}
-            model_name = data.get('model', 'r4b')
+        data = request.get_json() or {}
+        model_name = data.get('model', 'r4b')
 
-            model_manager.unload_model(model_name)
-            return jsonify({"success": True, "message": f"Model {model_name} unloaded successfully"})
-        except ValueError as e:
-            return jsonify({"error": str(e)}), 400
-        except Exception as e:
-            logger.exception("Error unloading model: %s", e)
-            return jsonify({"error": str(e)}), 500
+        model_manager.unload_model(model_name)
+        return {"success": True, "message": f"Model {model_name} unloaded successfully"}
 
     return bp
