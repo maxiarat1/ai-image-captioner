@@ -25,12 +25,15 @@ function setupLazyLoadingForGrid(gridId) {
                 const fullImage = await loadFullImage(image_id);
 
                 if (fullImage) {
-                    // Display image
-                    container.innerHTML = `<img src="${fullImage}" alt="Image">`;
-
-                    const img = container.querySelector('img');
-                    if (img) {
-                        // Add click handler based on grid type
+                    // Replace only the thumbnail placeholder with the actual image
+                    const placeholder = container.querySelector('.thumbnail-placeholder');
+                    if (placeholder) {
+                        const img = document.createElement('img');
+                        img.src = fullImage;
+                        img.alt = 'Image';
+                        placeholder.replaceWith(img);
+                        
+                        // Add click handler to the image
                         img.addEventListener('click', async () => {
                             if (isResultsGrid) {
                                 // Results: Find caption from AppState

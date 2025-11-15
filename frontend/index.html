@@ -717,7 +717,7 @@ cd backend && python app.py">Copy</button>
     <!-- Core Scripts -->
     <script src="js/logger.js"></script>
     <script src="js/state.js"></script>
-    <script src="js/utils.js"></script>
+    <script src="js/utils/utils.js"></script>
     <script src="js/toast.js"></script>
     <script src="js/modal.js"></script>
     <script src="js/pageTransition.js"></script>
@@ -757,7 +757,13 @@ cd backend && python app.py">Copy</button>
     <script src="js/node-editor/nodes/update.js"></script>
     <script src="js/node-editor/graph/ops.js"></script>
     <script src="js/node-editor/execution/execute.js"></script>
-    <script src="js/nodeEditor.js"></script>
+    <!-- node editor is now provided by the modular bundle under js/node-editor -->
+    <script src="js/node-editor/init.js"></script>
+    <script src="js/node-editor/params-api.js"></script>
+    <script src="js/node-editor/params-ui.js"></script>
+    <script src="js/node-editor/params-deps.js"></script>
+    <script src="js/node-editor/params-warnings.js"></script>
+    <script src="js/node-editor/index.js"></script>
 
     <!-- Results Components -->
     <script src="js/resultsGrid.js"></script>
