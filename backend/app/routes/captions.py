@@ -13,13 +13,14 @@ from app.utils.request_validators import (
     extract_json_fields, RequestField, parse_json_param,
     non_empty_list, or_none
 )
+from flow_control import create_processed_data
 
 logger = logging.getLogger(__name__)
 
 bp = Blueprint('captions', __name__)
 
 
-def init_routes(model_manager, async_session_manager):
+def init_routes(model_manager, flow_control_hub):
     """Initialize routes with dependencies."""
 
     @bp.route('/generate', methods=['POST'])
@@ -31,7 +32,7 @@ def init_routes(model_manager, async_session_manager):
 
         # Async DB lookup for image path
         if image_id:
-            image_path = await async_session_manager.get_image_path(image_id)
+            image_path = await flow_control_hub.async_session.get_image_path(image_id)
             if not image_path:
                 logger.error("Image not found for image_id: %s", image_id)
                 return jsonify({"error": "Image not found"}), 404
@@ -62,9 +63,16 @@ def init_routes(model_manager, async_session_manager):
         # AI inference (GPU, potentially slow)
         caption = model_adapter.generate_caption(image, prompt, parameters)
 
-        # Save caption in background (non-blocking, fire-and-forget)
+        # Route caption through Flow Control Hub (non-blocking, fire-and-forget)
         if image_id:
-            asyncio.create_task(async_session_manager.save_caption(image_id, caption))
+            processed_data = create_processed_data(
+                image_id=image_id,
+                content=caption,
+                model_name=model_adapter.model_name,
+                parameters=parameters,
+                metadata={'route': 'api_single'}
+            )
+            asyncio.create_task(flow_control_hub.route_data(processed_data))
 
         return {
             "caption": caption,
@@ -90,7 +98,7 @@ def init_routes(model_manager, async_session_manager):
         )
 
         # Load all image paths concurrently (async batch operation)
-        image_paths_dict = await async_session_manager.get_image_paths_batch(data['image_ids'])
+        image_paths_dict = await flow_control_hub.async_session.get_image_paths_batch(data['image_ids'])
 
         # Load images and prepare data
         images = []
@@ -121,12 +129,19 @@ def init_routes(model_manager, async_session_manager):
         logger.info("Batch: %d images with %s → %d captions (%.1fs)",
                    len(images), data['model'], len(captions), elapsed)
 
-        # Save all captions concurrently (async batch operation)
-        captions_data = [
-            {"image_id": img_id, "caption": cap}
-            for img_id, cap in zip(valid_image_ids, captions)
+        # Route all captions through Flow Control Hub (async batch operation)
+        processed_batch = [
+            create_processed_data(
+                image_id=img_id,
+                content=cap,
+                model_name=model_adapter.model_name,
+                parameters=data['parameters'],
+                metadata={'route': 'api_batch'},
+                sequence_num=i
+            )
+            for i, (img_id, cap) in enumerate(zip(valid_image_ids, captions))
         ]
-        asyncio.create_task(async_session_manager.save_captions_batch(captions_data))
+        asyncio.create_task(flow_control_hub.route_batch(processed_batch))
 
         # Build results
         results = []

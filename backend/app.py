@@ -14,6 +14,7 @@ from app.middleware import register_error_handlers
 from app.routes import register_blueprints
 from utils.logging_utils import setup_logging
 from database import SessionManager, AsyncSessionManager, ExecutionManager
+from flow_control import FlowControlHub
 from config import MAX_FILE_SIZE
 
 setup_logging()
@@ -33,14 +34,17 @@ session_manager = SessionManager()
 async_session_manager = AsyncSessionManager()
 execution_manager = ExecutionManager()
 
+# Flow Control Hub - centralized data routing
+flow_control_hub = FlowControlHub(async_session_manager)
+
 # Active graph executors (job_id -> GraphExecutor)
 active_executors = {}
 
 # Model manager for handling model lifecycle
 model_manager = ModelManager()
 
-# Register all route blueprints
-register_blueprints(app, model_manager, session_manager, async_session_manager,
+# Register all route blueprints with Flow Control Hub
+register_blueprints(app, model_manager, session_manager, flow_control_hub,
                    execution_manager, active_executors, CATEGORIES, MODEL_METADATA)
 
 
