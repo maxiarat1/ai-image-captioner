@@ -8,148 +8,216 @@ from typing import Any, Dict, List, Optional
 import logging
 from transformers import AutoProcessor, AutoModel
 from .base_handler import BaseModelHandler
+from .inference_strategies import (
+    PromptStrategy, ResponseStrategy,
+    DefaultPromptStrategy, DefaultResponseStrategy
+)
 
 logger = logging.getLogger(__name__)
 
 
 class HuggingFaceVLMHandler(BaseModelHandler):
     """Handler for HuggingFace vision-language models."""
-    
+
+    def __init__(self, config: Dict[str, Any]):
+        super().__init__(config)
+        # Initialize strategies (can be overridden by subclasses)
+        self.prompt_strategy: PromptStrategy = self._get_prompt_strategy()
+        self.response_strategy: ResponseStrategy = self._get_response_strategy()
+
+    def _get_prompt_strategy(self) -> PromptStrategy:
+        """Get prompt formatting strategy. Override for custom strategies."""
+        return DefaultPromptStrategy()
+
+    def _get_response_strategy(self) -> ResponseStrategy:
+        """Get response extraction strategy. Override for custom strategies."""
+        return DefaultResponseStrategy()
+
     def load(self, precision: str = None, use_flash_attention: bool = False, **kwargs) -> None:
-        """Load HuggingFace VLM model."""
+        """
+        Template method for loading HuggingFace VLM models.
+        Subclasses can override hooks to customize specific steps.
+        """
         try:
             from utils.torch_utils import pick_device
             self.device = pick_device(torch)
-            
-            precision = precision or self.config.get('default_precision', 'float32')
-            
-            # Validate precision against supported_precisions if specified
-            supported_precisions = self.config.get('supported_precisions')
-            if supported_precisions and precision not in supported_precisions:
-                logger.warning(
-                    "%s does not support %s precision. Falling back to %s. "
-                    "Supported precisions: %s",
-                    self.model_key, precision, self.config.get('default_precision', 'float32'),
-                    ', '.join(supported_precisions)
-                )
-                precision = self.config.get('default_precision', 'float32')
-            
+
+            # Hook: Pre-load validation and setup
+            precision = self._pre_load_hook(precision, **kwargs)
+
             logger.info("Loading %s on %s with %s precision…", self.model_key, self.device, precision)
-            
-            # Load processor
-            processor_class = self._get_processor_class()
-            processor_config = self.config.get('processor_config', {})
-            self.processor = processor_class.from_pretrained(self.model_id, **processor_config)
-            
+
+            # Hook: Load processor (can be customized)
+            self._load_processor(**kwargs)
+
             # Setup pad token for batch processing
             self._setup_pad_token()
-            
+
             # Prepare model loading kwargs
-            model_kwargs = self.config.get('model_config', {}).copy()
-            
-            # Handle quantization
-            quantization_config = self._create_quantization_config(precision)
-            if quantization_config:
-                model_kwargs['quantization_config'] = quantization_config
-            else:
-                model_kwargs['torch_dtype'] = self._get_dtype(precision)
-            
-            # Setup flash attention if requested
-            if use_flash_attention:
-                self._setup_flash_attention(model_kwargs, precision)
-            
-            # Load model
-            model_class = self._get_model_class()
-            self.model = model_class.from_pretrained(self.model_id, **model_kwargs)
-            
+            model_kwargs = self._prepare_model_kwargs(precision, use_flash_attention)
+
+            # Hook: Load model (can be customized)
+            self._load_model(model_kwargs)
+
             # Move to device if not quantized
             if precision not in ["4bit", "8bit"]:
                 self.model.to(self.device)
-            
-            # Setup generation config pad token
-            self._setup_generation_config_pad_token()
-            
+
+            # Hook: Post-load setup
+            self._post_load_hook()
+
             self.model.eval()
             logger.info("%s loaded successfully", self.model_key)
-            
+
         except Exception as e:
             logger.exception("Error loading %s: %s", self.model_key, e)
             raise
+
+    def _pre_load_hook(self, precision: str = None, **kwargs) -> str:
+        """
+        Hook for pre-load validation and setup.
+        Override to add custom validation logic.
+
+        Returns:
+            Validated precision string
+        """
+        precision = precision or self.config.get('default_precision', 'float32')
+
+        # Validate precision against supported_precisions if specified
+        supported_precisions = self.config.get('supported_precisions')
+        if supported_precisions and precision not in supported_precisions:
+            logger.warning(
+                "%s does not support %s precision. Falling back to %s. "
+                "Supported precisions: %s",
+                self.model_key, precision, self.config.get('default_precision', 'float32'),
+                ', '.join(supported_precisions)
+            )
+            precision = self.config.get('default_precision', 'float32')
+
+        return precision
+
+    def _load_processor(self, **kwargs):
+        """
+        Hook for loading processor.
+        Override to use custom processor class or loading logic.
+        """
+        processor_class = self._get_processor_class()
+        processor_config = self.config.get('processor_config', {})
+        self.processor = processor_class.from_pretrained(self.model_id, **processor_config)
+
+    def _prepare_model_kwargs(self, precision: str, use_flash_attention: bool) -> dict:
+        """
+        Prepare model loading kwargs.
+        Override to customize model loading arguments.
+        """
+        model_kwargs = self.config.get('model_config', {}).copy()
+
+        # Handle quantization
+        quantization_config = self._create_quantization_config(precision)
+        if quantization_config:
+            model_kwargs['quantization_config'] = quantization_config
+        else:
+            model_kwargs['torch_dtype'] = self._get_dtype(precision)
+
+        # Setup flash attention if requested
+        if use_flash_attention:
+            self._setup_flash_attention(model_kwargs, precision)
+
+        return model_kwargs
+
+    def _load_model(self, model_kwargs: dict):
+        """
+        Hook for loading model.
+        Override to use custom model class or loading logic.
+        """
+        model_class = self._get_model_class()
+        self.model = model_class.from_pretrained(self.model_id, **model_kwargs)
+
+    def _post_load_hook(self):
+        """
+        Hook for post-load setup.
+        Override to add custom post-load configuration.
+        """
+        # Setup generation config pad token
+        self._setup_generation_config_pad_token()
     
-    def infer_single(self, image: Image.Image, prompt: Optional[str] = None, 
+    def infer_single(self, image: Image.Image, prompt: Optional[str] = None,
                     parameters: Optional[Dict] = None) -> str:
-        """Generate caption for a single image."""
+        """Generate caption for a single image using prompt and response strategies."""
         if not self.is_loaded():
             raise RuntimeError(f"Model {self.model_key} not loaded")
-        
+
         try:
             image = self._ensure_rgb(image)
-            
-            # Prepare inputs
-            if prompt and prompt.strip() and self.supports_prompts():
-                inputs = self.processor(image, prompt.strip(), return_tensors="pt")
-            else:
-                inputs = self.processor(image, return_tensors="pt")
-            
-            # Move to device
-            inputs = {k: v.to(self.device) for k, v in inputs.items()}
-            
+
+            # Use prompt strategy to format inputs
+            inputs = self.prompt_strategy.format_single(
+                self.processor, image, prompt, self.device, self.supports_prompts()
+            )
+
+            # Move inputs to device if not already done by strategy
+            inputs = self._move_inputs_to_device(inputs, match_model_dtype=False)
+
             # Prepare generation parameters
             gen_params = self._filter_generation_params(parameters)
             gen_params = self._sanitize_generation_params(gen_params)
-            
+
             # Generate
             with torch.no_grad():
                 output_ids = self.model.generate(**inputs, **gen_params)
-            
-            # Decode
-            result = self.processor.batch_decode(output_ids, skip_special_tokens=True)[0]
-            
+
+            # Use response strategy to extract result
+            input_ids = inputs.get("input_ids") if isinstance(inputs, dict) else None
+            result = self.response_strategy.extract_single(self.processor, output_ids, input_ids)
+
             # Apply postprocessing if configured
             return self._postprocess(result)
-            
+
         except Exception as e:
             logger.exception("Error generating caption: %s", e)
             return f"Error: {str(e)}"
     
     def infer_batch(self, images: List[Image.Image], prompts: Optional[List[str]] = None,
                    parameters: Optional[Dict] = None) -> List[str]:
-        """Generate captions for multiple images using batch processing."""
+        """Generate captions for multiple images using batch processing with strategies."""
         if not self.is_loaded():
             raise RuntimeError(f"Model {self.model_key} not loaded")
-        
+
         try:
             if prompts is None:
                 prompts = [None] * len(images)
-            
+
             # Ensure RGB
             images = [self._ensure_rgb(img) for img in images]
-            
-            # Prepare inputs
-            if prompts[0] and self.supports_prompts():
-                text_prompts = [p.strip() if p else "" for p in prompts]
-                inputs = self.processor(images=images, text=text_prompts, 
-                                       return_tensors="pt", padding=True)
-            else:
-                inputs = self.processor(images=images, return_tensors="pt", padding=True)
-            
-            # Move to device
-            inputs = {k: v.to(self.device) for k, v in inputs.items()}
-            
+
+            # Use prompt strategy to format inputs
+            inputs = self.prompt_strategy.format_batch(
+                self.processor, images, prompts, self.device, self.supports_prompts()
+            )
+
+            # If strategy returns None, fall back to sequential processing
+            if inputs is None:
+                return [self.infer_single(img, prompt, parameters)
+                       for img, prompt in zip(images, prompts)]
+
+            # Move inputs to device if not already done by strategy
+            inputs = self._move_inputs_to_device(inputs, match_model_dtype=False)
+
             # Prepare generation parameters
             gen_params = self._filter_generation_params(parameters)
             gen_params = self._sanitize_generation_params(gen_params)
-            
+
             # Generate
             with torch.no_grad():
                 output_ids = self.model.generate(**inputs, **gen_params)
-            
-            # Decode
-            results = self.processor.batch_decode(output_ids, skip_special_tokens=True)
-            
+
+            # Use response strategy to extract results
+            input_ids = inputs.get("input_ids") if isinstance(inputs, dict) else None
+            results = self.response_strategy.extract_batch(self.processor, output_ids, input_ids)
+
             # Apply postprocessing
             return [self._postprocess(r) for r in results]
-            
+
         except Exception as e:
             logger.exception("Error in batch generation: %s", e)
             error_msg = f"Error: {str(e)}"
@@ -158,9 +226,7 @@ class HuggingFaceVLMHandler(BaseModelHandler):
     def is_loaded(self) -> bool:
         """Check if model is loaded."""
         return self.model is not None and self.processor is not None
-    
-    # Helper methods
-    
+
     def _get_processor_class(self):
         """Dynamically import and return processor class."""
         processor_name = self.config.get('processor_class', 'AutoProcessor')
@@ -199,125 +265,6 @@ class HuggingFaceVLMHandler(BaseModelHandler):
         else:
             from transformers import AutoModel
             return AutoModel
-    
-    def _ensure_rgb(self, image):
-        """Convert image to RGB if needed."""
-        if isinstance(image, list):
-            return [img.convert('RGB') if img.mode != 'RGB' else img for img in image]
-        return image.convert('RGB') if image.mode != 'RGB' else image
-    
-    def _setup_pad_token(self):
-        """Ensure tokenizer has a pad token."""
-        if hasattr(self.processor, 'tokenizer') and self.processor.tokenizer:
-            if not self.processor.tokenizer.pad_token:
-                self.processor.tokenizer.pad_token = self.processor.tokenizer.eos_token
-    
-    def _setup_generation_config_pad_token(self):
-        """Setup pad_token_id in generation config."""
-        try:
-            if hasattr(self.processor, 'tokenizer'):
-                tok = self.processor.tokenizer
-                pad_id = getattr(tok, 'pad_token_id', None) or getattr(tok, 'eos_token_id', None)
-                if pad_id is not None and hasattr(self.model, 'generation_config'):
-                    self.model.generation_config.pad_token_id = pad_id
-        except Exception:
-            pass
-    
-    def _create_quantization_config(self, precision: str):
-        """Create quantization configuration."""
-        if precision not in ["4bit", "8bit"]:
-            return None
-        
-        try:
-            from transformers import BitsAndBytesConfig
-        except ImportError:
-            logger.warning("BitsAndBytesConfig not available")
-            return None
-        
-        if precision == "4bit":
-            return BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_compute_dtype=torch.float16,
-                bnb_4bit_use_double_quant=True,
-                bnb_4bit_quant_type="nf4"
-            )
-        elif precision == "8bit":
-            return BitsAndBytesConfig(
-                load_in_8bit=True,
-                llm_int8_enable_fp32_cpu_offload=True
-            )
-    
-    def _get_dtype(self, precision: str):
-        """Map precision string to torch dtype."""
-        if precision == "auto":
-            return "auto"
-        precision_map = {
-            "float32": torch.float32,
-            "float16": torch.float16,
-            "bfloat16": torch.bfloat16
-        }
-        return precision_map.get(precision, torch.float32)
-    
-    def _setup_flash_attention(self, model_kwargs: dict, precision: str):
-        """Setup Flash Attention 2 if available."""
-        from utils.torch_utils import force_cpu_mode
-        
-        if force_cpu_mode() or not torch.cuda.is_available():
-            return False
-        
-        try:
-            import flash_attn
-            model_kwargs["attn_implementation"] = "flash_attention_2"
-            if precision not in ["4bit", "8bit"]:
-                model_kwargs["torch_dtype"] = torch.bfloat16
-            logger.info("Using Flash Attention 2")
-            return True
-        except ImportError:
-            logger.debug("Flash Attention not available")
-            return False
-    
-    def _filter_generation_params(self, parameters: Optional[Dict]) -> Dict:
-        """Filter parameters to only include valid generation params."""
-        if not parameters:
-            return {}
-        
-        special_params = self.get_special_params()
-        # Get valid params from config if available
-        available_params = self.config.get('available_parameters', [])
-        if available_params:
-            valid_keys = {p['param_key'] for p in available_params if 'param_key' in p}
-            return {k: v for k, v in parameters.items() 
-                   if k not in special_params and k in valid_keys}
-        else:
-            # If no available_parameters defined, just exclude special params
-            return {k: v for k, v in parameters.items() if k not in special_params}
-    
-    def _sanitize_generation_params(self, parameters: Dict) -> Dict:
-        """Sanitize generation parameters to prevent conflicts."""
-        if not parameters:
-            return {}
-        
-        params = parameters.copy()
-        do_sample = params.get('do_sample', params.get('sample', False))
-        num_beams = params.get('num_beams', 1)
-        
-        # Can't combine sampling with beam search
-        if do_sample and num_beams > 1:
-            logger.warning("Conflicting params: do_sample with num_beams>1")
-            do_sample = False
-            params['do_sample'] = False
-        
-        # Remove sampling params if not sampling
-        if not do_sample or num_beams > 1:
-            for param in ['temperature', 'top_p', 'top_k']:
-                params.pop(param, None)
-        
-        # Remove beam search params if num_beams <= 1
-        if num_beams <= 1:
-            for param in ['length_penalty', 'early_stopping', 'num_beam_groups', 'diversity_penalty']:
-                params.pop(param, None)
-        
-        return params
     
     def _postprocess(self, text: str) -> str:
         """Apply any postprocessing configured for this model."""

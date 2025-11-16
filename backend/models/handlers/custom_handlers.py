@@ -6,9 +6,13 @@ import torch
 from PIL import Image
 from typing import Any, Dict, List, Optional
 import logging
-from transformers import AutoProcessor, VisionEncoderDecoderModel
 from .hf_vlm_handler import HuggingFaceVLMHandler
 from .hf_ocr_handler import HuggingFaceOCRHandler
+from .inference_strategies import (
+    ConversationStrategy, R4BThinkingStrategy,
+    JanusResponseStrategy, ThinkingTagsStrategy,
+
+)
 
 logger = logging.getLogger(__name__)
 
@@ -16,9 +20,17 @@ logger = logging.getLogger(__name__)
 class JanusHandler(HuggingFaceVLMHandler):
     """
     Custom handler for Janus models (requires janus package).
-    Inherits from HF VLM handler with specialized processor handling.
+    Uses conversation strategy for prompts and Janus response extraction.
     """
-    
+
+    def _get_prompt_strategy(self):
+        """Use conversation strategy for Janus."""
+        return ConversationStrategy()
+
+    def _get_response_strategy(self):
+        """Use Janus-specific response extraction."""
+        return JanusResponseStrategy()
+
     def _get_processor_class(self):
         """Import VLChatProcessor from janus package for Janus models."""
         try:
@@ -30,78 +42,23 @@ class JanusHandler(HuggingFaceVLMHandler):
                 "Install it via: pip install git+https://github.com/deepseek-ai/Janus.git"
             )
             raise
-    
+
     def _get_model_class(self):
         """Use AutoModelForCausalLM for Janus."""
         from transformers import AutoModelForCausalLM
         return AutoModelForCausalLM
-    
-    def load(self, precision: str = None, use_flash_attention: bool = False, **kwargs) -> None:
-        """Load Janus model with special processor handling."""
-        try:
-            from utils.torch_utils import pick_device
-            from transformers import AutoImageProcessor
-            
-            self.device = pick_device(torch)
-            
-            precision = precision or self.config.get('default_precision', 'bfloat16')
-            
-            # Validate precision against supported_precisions if specified
-            supported_precisions = self.config.get('supported_precisions')
-            if supported_precisions and precision not in supported_precisions:
-                logger.warning(
-                    "%s does not support %s precision. Falling back to %s. "
-                    "Supported precisions: %s",
-                    self.model_key, precision, self.config.get('default_precision', 'bfloat16'),
-                    ', '.join(supported_precisions)
-                )
-                precision = self.config.get('default_precision', 'bfloat16')
-            
-            logger.info("Loading %s on %s with %s precision…", self.model_key, self.device, precision)
-            
-            # Load Janus-specific processor with explicit fast image processor class
-            processor_class = self._get_processor_class()
-            self.processor = processor_class.from_pretrained(
-                self.model_id,
-                fast_image_processor_class=AutoImageProcessor
-            )
-            
-            # Setup pad token for batch processing
-            self._setup_pad_token()
-            
-            # Prepare model loading kwargs
-            model_kwargs = self.config.get('model_config', {}).copy()
-            
-            # Handle quantization
-            quantization_config = self._create_quantization_config(precision)
-            if quantization_config:
-                model_kwargs['quantization_config'] = quantization_config
-            else:
-                model_kwargs['torch_dtype'] = self._get_dtype(precision)
-            
-            # Setup flash attention if requested
-            if use_flash_attention:
-                self._setup_flash_attention(model_kwargs, precision)
-            
-            # Load model
-            model_class = self._get_model_class()
-            self.model = model_class.from_pretrained(self.model_id, **model_kwargs)
-            
-            # Move to device if not quantized
-            if precision not in ["4bit", "8bit"]:
-                self.model.to(self.device)
-            
-            # Setup generation config pad token
-            self._setup_generation_config_pad_token()
-            
-            self.model.eval()
-            logger.info("%s loaded successfully", self.model_key)
-            
-        except Exception as e:
-            logger.exception("Error loading %s: %s", self.model_key, e)
-            raise
-    
-    def infer_single(self, image: Image.Image, prompt: Optional[str] = None, 
+
+    def _load_processor(self, **kwargs):
+        """Load Janus-specific processor with explicit fast image processor class."""
+        from transformers import AutoImageProcessor
+
+        processor_class = self._get_processor_class()
+        self.processor = processor_class.from_pretrained(
+            self.model_id,
+            fast_image_processor_class=AutoImageProcessor
+        )
+
+    def infer_single(self, image: Image.Image, prompt: Optional[str] = None,
                     parameters: Optional[Dict] = None) -> str:
         """Generate caption using Janus-specific conversation format."""
         if not self.is_loaded():
@@ -258,221 +215,85 @@ class R4BHandler(HuggingFaceVLMHandler):
     """
     Custom handler for R4B model with thinking mode support.
     R4B only supports float32, 4bit, and 8bit precision modes.
+    Uses R4B thinking strategy for prompts and thinking tags extraction for responses.
     """
-    
-    def infer_single(self, image: Image.Image, prompt: Optional[str] = None, 
+
+    def _get_prompt_strategy(self):
+        """Use R4B thinking strategy."""
+        return R4BThinkingStrategy()
+
+    def _get_response_strategy(self):
+        """Use thinking tags extraction strategy."""
+        return ThinkingTagsStrategy()
+
+    def infer_single(self, image: Image.Image, prompt: Optional[str] = None,
                     parameters: Optional[Dict] = None) -> str:
-        """Generate caption with R4B thinking mode support."""
-        if not self.is_loaded():
-            raise RuntimeError(f"Model {self.model_key} not loaded")
-        
-        try:
-            image = self._ensure_rgb(image)
-            
-            # Extract thinking mode
-            thinking_mode = self._extract_thinking_mode(parameters)
-            
-            # Build prompt
-            user_prompt = prompt.strip() if prompt and prompt.strip() else "Describe this image."
-            
-            # R4B requires structured message format with image object
-            messages = [{
-                "role": "user",
-                "content": [
-                    {"type": "image", "image": image},
-                    {"type": "text", "text": user_prompt}
-                ]
-            }]
-            
-            # Apply chat template with thinking_mode parameter
-            text_prompt = self.processor.apply_chat_template(
-                messages, 
-                tokenize=False,
-                add_generation_prompt=True, 
-                thinking_mode=thinking_mode
-            )
-            
-            # Process inputs with the formatted text
-            inputs = self.processor(images=image, text=text_prompt, return_tensors="pt")
-            
-            # Move inputs to device and convert floating point tensors to model dtype
-            inputs = self._move_inputs_to_device(inputs, match_model_dtype=True)
-            
-            # Prepare generation parameters
-            gen_params = self._filter_generation_params(parameters)
-            gen_params = self._sanitize_generation_params(gen_params)
-            
-            # Generate
-            with torch.no_grad():
-                generated_ids = self.model.generate(**inputs, **gen_params)
-            
-            # Decode only the generated portion (skip input tokens)
-            output_ids = generated_ids[0][len(inputs["input_ids"][0]):]
-            result = self.processor.decode(
-                output_ids,
-                skip_special_tokens=True,
-                clean_up_tokenization_spaces=False
-            )
-            
-            # Extract final result (remove thinking tags)
-            return self._extract_final_result(result)
-            
-        except Exception as e:
-            logger.exception("Error with R4B inference: %s", e)
-            return f"Error: {str(e)}"
-    
+        """Generate caption with R4B thinking mode support using strategies."""
+        # Extract and set thinking mode in strategy
+        thinking_mode = self._extract_thinking_mode(parameters)
+        self.prompt_strategy.set_thinking_mode(thinking_mode)
+
+        # Use parent's strategy-based inference
+        return super().infer_single(image, prompt, parameters)
+
+    def infer_batch(self, images: List[Image.Image], prompts: Optional[List[str]] = None,
+                   parameters: Optional[Dict] = None) -> List[str]:
+        """Generate captions for multiple images with R4B thinking mode."""
+        # Extract and set thinking mode in strategy
+        thinking_mode = self._extract_thinking_mode(parameters)
+        self.prompt_strategy.set_thinking_mode(thinking_mode)
+
+        # Use parent's strategy-based inference
+        return super().infer_batch(images, prompts, parameters)
+
     def _extract_thinking_mode(self, parameters: Optional[Dict]) -> str:
         """Extract and validate thinking_mode parameter."""
         if not parameters:
             return 'auto'
         thinking_mode = parameters.get('thinking_mode', 'auto')
         return thinking_mode if thinking_mode in ['auto', 'short', 'long'] else 'auto'
-    
-    def _extract_final_result(self, caption: str) -> str:
-        """Extract final caption from R4B output (removes thinking tags)."""
-        if not caption:
-            return caption
-        if "</think>" in caption:
-            parts = caption.split("</think>")
-            if len(parts) > 1:
-                return parts[-1].replace('\n', ' ').strip()
-        if caption.startswith("Auto-Thinking Output: "):
-            return caption[len("Auto-Thinking Output: "):].strip()
-        return caption.strip()
-    
-    def infer_batch(self, images: List[Image.Image], prompts: Optional[List[str]] = None,
-                   parameters: Optional[Dict] = None) -> List[str]:
-        """Generate captions for multiple images using R4B's chat template format."""
-        if not self.is_loaded():
-            raise RuntimeError(f"Model {self.model_key} not loaded")
-        
-        try:
-            # Ensure all images are RGB
-            images = [self._ensure_rgb(img) for img in images]
-            
-            # Prepare prompts
-            if prompts is None:
-                prompts = [None] * len(images)
-            elif len(prompts) != len(images):
-                raise ValueError(f"Number of prompts ({len(prompts)}) must match number of images ({len(images)})")
-            
-            # Extract thinking mode
-            thinking_mode = self._extract_thinking_mode(parameters)
-            
-            # Build text prompts for each image using chat template
-            text_prompts = []
-            for prompt in prompts:
-                user_prompt = prompt.strip() if prompt and prompt.strip() else "Describe this image in detail."
-                
-                messages = [{
-                    "role": "user",
-                    "content": [
-                        {"type": "image"},
-                        {"type": "text", "text": user_prompt}
-                    ]
-                }]
-                
-                # Apply chat template
-                text_prompt = self.processor.apply_chat_template(
-                    messages, 
-                    tokenize=False,
-                    add_generation_prompt=True, 
-                    thinking_mode=thinking_mode
-                )
-                text_prompts.append(text_prompt)
-            
-            # Process batch with images and text prompts
-            inputs = self.processor(images=images, text=text_prompts, return_tensors="pt", padding=True)
-            
-            # Move inputs to device and match model dtype
-            inputs = self._move_inputs_to_device(inputs, match_model_dtype=True)
-            
-            # Prepare generation parameters
-            gen_params = self._filter_generation_params(parameters)
-            gen_params = self._sanitize_generation_params(gen_params)
-            
-            # Generate
-            with torch.no_grad():
-                generated_ids = self.model.generate(**inputs, **gen_params)
-            
-            # Decode each result, skipping input tokens
-            results = []
-            input_lengths = inputs["input_ids"].shape[1]
-            for i, generated in enumerate(generated_ids):
-                output_ids = generated[input_lengths:]
-                result = self.processor.decode(
-                    output_ids,
-                    skip_special_tokens=True,
-                    clean_up_tokenization_spaces=False
-                )
-                results.append(self._extract_final_result(result))
-            
-            return results
-            
-        except Exception as e:
-            logger.exception("Error in batch R4B generation: %s", e)
-            error_msg = f"Error: {str(e)}"
-            return [error_msg] * len(images)
 
 
 class TrOCRHandler(HuggingFaceOCRHandler):
     """
     Custom handler for TrOCR with doctr text detection support.
-    
+
     Two-stage OCR approach:
     1. Word-level text detection using doctr's ocr_predictor
     2. Text recognition using TrOCR on detected word regions
     3. Intelligent line reconstruction by grouping words based on vertical proximity
     """
-    
+
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
         self.detector = None
-    
-    def load(self, precision: str = None, use_flash_attention: bool = False, **kwargs) -> None:
-        """Load TrOCR model with doctr text detection."""
-        try:
-            from utils.torch_utils import pick_device
-            self.device = pick_device(torch)
-            
-            precision = precision or self.config.get('default_precision', 'float32')
-            use_fast = kwargs.get('use_fast', True)
-            
-            logger.info("Loading %s on %s with %s precision…", self.model_key, self.device, precision)
-            
-            # Load doctr text detector
-            if self.config.get('requires_text_detection'):
-                logger.info("Loading doctr text detector...")
-                from doctr.models import ocr_predictor
-                self.detector = ocr_predictor(pretrained=True)
-            
-            # Load TrOCR processor and model
-            from transformers import TrOCRProcessor, VisionEncoderDecoderModel
-            
-            processor_config = self.config.get('processor_config', {})
-            processor_config['use_fast'] = use_fast
-            self.processor = TrOCRProcessor.from_pretrained(self.model_id, **processor_config)
-            
-            # Prepare model loading
-            model_kwargs = {}
-            quantization_config = self._create_quantization_config(precision)
-            if quantization_config:
-                model_kwargs['quantization_config'] = quantization_config
-            else:
-                model_kwargs['torch_dtype'] = self._get_dtype(precision)
-            
-            self.model = VisionEncoderDecoderModel.from_pretrained(self.model_id, **model_kwargs)
-            
-            if precision not in ["4bit", "8bit"]:
-                self.model.to(self.device)
-            
-            self.model.eval()
-            
-            logger.info("%s loaded successfully", self.model_key)
-            
-        except Exception as e:
-            logger.exception("Error loading %s: %s", self.model_key, e)
-            raise
+
+    def _pre_load_hook(self, precision: str = None, **kwargs) -> str:
+        """Setup precision and load doctr detector if needed."""
+        precision = precision or self.config.get('default_precision', 'float32')
+
+        # Load doctr text detector
+        if self.config.get('requires_text_detection'):
+            logger.info("Loading doctr text detector...")
+            from doctr.models import ocr_predictor
+            self.detector = ocr_predictor(pretrained=True)
+
+        return precision
+
+    def _load_processor(self, **kwargs):
+        """Load TrOCR processor with use_fast option."""
+        from transformers import TrOCRProcessor
+
+        use_fast = kwargs.get('use_fast', True)
+        processor_config = self.config.get('processor_config', {})
+        processor_config['use_fast'] = use_fast
+        self.processor = TrOCRProcessor.from_pretrained(self.model_id, **processor_config)
+
+    def _load_model(self, model_kwargs: dict, precision: str):
+        """Load VisionEncoderDecoderModel for TrOCR."""
+        from transformers import VisionEncoderDecoderModel
+
+        self.model = VisionEncoderDecoderModel.from_pretrained(self.model_id, **model_kwargs)
     
     def _detect_text_regions(self, image: Image.Image) -> List[tuple]:
         """
@@ -802,13 +623,12 @@ class LlavaPhiHandler(HuggingFaceVLMHandler):
     Custom handler for LLaVA-Phi-3 model which requires specific prompt formatting
     and keyword arguments for processor.
     """
-    
-    def load(self, precision: str = "float16", use_flash_attention: bool = False) -> None:
-        """Load model with patch_size workaround for LLaVA processor bug."""
-        # Call parent load first
-        super().load(precision, use_flash_attention)
-        
-        # Fix LLaVA processor bug: patch_size not set
+
+    def _post_load_hook(self):
+        """Fix LLaVA processor bug: patch_size not set."""
+        super()._post_load_hook()
+
+        # Fix patch_size if needed
         if hasattr(self.processor, 'patch_size') and self.processor.patch_size is None:
             if hasattr(self.processor, 'image_processor') and hasattr(self.processor.image_processor, 'patch_size'):
                 self.processor.patch_size = self.processor.image_processor.patch_size
@@ -1101,61 +921,41 @@ class ChandraOCRHandler(HuggingFaceOCRHandler):
     """
     Custom handler for Chandra OCR model which uses the chandra package's generate_hf function.
     """
-    
-    def load(self, precision: str = None, use_flash_attention: bool = False, **kwargs) -> None:
-        """Load Chandra OCR model (only supports float precisions)."""
-        try:
-            from utils.torch_utils import pick_device
-            self.device = pick_device(torch)
-            
-            # Chandra only supports float precisions (no quantization)
-            precision = precision or self.config.get('default_precision', 'bfloat16')
-            supported_precisions = ["float32", "float16", "bfloat16"]
-            if precision not in supported_precisions:
-                logger.warning("Chandra OCR only supports float precisions. Falling back to bfloat16.")
-                precision = "bfloat16"
-            
-            logger.info("Loading %s on %s with %s precision…", self.model_key, self.device, precision)
-            
-            # Load processor
-            processor_config = self.config.get('processor_config', {})
-            self.processor = AutoProcessor.from_pretrained(self.model_id, **processor_config)
-            
-            # Setup pad token
-            self._setup_pad_token()
-            
-            # Prepare model loading kwargs
-            model_kwargs = self.config.get('model_config', {}).copy()
-            model_kwargs['torch_dtype'] = self._get_dtype(precision)
-            
-            # Setup flash attention if requested
-            if use_flash_attention:
-                self._setup_flash_attention(model_kwargs, precision)
-            
-            # Load model
-            from transformers import AutoModelForImageTextToText
-            self.model = AutoModelForImageTextToText.from_pretrained(self.model_id, **model_kwargs)
-            self.model.to(self.device)
-            
-            # Attach processor to model (required by Chandra's generate_hf)
-            self.model.processor = self.processor
-            
-            # Configure generation settings for deterministic OCR output
-            if self.processor.tokenizer.pad_token_id is not None:
-                self.model.generation_config.pad_token_id = self.processor.tokenizer.pad_token_id
-            
-            # Use greedy decoding for deterministic OCR
-            self.model.generation_config.do_sample = False
-            self.model.generation_config.temperature = None
-            self.model.generation_config.top_p = None
-            self.model.generation_config.top_k = None
-            
-            self.model.eval()
-            logger.info("%s loaded successfully", self.model_key)
-            
-        except Exception as e:
-            logger.exception("Error loading %s: %s", self.model_key, e)
-            raise
+
+    def _pre_load_hook(self, precision: str = None, **kwargs) -> str:
+        """Validate that Chandra only uses float precisions (no quantization)."""
+        precision = precision or self.config.get('default_precision', 'bfloat16')
+        supported_precisions = ["float32", "float16", "bfloat16"]
+        if precision not in supported_precisions:
+            logger.warning("Chandra OCR only supports float precisions. Falling back to bfloat16.")
+            precision = "bfloat16"
+        return precision
+
+    def _prepare_model_kwargs(self, precision: str, use_flash_attention: bool) -> dict:
+        """Prepare model kwargs without quantization support."""
+        model_kwargs = self.config.get('model_config', {}).copy()
+        model_kwargs['torch_dtype'] = self._get_dtype(precision)
+
+        # Setup flash attention if requested
+        if use_flash_attention:
+            self._setup_flash_attention(model_kwargs, precision)
+
+        return model_kwargs
+
+    def _post_load_hook(self):
+        """Configure Chandra-specific generation settings."""
+        # Attach processor to model (required by Chandra's generate_hf)
+        self.model.processor = self.processor
+
+        # Configure generation settings for deterministic OCR output
+        if self.processor.tokenizer.pad_token_id is not None:
+            self.model.generation_config.pad_token_id = self.processor.tokenizer.pad_token_id
+
+        # Use greedy decoding for deterministic OCR
+        self.model.generation_config.do_sample = False
+        self.model.generation_config.temperature = None
+        self.model.generation_config.top_p = None
+        self.model.generation_config.top_k = None
     
     def infer_single(self, image: Image.Image, prompt: Optional[str] = None, 
                     parameters: Optional[Dict] = None) -> str:
