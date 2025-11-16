@@ -88,7 +88,7 @@
 
         } catch (error) {
             console.error('Error starting execution:', error);
-            showToast(error.message || 'Failed to start execution');
+            showToast(error.message || 'Failed to start execution', false, null, 'error');
         }
     };
 
@@ -424,7 +424,7 @@
         sessionStorage.removeItem('currentJobId');
         currentJobId = null;
 
-        showToast(`Execution failed: ${error || 'Unknown error'}`);
+        showToast(`Execution failed: ${error || 'Unknown error'}`, false, null, 'error');
     };
 
     // Handle job cancellation
