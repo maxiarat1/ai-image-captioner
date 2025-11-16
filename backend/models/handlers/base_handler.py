@@ -118,3 +118,45 @@ class BaseModelHandler(ABC):
     def supports_batch(self) -> bool:
         """Check if model supports batch processing."""
         return self.config.get('supports_batch', False)
+    
+    def _move_inputs_to_device(self, inputs, match_model_dtype: bool = True):
+        """
+        Move input tensors to device, optionally matching model dtype.
+        
+        Args:
+            inputs: Dictionary of input tensors or object with .to() method
+            match_model_dtype: If True, convert floating point tensors to model's dtype
+            
+        Returns:
+            Inputs moved to device (and optionally converted to model dtype)
+        """
+        import torch
+        
+        # Determine target dtype if needed
+        target_dtype = None
+        if match_model_dtype and self.model is not None:
+            target_dtype = next(self.model.parameters()).dtype
+        
+        # Handle objects with .to() method (like BatchedVLChatProcessorOutput)
+        if hasattr(inputs, 'to') and not isinstance(inputs, dict):
+            if target_dtype is not None:
+                return inputs.to(self.device, dtype=target_dtype)
+            else:
+                return inputs.to(self.device)
+        
+        # Handle dictionary inputs
+        if not isinstance(inputs, dict):
+            return inputs
+        
+        # Convert dictionary inputs
+        if target_dtype is not None:
+            # Convert floating point tensors to target dtype
+            return {
+                k: (v.to(self.device, dtype=target_dtype) if torch.is_floating_point(v) 
+                    else v.to(self.device))
+                for k, v in inputs.items()
+            }
+        else:
+            # Just move to device without dtype conversion
+            return {k: v.to(self.device) if hasattr(v, 'to') else v 
+                   for k, v in inputs.items()}

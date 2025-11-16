@@ -3,7 +3,7 @@ Unified Model Adapter
 Simplified adapter that delegates all work to handlers.
 This replaces the need for individual model adapter files.
 """
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from PIL import Image
 import logging
 from models.handlers.base_handler import BaseModelHandler
@@ -118,7 +118,7 @@ class UnifiedModelAdapter:
         # Otherwise return common parameters based on model type
         model_type = self.config.get('type')
         
-        if model_type in ['hf_vlm', 'hf_vlm_custom', 'hf_ocr', 'hf_ocr_trocr']:
+        if model_type in ['hf_vlm', 'hf_vlm_custom', 'hf_ocr', 'hf_ocr_trocr', 'hf_ocr_custom']:
             return self._get_vlm_parameters()
         elif model_type in ['hf_tagger', 'onnx_tagger']:
             return self._get_tagger_parameters()
@@ -207,6 +207,16 @@ class UnifiedModelAdapter:
                 "step": 1,
                 "description": "Number of beams for beam search (conflicts with do_sample)",
                 "group": "beam_search"
+            },
+            {
+                "name": "Batch Size",
+                "param_key": "batch_size",
+                "type": "number",
+                "min": 1,
+                "max": 16,
+                "step": 1,
+                "description": "Number of images to process simultaneously (higher = faster but more VRAM)",
+                "group": "advanced"
             }
         ]
         
@@ -289,6 +299,16 @@ class UnifiedModelAdapter:
                 "type": "checkbox",
                 "description": "Include confidence scores in output",
                 "group": "general"
+            },
+            {
+                "name": "Batch Size",
+                "param_key": "batch_size",
+                "type": "number",
+                "min": 1,
+                "max": 32,
+                "step": 1,
+                "description": "Number of images to process simultaneously (higher = faster but more VRAM)",
+                "group": "advanced"
             }
         ]
         
@@ -324,6 +344,16 @@ class UnifiedModelAdapter:
                 "type": "checkbox",
                 "description": "Include confidence percentages",
                 "group": "general"
+            },
+            {
+                "name": "Batch Size",
+                "param_key": "batch_size",
+                "type": "number",
+                "min": 1,
+                "max": 32,
+                "step": 1,
+                "description": "Number of images to process simultaneously (higher = faster but more VRAM)",
+                "group": "advanced"
             }
         ]
     
@@ -363,7 +393,7 @@ class UnifiedModelAdapter:
         ]
         
         # VLM and OCR models typically support quantization
-        if model_type in ['hf_vlm', 'hf_vlm_custom', 'hf_ocr', 'hf_ocr_trocr']:
+        if model_type in ['hf_vlm', 'hf_vlm_custom', 'hf_ocr', 'hf_ocr_trocr', 'hf_ocr_custom']:
             options.extend([
                 {"label": "4-bit Quantization", "value": "4bit"},
                 {"label": "8-bit Quantization", "value": "8bit"},

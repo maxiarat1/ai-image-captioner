@@ -99,8 +99,8 @@ class HuggingFaceTaggerHandler(BaseModelHandler):
         try:
             images = [self._ensure_rgb(img) for img in images]
             
-            # Process batch
-            inputs = self.processor(images=images, return_tensors="pt", padding=True)
+            # Process batch (image processors don't support padding parameter)
+            inputs = self.processor(images=images, return_tensors="pt")
             inputs = {k: v.to(self.device) for k, v in inputs.items()}
             
             # Run inference

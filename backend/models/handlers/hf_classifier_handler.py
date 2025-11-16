@@ -70,25 +70,8 @@ class HuggingFaceClassifierHandler(BaseModelHandler):
                 outputs = self.model(**inputs)
                 logits = outputs.logits
             
-            # Get predictions
-            params = parameters or {}
-            top_k = params.get('top_k', 5)
-            add_confidence = params.get('add_confidence', True)
-            
-            # Get top-k predictions
-            probs = torch.nn.functional.softmax(logits[0], dim=0)
-            top_probs, top_indices = torch.topk(probs, min(top_k, len(probs)))
-            
-            # Format results
-            results = []
-            for prob, idx in zip(top_probs, top_indices):
-                label = self.model.config.id2label[idx.item()]
-                if add_confidence:
-                    results.append(f"{label} ({prob.item():.2%})")
-                else:
-                    results.append(label)
-            
-            return ', '.join(results)
+            # Format and return results
+            return self._format_predictions(logits[0], parameters)
             
         except Exception as e:
             logger.exception("Error classifying image: %s", e)
@@ -112,26 +95,8 @@ class HuggingFaceClassifierHandler(BaseModelHandler):
                 outputs = self.model(**inputs)
                 logits = outputs.logits
             
-            # Get predictions for each image
-            params = parameters or {}
-            top_k = params.get('top_k', 5)
-            add_confidence = params.get('add_confidence', True)
-            
-            results = []
-            for logit in logits:
-                probs = torch.nn.functional.softmax(logit, dim=0)
-                top_probs, top_indices = torch.topk(probs, min(top_k, len(probs)))
-                
-                image_results = []
-                for prob, idx in zip(top_probs, top_indices):
-                    label = self.model.config.id2label[idx.item()]
-                    if add_confidence:
-                        image_results.append(f"{label} ({prob.item():.2%})")
-                    else:
-                        image_results.append(label)
-                
-                results.append(', '.join(image_results))
-            
+            # Format predictions for each image
+            results = [self._format_predictions(logit, parameters) for logit in logits]
             return results
             
         except Exception as e:
@@ -144,6 +109,39 @@ class HuggingFaceClassifierHandler(BaseModelHandler):
         return self.model is not None and self.processor is not None
     
     # Helper methods
+    
+    def _format_predictions(self, logits: torch.Tensor, parameters: Optional[Dict] = None) -> str:
+        """
+        Format classification predictions into a string.
+        
+        Args:
+            logits: Model output logits for a single image
+            parameters: Optional parameters controlling output format
+            
+        Returns:
+            Formatted string with classification results
+        """
+        params = parameters or {}
+        top_k = params.get('top_k', 5)
+        # Default to False - confidence must be explicitly enabled
+        add_confidence = bool(params.get('add_confidence', False))
+        
+        logger.debug(f"Classifier formatting: top_k={top_k}, add_confidence={add_confidence}")
+        
+        # Get probabilities
+        probs = torch.nn.functional.softmax(logits, dim=0)
+        top_probs, top_indices = torch.topk(probs, min(top_k, len(probs)))
+        
+        # Build results
+        results = []
+        for prob, idx in zip(top_probs, top_indices):
+            label = self.model.config.id2label[idx.item()]
+            if add_confidence:
+                results.append(f"{label} ({prob.item():.2%})")
+            else:
+                results.append(label)
+        
+        return ', '.join(results)
     
     def _ensure_rgb(self, image):
         """Convert image to RGB if needed."""

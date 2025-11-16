@@ -15,7 +15,11 @@ from models.handlers import (
     ONNXTaggerHandler,
     JanusHandler,
     R4BHandler,
-    TrOCRHandler
+    TrOCRHandler,
+    LFM2Handler,
+    LlavaPhiHandler,
+    NanonetsOCRHandler,
+    ChandraOCRHandler
 )
 
 logger = logging.getLogger(__name__)
@@ -38,6 +42,7 @@ class ModelAdapterFactory:
         'onnx_tagger': ONNXTaggerHandler,
         'hf_ocr_trocr': TrOCRHandler,
         'hf_vlm_custom': None,  # Requires custom_handler lookup
+        'hf_ocr_custom': None,  # Requires custom_handler lookup
     }
     
     # Map custom handler names to classes
@@ -45,6 +50,10 @@ class ModelAdapterFactory:
         'janus': JanusHandler,
         'r4b': R4BHandler,
         'trocr': TrOCRHandler,
+        'lfm2': LFM2Handler,
+        'llava-phi': LlavaPhiHandler,
+        'nanonets-ocr': NanonetsOCRHandler,
+        'chandra-ocr': ChandraOCRHandler,
     }
     
     def __init__(self, config_path: str = None):
@@ -182,31 +191,6 @@ class ModelAdapterFactory:
             Model configuration dict or None if not found
         """
         return self.configs.get(model_key)
-    
-    def get_models_by_category(self, category: str) -> Dict[str, Dict[str, Any]]:
-        """
-        Get all models in a specific category.
-        
-        Args:
-            category: Category name (e.g., 'general', 'anime', 'multimodal')
-            
-        Returns:
-            Dictionary mapping model keys to their configs
-        """
-        return {
-            key: config
-            for key, config in self.configs.items()
-            if config.get('category') == category
-        }
-    
-    def get_categories(self) -> set:
-        """
-        Get set of all categories.
-        
-        Returns:
-            Set of category names
-        """
-        return {config.get('category') for config in self.configs.values() if config.get('category')}
     
     def reload_configs(self):
         """Reload configurations from file."""
