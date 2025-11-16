@@ -77,20 +77,19 @@ class ONNXTaggerHandler(BaseModelHandler):
     
     def infer_batch(self, images: List[Image.Image], prompts: Optional[List[str]] = None,
                    parameters: Optional[Dict] = None) -> List[str]:
-        """Generate tags for multiple images."""
+        """Generate tags for multiple images (processes sequentially as ONNX models expect batch_size=1)."""
         if not self.is_loaded():
             raise RuntimeError(f"Model {self.model_key} not loaded")
         
         try:
-            # Preprocess all images
-            input_arrays = [self._preprocess_image(img) for img in images]
-            batch_input = np.concatenate(input_arrays, axis=0)
+            # Process images sequentially since ONNX models expect batch_size=1
+            results = []
+            for image in images:
+                input_array = self._preprocess_image(image)
+                probs = self.session.run(None, {self.input_name: input_array})[0][0]
+                results.append(self._format_tags(probs, parameters))
             
-            # Run ONNX inference
-            probs_batch = self.session.run(None, {self.input_name: batch_input})[0]
-            
-            # Format tags for each image
-            return [self._format_tags(probs, parameters) for probs in probs_batch]
+            return results
             
         except Exception as e:
             logger.exception("Error in batch tagging: %s", e)

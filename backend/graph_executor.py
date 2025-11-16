@@ -424,7 +424,7 @@ class GraphExecutor:
     ) -> None:
         """Execute an AI model node - just generate captions, don't save."""
         model_name = node['data'].get('model', 'blip')
-        parameters = node['data'].get('parameters', {})
+        parameters = node['data'].get('parameters', {}).copy()
         batch_size = parameters.get('batch_size', 1)
         
         # Get static prompt
@@ -433,13 +433,24 @@ class GraphExecutor:
         # Get precision params
         from config import PRECISION_DEFAULTS
         precision_params = None
-        if model_name in PRECISION_DEFAULTS:
-            defaults = PRECISION_DEFAULTS[model_name]
-            precision_params = {
-                'precision': parameters.get('precision', defaults['precision']),
-                'use_flash_attention': parameters.get('use_flash_attention', 
-                                                     defaults['use_flash_attention'])
-            }
+        
+        # Check if precision or flash attention is specified in parameters
+        if 'precision' in parameters or 'use_flash_attention' in parameters:
+            # Use PRECISION_DEFAULTS as fallback, or model config defaults
+            if model_name in PRECISION_DEFAULTS:
+                defaults = PRECISION_DEFAULTS[model_name]
+                precision_params = {
+                    'precision': parameters.get('precision', defaults['precision']),
+                    'use_flash_attention': parameters.get('use_flash_attention', 
+                                                         defaults['use_flash_attention'])
+                }
+            else:
+                # Model not in PRECISION_DEFAULTS, use only what's in parameters
+                precision_params = {}
+                if 'precision' in parameters:
+                    precision_params['precision'] = parameters['precision']
+                if 'use_flash_attention' in parameters:
+                    precision_params['use_flash_attention'] = parameters['use_flash_attention']
         
         # Load model
         model_adapter = get_model_func(model_name, precision_params)
@@ -488,7 +499,7 @@ class GraphExecutor:
                     state.increment(success=True)
                 
                 # Periodic status update
-                if batch_start % (batch_size * 5) == 0:  # Update every 5 batches
+                if batch_start % (batch_size * 1) == 0:  # Update every batch
                     state.update()
                     
             except Exception as e:
@@ -513,51 +524,29 @@ class GraphExecutor:
         if template:
             parameters['template'] = template
         
-        # Load model
-        from config import PRECISION_DEFAULTS
-        precision_params = None
-        if model_name in PRECISION_DEFAULTS:
-            defaults = PRECISION_DEFAULTS[model_name]
-            precision_params = {
-                'precision': parameters.get('precision', defaults['precision']),
-                'use_flash_attention': parameters.get('use_flash_attention', 
-                                                     defaults['use_flash_attention'])
-            }
+        # TODO: Curate node feature is currently disabled due to missing VLMRouterAdapter
+        # This needs to be reimplemented using the ModelAdapterFactory and a VLM model
+        # to route images based on their content/captions to different ports.
+        # For now, route all images to the default port.
         
-        from models.vlm_router_adapter import VLMRouterAdapter
-        curate_adapter = VLMRouterAdapter(model_name)
-        curate_adapter.load_model(precision_params, get_model_func)
+        logger.warning("Curate node functionality is not implemented - routing all to default port")
         
-        # Load all images
-        image_paths = await self.async_session.get_image_paths_batch(image_ids)
-        images = []
-        for img_id in image_ids:
-            img_path = image_paths.get(img_id)
-            if img_path:
-                images.append(load_image(img_path))
-            else:
-                images.append(None)
+        # Find default port or use first port
+        default_port = next((p['id'] for p in ports if p.get('isDefault')), ports[0]['id'] if ports else None)
         
-        # Route each image and collect by port
+        if default_port is None:
+            logger.error("Curate node has no ports configured")
+            for _ in image_ids:
+                state.increment(success=False)
+            return
+        
+        # Route all images to default port
         routing = {port['id']: [] for port in ports}
-        prev_captions = [captions.get(img_id, '') for img_id in image_ids]
+        routing[default_port] = list(range(len(image_ids)))
         
-        for idx, (image, caption) in enumerate(zip(images, prev_captions)):
-            if image is None:
-                state.increment(success=False)
-                continue
-            
-            try:
-                port_id = curate_adapter.route_image(image, caption, ports, parameters)
-                if port_id not in routing:
-                    port_id = next((p['id'] for p in ports if p.get('isDefault')), ports[0]['id'])
-                routing[port_id].append(idx)
-                state.increment(success=True)
-            except Exception as e:
-                logger.error(f"Routing error: {e}")
-                default_port = next((p['id'] for p in ports if p.get('isDefault')), ports[0]['id'])
-                routing[default_port].append(idx)
-                state.increment(success=False)
+        # Mark all as successful (since we're just passing through)
+        for _ in image_ids:
+            state.increment(success=True)
         
         # Update after routing
         state.update()
