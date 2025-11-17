@@ -8,6 +8,7 @@ from .registry import (
     get_available_models,
     get_model_metadata,
     get_models_by_category,
+    get_factory,
 )
 
 __all__ = [
@@ -17,4 +18,5 @@ __all__ = [
     'get_available_models',
     'get_model_metadata',
     'get_models_by_category',
+    'get_factory',
 ]
