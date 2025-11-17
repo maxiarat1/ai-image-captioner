@@ -3,7 +3,7 @@ Inference Strategies
 Provides reusable strategies for prompt formatting and response extraction.
 """
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional
 from PIL import Image
 import logging
 

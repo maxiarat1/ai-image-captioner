@@ -14,7 +14,7 @@ import time
 import re
 from typing import Dict, List, Optional, Set, Tuple, Callable
 from dataclasses import dataclass
-from database import ExecutionManager, AsyncSessionManager
+from database import ExecutionManager
 from utils.image_utils import load_image
 from flow_control import FlowControlHub, create_processed_data
 

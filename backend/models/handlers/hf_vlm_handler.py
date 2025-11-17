@@ -6,7 +6,6 @@ import torch
 from PIL import Image
 from typing import Any, Dict, List, Optional
 import logging
-from transformers import AutoProcessor, AutoModel
 from .base_handler import BaseModelHandler
 from .inference_strategies import (
     PromptStrategy, ResponseStrategy,

@@ -4,7 +4,7 @@ Handles classification models (ViT, etc.)
 """
 import torch
 from PIL import Image
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 import logging
 from transformers import AutoProcessor, AutoModelForImageClassification
 from .base_handler import BaseModelHandler

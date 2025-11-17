@@ -1,8 +1,6 @@
 import duckdb
 import uuid
-import shutil
 from pathlib import Path
-from datetime import datetime
 from typing import List, Dict, Optional
 from PIL import Image
 import logging
