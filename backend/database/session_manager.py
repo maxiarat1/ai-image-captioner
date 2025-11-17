@@ -376,10 +376,12 @@ class SessionManager:
                 UPDATE images
                 SET caption = ?
                 WHERE image_id = ?
+                RETURNING image_id
             """, (caption, image_id))
 
+            updated = cursor.fetchone()
             conn.commit()
-            return cursor.rowcount > 0
+            return updated is not None
 
         except Exception as e:
             logger.error("Failed to save caption for %s: %s", image_id, e)
@@ -411,8 +413,10 @@ class SessionManager:
                         UPDATE images
                         SET caption = ?
                         WHERE image_id = ?
+                        RETURNING image_id
                     """, (item['caption'], item['image_id']))
-                    if cursor.rowcount > 0:
+                    updated = cursor.fetchone()
+                    if updated is not None:
                         success_count += 1
                 except Exception as e:
                     logger.error("Failed to save caption for %s: %s", item.get('image_id'), e)
