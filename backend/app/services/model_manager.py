@@ -5,8 +5,7 @@ Handles model lifecycle: loading, unloading, caching, and precision parameter ma
 import logging
 from typing import Optional, Dict, Any
 
-from app.models import MODEL_METADATA, validate_model_name, get_available_models
-from config import PRECISION_DEFAULTS
+from app.models import MODEL_METADATA, validate_model_name, get_available_models, get_factory
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +160,11 @@ class ModelManager:
         Returns:
             True if reload is needed, False otherwise
         """
-        if not precision_params or model_name not in PRECISION_DEFAULTS:
+        # Get factory to check if model has precision defaults
+        factory = get_factory()
+        defaults = factory.get_precision_defaults(model_name)
+
+        if not precision_params or not defaults:
             return False
 
         current_model = self.models[model_name]
@@ -207,8 +210,10 @@ class ModelManager:
             else:
                 adapter.load_model()
                 # Set default precision params if available
-                if model_name in PRECISION_DEFAULTS:
-                    adapter.current_precision_params = PRECISION_DEFAULTS[model_name]
+                factory = get_factory()
+                defaults = factory.get_precision_defaults(model_name)
+                if defaults:
+                    adapter.current_precision_params = defaults
 
             self.models[model_name] = adapter
             logger.info("Successfully loaded model: %s", model_name)

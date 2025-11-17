@@ -467,8 +467,12 @@ class GraphExecutor:
             return None
 
         # Get defaults if available for this model
-        from config import PRECISION_DEFAULTS
-        defaults = PRECISION_DEFAULTS.get(model_name, {})
+        from app.models import get_factory
+        factory = get_factory()
+        defaults = factory.get_precision_defaults(model_name)
+
+        if not defaults:
+            defaults = {}
 
         # Merge user parameters with defaults
         return {

@@ -191,6 +191,25 @@ class ModelAdapterFactory:
             Model configuration dict or None if not found
         """
         return self.configs.get(model_key)
+
+    def get_precision_defaults(self, model_key: str) -> Optional[Dict[str, Any]]:
+        """
+        Get precision defaults for a specific model.
+        
+        Args:
+            model_key: Model identifier
+            
+        Returns:
+            Dict with 'precision' and 'use_flash_attention' defaults, or None if model not found
+        """
+        config = self.get_model_config(model_key)
+        if not config:
+            return None
+        
+        return {
+            'precision': config.get('default_precision'),
+            'use_flash_attention': config.get('default_use_flash_attention', False)
+        }
     
     def reload_configs(self):
         """Reload configurations from file."""
