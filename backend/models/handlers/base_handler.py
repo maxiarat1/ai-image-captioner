@@ -7,47 +7,8 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 from PIL import Image
 import logging
-import functools
 
 logger = logging.getLogger(__name__)
-
-
-def handle_inference_errors(error_message_prefix: str = "Error"):
-    """
-    Decorator to handle inference errors with consistent logging and error messages.
-
-    Args:
-        error_message_prefix: Prefix for error messages (e.g., "Error generating caption", "Error in batch tagging")
-
-    Returns:
-        Decorated function that catches exceptions and returns formatted error messages
-    """
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(self, *args, **kwargs):
-            try:
-                return func(self, *args, **kwargs)
-            except Exception as e:
-                logger.exception(f"{error_message_prefix}: %s", e)
-                error_msg = f"Error: {str(e)}"
-
-                # For batch methods, return list of errors
-                if 'batch' in func.__name__:
-                    # Try to get images list from args or kwargs
-                    images = None
-                    if args and hasattr(args[0], '__len__'):
-                        images = args[0]
-                    elif 'images' in kwargs:
-                        images = kwargs['images']
-
-                    if images:
-                        return [error_msg] * len(images)
-
-                # For single methods, return single error string
-                return error_msg
-
-        return wrapper
-    return decorator
 
 
 class BaseModelHandler(ABC):

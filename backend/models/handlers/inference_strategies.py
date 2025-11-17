@@ -238,6 +238,41 @@ class LlavaPhiStrategy(PromptStrategy):
         return {k: v.to(device) for k, v in inputs.items()}
 
 
+class LFM2Strategy(PromptStrategy):
+    """LFM2 model chat template formatting."""
+
+    def format_single(self, processor, image: Image.Image, prompt: Optional[str],
+                     device, supports_prompts: bool) -> Dict:
+        prompt_text = prompt.strip() if prompt and prompt.strip() else "What is in this image?"
+
+        # LFM2 requires conversation format with chat template
+        conversation = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image", "image": image},
+                    {"type": "text", "text": prompt_text},
+                ],
+            },
+        ]
+
+        # Apply chat template to get properly formatted inputs
+        inputs = processor.apply_chat_template(
+            conversation,
+            add_generation_prompt=True,
+            return_tensors="pt",
+            return_dict=True,
+            tokenize=True,
+        )
+
+        return {k: v.to(device) for k, v in inputs.items()}
+
+    def format_batch(self, processor, images: List[Image.Image], prompts: Optional[List[str]],
+                    device, supports_prompts: bool) -> Dict:
+        # LFM2 processes images sequentially, return None to trigger fallback
+        return None
+
+
 # ============================================================================
 # Response Extraction Strategies
 # ============================================================================
