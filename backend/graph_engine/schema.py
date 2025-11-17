@@ -76,7 +76,7 @@ NODE_SCHEMAS: Dict[str, NodeSchema] = {
             1: PortSchema(1, DataType.TEXT, required=False, description="Optional caption input"),
         },
         outputs={
-            0: PortSchema(0, DataType.IMAGE, description="Images routed through default port"),
+            0: PortSchema(0, DataType.TEXT, description="Curated captions"),
         },
         allow_additional_outputs=True
     ),

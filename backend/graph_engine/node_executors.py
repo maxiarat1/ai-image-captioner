@@ -282,10 +282,268 @@ class CurateNodeExecutor(BaseNodeExecutor):
     node_type = 'curate'
 
     async def run(self, node: Dict, ctx: GraphExecutionContext) -> None:
-        logger.warning(
-            "Curate node %s is not yet implemented. Images flow through default path.",
-            node['id']
-        )
+        model_type = node['data'].get('modelType', 'vlm')
+        model_name = node['data'].get('model')
+        ports = node['data'].get('ports', [])
+        template = node['data'].get('template', '')
+        parameters = node['data'].get('parameters', {}).copy()
+        batch_size = parameters.get('batch_size', 1)
+
+        if not model_name:
+            logger.error("Curate node %s has no model selected", node['id'])
+            return
+
+        if not ports:
+            logger.error("Curate node %s has no routing ports defined", node['id'])
+            return
+
+        # Currently only VLM is supported
+        if model_type != 'vlm':
+            logger.error("Curate node %s: Only VLM mode is currently supported", node['id'])
+            return
+
+        ctx.state.set_current_node(node['id'])
+        ctx.state.update()
+
+        # Load the VLM model
+        precision_params = self._resolve_precision_params(model_name, parameters)
+        model_adapter = ctx.get_model_func(model_name, precision_params)
+        if not model_adapter or not model_adapter.is_loaded():
+            raise ValueError(f"Model {model_name} not available")
+
+        # Get captions from upstream nodes
+        input_captions = {}
+        for img_id in ctx.image_ids:
+            caption = None
+            for conn in ctx.plan.upstream.get(node['id'], []):
+                if conn.to_port == 1:  # Caption input port
+                    buffered = ctx.buffers.get_output(conn.source_id, conn.from_port)
+                    if buffered:
+                        caption = str(buffered.get(img_id, '') or '')
+                        if caption:
+                            break
+            
+            # Fallback to generated captions
+            if not caption:
+                caption = ctx.captions.get(img_id, '')
+            
+            input_captions[img_id] = caption
+
+        # Build categorization prompt
+        categorization_prompt = self._build_categorization_prompt(ports)
+
+        # Process images in batches
+        port_outputs = {port['id']: {} for port in ports}
+        
+        for batch_start in range(0, len(ctx.image_ids), batch_size):
+            if ctx.should_cancel:
+                logger.info("Execution cancelled before processing batch starting at %s", batch_start)
+                break
+
+            batch_end = min(batch_start + batch_size, len(ctx.image_ids))
+            batch_ids = ctx.image_ids[batch_start:batch_end]
+
+            try:
+                # Load images
+                images, valid_indices = await self._load_batch_images(ctx, batch_ids, batch_start)
+                if not images:
+                    ctx.state.current_node_processed += len(batch_ids)
+                    continue
+
+                # Evaluate each image
+                for i, img_idx in enumerate(valid_indices):
+                    img_id = ctx.image_ids[img_idx]
+                    image = images[i]
+                    input_caption = input_captions.get(img_id, '')
+
+                    # Ask VLM to categorize the image
+                    vlm_response = model_adapter.generate_caption(image, categorization_prompt, parameters)
+                    
+                    # Determine which port(s) to route to based on VLM response
+                    matched_ports = self._match_response_to_ports(vlm_response, ports)
+                    
+                    # Route to matched ports
+                    for port in matched_ports:
+                        port_id = port['id']
+                        
+                        # Build output using template or pass through caption
+                        if template:
+                            output = self._apply_template(template, port, input_caption, ports)
+                        else:
+                            output = input_caption
+                        
+                        port_outputs[port_id][img_id] = output
+                        
+                        # Update context captions with the output
+                        ctx.captions[img_id] = output
+
+                    ctx.state.increment_progress()
+
+                ctx.state.update()
+
+            except Exception as exc:
+                logger.exception("Batch error in curate node %s: %s", node['id'], exc)
+                ctx.state.current_node_processed += len(batch_ids)
+
+        # Set outputs for each port
+        for port in ports:
+            port_id = port['id']
+            port_num = int(port_id) if isinstance(port_id, str) and port_id.isdigit() else port_id
+            ctx.buffers.set_output(node['id'], port_num, port_outputs[port_id])
+
+        # If terminal node, persist results from all ports
+        if node['id'] in ctx.plan.terminal_nodes:
+            await self._persist_all_port_results(ctx, node, port_outputs, model_adapter, parameters)
+
+        ctx.state.update()
+
+    def _build_categorization_prompt(self, ports: List[Dict]) -> str:
+        """Build a prompt that asks the VLM to categorize the image into one of the ports."""
+        categories = []
+        for i, port in enumerate(ports):
+            label = port.get('label', f'Port {i+1}')
+            instruction = port.get('instruction', '').strip()
+            if instruction:
+                categories.append(f"{label}: {instruction}")
+            else:
+                categories.append(label)
+        
+        categories_text = '\n'.join(f"- {cat}" for cat in categories)
+        
+        prompt = f"""Analyze this image and determine which category best describes it.
+
+Available categories:
+{categories_text}
+
+Respond with ONLY the category name (e.g., "{ports[0].get('label', 'Port 1')}"). Do not add explanations."""
+        
+        return prompt
+
+    def _match_response_to_ports(self, vlm_response: str, ports: List[Dict]) -> List[Dict]:
+        """Match VLM response to port(s) based on label or instruction keywords."""
+        matched = []
+        response_lower = vlm_response.lower().strip()
+        
+        # Try to match by port label first
+        for port in ports:
+            label = port.get('label', '').lower().strip()
+            if label and label in response_lower:
+                matched.append(port)
+                return matched  # Return first match
+        
+        # If no label match, try matching by instruction keywords
+        for port in ports:
+            instruction = port.get('instruction', '').lower().strip()
+            if instruction:
+                # Extract key words from instruction
+                keywords = [w for w in instruction.split() if len(w) > 3]
+                if any(keyword in response_lower for keyword in keywords):
+                    matched.append(port)
+                    return matched
+        
+        # If still no match, default to first port
+        if not matched and ports:
+            logger.warning("Could not match VLM response '%s' to any port, using first port", vlm_response[:50])
+            matched.append(ports[0])
+        
+        return matched
+
+    async def _load_batch_images(
+        self,
+        ctx: GraphExecutionContext,
+        batch_ids: Sequence[str],
+        batch_start: int
+    ) -> Tuple[List, List[int]]:
+        image_paths = await ctx.flow_hub.async_session.get_image_paths_batch(list(batch_ids))
+        images = []
+        valid_indices = []
+        for i, img_id in enumerate(batch_ids):
+            img_path = image_paths.get(img_id)
+            if img_path:
+                images.append(load_image(img_path))
+                valid_indices.append(batch_start + i)
+        return images, valid_indices
+
+    def _apply_template(
+        self,
+        template: str,
+        current_port: Dict,
+        caption: str,
+        all_ports: List[Dict]
+    ) -> str:
+        """Apply template with port-specific placeholders."""
+        result = template
+        
+        # Build placeholder values
+        placeholders = {
+            'caption': caption,
+            current_port['refKey']: current_port.get('label', ''),
+            f"{current_port['refKey']}_label": current_port.get('label', ''),
+            f"{current_port['refKey']}_instruction": current_port.get('instruction', ''),
+        }
+        
+        # Replace placeholders
+        import re
+        placeholder_pattern = re.compile(r'\{([^}]+)\}')
+        
+        def replacer(match):
+            key = match.group(1)
+            return placeholders.get(key, match.group(0))
+        
+        return placeholder_pattern.sub(replacer, result)
+
+    async def _persist_all_port_results(
+        self,
+        ctx: GraphExecutionContext,
+        node: Dict,
+        port_outputs: Dict[str, Dict[str, str]],
+        model_adapter,
+        parameters: Dict
+    ) -> None:
+        """Persist results from all ports to database."""
+        processed_batch = []
+        
+        for port_id, outputs in port_outputs.items():
+            for img_id, caption in outputs.items():
+                if not caption:
+                    continue
+                
+                processed_batch.append(
+                    create_processed_data(
+                        image_id=img_id,
+                        content=caption,
+                        model_name=model_adapter.model_name,
+                        parameters=parameters,
+                        metadata={
+                            'node_id': node['id'],
+                            'node_type': 'curate',
+                            'port_id': port_id,
+                            'model_type': node['data'].get('modelType', 'vlm')
+                        },
+                        sequence_num=ctx.image_ids.index(img_id),
+                        data_type='text'
+                    )
+                )
+        
+        if processed_batch:
+            await ctx.flow_hub.route_batch(processed_batch)
+            for _ in processed_batch:
+                ctx.state.increment(success=True)
+
+    @staticmethod
+    def _resolve_precision_params(model_name: str, parameters: Dict) -> Optional[Dict]:
+        if 'precision' not in parameters and 'use_flash_attention' not in parameters:
+            return None
+
+        from app.models import get_factory
+
+        factory = get_factory()
+        defaults = factory.get_precision_defaults(model_name) or {}
+
+        return {
+            'precision': parameters.get('precision', defaults.get('precision')),
+            'use_flash_attention': parameters.get('use_flash_attention', defaults.get('use_flash_attention'))
+        }
 
 
 class AimodelNodeExecutor(BaseNodeExecutor):
