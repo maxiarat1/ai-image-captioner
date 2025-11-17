@@ -63,7 +63,9 @@ asyncio.create_task(async_session.save_caption(image_id, caption))
 
 ### SessionManager (Sync)
 - `get_image_path(image_id)` - Get single image path
+- `get_image_paths_batch(image_ids)` - Fetch multiple paths in one query
 - `save_caption(image_id, caption)` - Save single caption
+- `save_captions_batch(captions_data)` - Save multiple captions in one transaction
 - `register_folder(folder_path)` - Register all images in folder
 - `register_files(file_metadata_list)` - Pre-register files
 - `list_images(page, per_page, search)` - Paginated list
@@ -79,7 +81,11 @@ asyncio.create_task(async_session.save_caption(image_id, caption))
 - `async save_captions_batch(captions_data)` - Save multiple captions (concurrent)
 - `async get_image_metadata(image_id)` - Get metadata (async)
 - `async list_images(page, per_page, search)` - Paginated list (async)
-- `shutdown()` - Graceful thread pool shutdown
+- `shutdown()` - Graceful thread pool shutdown (delegates to async_helpers)
+
+> **Note:** The async manager now delegates to `SessionManager` for all
+> operations and simply runs them inside the shared thread pool. SQL only
+> lives in one place, so sync and async paths stay consistent automatically.
 
 ## Performance Example
 
@@ -101,8 +107,8 @@ Total: 20,050ms (10% faster, response immediate)
 
 ## Thread Safety
 
-- Each async operation uses thread pool (4 workers)
-- Each thread gets its own DuckDB connection
+- Async operations share the global DB thread pool (4 workers by default)
+- Each SessionManager call opens its own DuckDB connection
 - No shared connection state
 - Safe for concurrent operations
 
