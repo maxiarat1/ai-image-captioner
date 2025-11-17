@@ -35,30 +35,6 @@
         highlightsDiv.scrollLeft = textarea.scrollLeft;
     };
 
-    // Resolve conjunction template with actual values
-    NENodes.resolveConjunctionTemplate = function(node) {
-        if (!node || node.type !== 'conjunction') return '';
-
-        const template = node.data.template || '';
-        if (!template) return '';
-
-        const items = node.data.connectedItems || [];
-        const refMap = {};
-
-        // Build reference map
-        items.forEach(item => {
-            refMap[item.refKey] = item.content;
-        });
-
-        // Replace placeholders with actual content
-        const resolved = template.replace(/\{([^}]+)\}/g, (match, key) => {
-            return refMap[key] !== undefined ? refMap[key] : match;
-        });
-
-        // Escape HTML for display
-        return resolved.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
-    };
-
     // Get conjunction references HTML (separate from body)
     NENodes.getConjunctionReferencesHtml = function(node) {
         const items = node.data.connectedItems || [];
@@ -96,38 +72,10 @@
         `;
     };
 
-    // Update conjunction preview
-    NENodes.updateConjunctionPreview = function(nodeId) {
-        const node = NodeEditor.nodes.find(n => n.id === nodeId);
-        if (!node || node.type !== 'conjunction') return;
-
-        const previewContent = document.querySelector(`#preview-${nodeId} .conjunction-preview-content`);
-        if (!previewContent) return;
-
-        const preview = NENodes.resolveConjunctionTemplate(node);
-        previewContent.innerHTML = preview || '<em style="color: var(--text-secondary);">Empty template</em>';
-
-        // Update recent outputs history (last 5)
-        const historyEl = document.getElementById(`preview-${nodeId}-history`);
-        if (historyEl) {
-            const hist = Array.isArray(node.data.history) ? node.data.history.slice(-5) : [];
-            if (hist.length === 0) {
-                historyEl.innerHTML = '<div style="color: var(--text-secondary); font-size: 0.85rem;">No recent outputs</div>';
-            } else {
-                const escape = (s) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
-                // Show newest first
-                const items = hist.slice().reverse().map(t => `<li class="conjunction-history-item" style="margin: 4px 0; line-height: 1.2;">${escape(t)}</li>`).join('');
-                historyEl.innerHTML = `<ul class="conjunction-history-list" style="padding-left: 16px; margin: 4px 0 0 0;">${items}</ul>`;
-            }
-        }
-    };
-
     // Also expose legacy global aliases in case core.js already assigned them earlier
     try {
         window.highlightPlaceholders = NENodes.highlightPlaceholders;
-        window.resolveConjunctionTemplate = NENodes.resolveConjunctionTemplate;
         window.getConjunctionReferencesHtml = NENodes.getConjunctionReferencesHtml;
-        window.updateConjunctionPreview = NENodes.updateConjunctionPreview;
     } catch (e) {
         // ignore in environments where window is locked down
     }

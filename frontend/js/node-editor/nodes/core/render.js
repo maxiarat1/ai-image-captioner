@@ -23,7 +23,7 @@
             label: '',
             data: type === 'prompt' ? { text: '' } :
                   type === 'aimodel' ? { model: defaultModel, parameters: {}, showAdvanced: false } :
-                  type === 'conjunction' ? { connectedItems: [], template: '', showPreview: false } :
+                  type === 'conjunction' ? { connectedItems: [], template: '' } :
                   type === 'curate' ? {
                       modelType: 'vlm',  // 'vlm', 'classification', 'zero_shot'
                       model: defaultModel,
@@ -368,7 +368,6 @@ Respond with ONLY the exact category name. Do not add explanations.`,
                 templateTextarea.oninput = () => {
                     node.data.template = templateTextarea.value;
                     NENodes.highlightPlaceholders(node.id);
-                    NENodes.updateConjunctionPreview(node.id);
                 };
                 templateTextarea.onscroll = () => {
                     const highlightsDiv = document.getElementById(`node-${node.id}-highlights`);
@@ -380,34 +379,6 @@ Respond with ONLY the exact category name. Do not add explanations.`,
 
                 // Initial highlight
                 NENodes.highlightPlaceholders(node.id);
-            }
-
-            // Preview toggle handler
-            const previewBtn = el.querySelector('.btn-preview');
-            if (previewBtn) {
-                previewBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    node.data.showPreview = !node.data.showPreview;
-
-                    // Update button text and preview visibility
-                    const previewContainer = document.getElementById(`preview-${node.id}`);
-                    if (previewContainer) {
-                        if (node.data.showPreview) {
-                            previewBtn.textContent = '▼ Hide Preview';
-                            previewContainer.classList.remove('hidden');
-                            // Update preview content
-                            NENodes.updateConjunctionPreview(node.id);
-                        } else {
-                            previewBtn.textContent = '▶ Show Preview';
-                            previewContainer.classList.add('hidden');
-                        }
-
-                        // Update connections after toggle animation completes
-                        setTimeout(() => {
-                            if (typeof NEConnections !== 'undefined') NEConnections.updateConnections();
-                        }, 300);
-                    }
-                };
             }
 
             // Add click handlers to reference items to insert at cursor
@@ -439,7 +410,6 @@ Respond with ONLY the exact category name. Do not add explanations.`,
                     // Focus textarea and update highlights
                     textarea.focus();
                     NENodes.highlightPlaceholders(node.id);
-                    NENodes.updateConjunctionPreview(node.id);
                 };
             });
         }

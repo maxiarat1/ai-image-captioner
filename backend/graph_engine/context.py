@@ -24,6 +24,7 @@ class GraphExecutionContext:
     flow_hub: FlowControlHub
     get_model_func: ModelLoader
     prompt_resolver: "PromptResolver"
+    nodes_by_id: Dict[str, Dict]
 
     def __post_init__(self):
         self.buffers = GraphDataStore(self.image_ids)

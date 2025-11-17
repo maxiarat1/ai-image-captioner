@@ -19,7 +19,8 @@ class GraphDataStore:
         self._storage: Dict[str, Dict[int, Dict[str, object]]] = defaultdict(dict)
 
     def set_output(self, node_id: str, port_index: int, values: Dict[str, object]) -> None:
-        self._storage[node_id][port_index] = values
+        port_storage = self._storage[node_id].setdefault(port_index, {})
+        port_storage.update(values)
 
     def get_output(self, node_id: str, port_index: int) -> Dict[str, object]:
         return self._storage.get(node_id, {}).get(port_index, {})

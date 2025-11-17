@@ -56,6 +56,7 @@ class GraphExecutor:
                 flow_hub=self.flow_hub,
                 get_model_func=get_model_func,
                 prompt_resolver=prompt_resolver,
+                nodes_by_id=validated.nodes_by_id,
             )
             ctx.should_cancel = self.should_cancel
             self._active_context = ctx

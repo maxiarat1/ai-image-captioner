@@ -17,8 +17,6 @@
         }
         if (node.type === 'conjunction') {
             const template = node.data.template || '';
-            const showPreview = node.data.showPreview || false;
-            const preview = NENodes.resolveConjunctionTemplate ? NENodes.resolveConjunctionTemplate(node) : '';
 
             return `
                 <div class="conjunction-template-wrapper">
@@ -29,15 +27,6 @@
                         class="conjunction-template"
                         placeholder="Enter prompt template (use {Prompt}, {AI_Model}, etc.)">${template}</textarea>
                     <div id="node-${node.id}-highlights" class="conjunction-highlights"></div>
-                </div>
-                <button class="btn-preview" data-node-id="${node.id}">
-                    ${showPreview ? '▼ Hide Preview' : '▶ Show Preview'}
-                </button>
-                <div class="conjunction-preview ${showPreview ? '' : 'hidden'}" id="preview-${node.id}">
-                    <div class="conjunction-preview-label">Resolved Text:</div>
-                    <div class="conjunction-preview-content">${preview || '<em style="color: var(--text-secondary);">Empty template</em>'}</div>
-                    <div class="conjunction-preview-label" style="margin-top: 8px;">Recent outputs:</div>
-                    <div class="conjunction-preview-history" id="preview-${node.id}-history"></div>
                 </div>
             `;
         }

@@ -8,7 +8,7 @@
         'createPort', 'getOutputPortType', 'getOutputPortName',
         'addOutputPort', 'removeOutputPort', 'updateNodePorts',
         'addNode', 'renderNode', 'getNodeContent',
-        'getConjunctionReferencesHtml', 'highlightPlaceholders', 'resolveConjunctionTemplate', 'updateConjunctionPreview',
+        'getConjunctionReferencesHtml', 'highlightPlaceholders',
         'updateOutputStats', 'resetOutputStats',
         'attachCurateHandlers', 'attachCurateModelDropdownHandlers', 'checkAndAddNewPort', 'filterModelsForCurateType'
     ];

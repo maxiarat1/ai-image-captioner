@@ -5,6 +5,7 @@ Registered node executors for the graph runtime.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from flow_control import create_processed_data
@@ -14,6 +15,15 @@ from .context import GraphExecutionContext
 from .constants import NodePort
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_NODE_LABELS = {
+    'aimodel': 'AI Model',
+    'prompt': 'Prompt',
+    'conjunction': 'Conjunction',
+    'curate': 'Curate',
+    'input': 'Input',
+    'output': 'Output',
+}
 
 
 class BaseNodeExecutor:
@@ -38,19 +48,234 @@ class PromptNodeExecutor(BaseNodeExecutor):
     node_type = 'prompt'
 
     async def run(self, node: Dict, ctx: GraphExecutionContext) -> None:
-        ctx.buffers.set_output(
-            node['id'],
-            NodePort.DEFAULT_OUTPUT,
-            {img_id: node['data'].get('text', '') for img_id in ctx.image_ids}
-        )
+        ctx.state.set_current_node(node['id'])
+        ctx.state.current_node_processed = len(ctx.image_ids)
+        ctx.state.update()
+
+        text = node['data'].get('text', '')
+        outputs = {img_id: text for img_id in ctx.image_ids}
+        ctx.buffers.set_output(node['id'], NodePort.DEFAULT_OUTPUT, outputs)
+
+        if node['id'] in ctx.plan.terminal_nodes:
+            for _ in ctx.image_ids:
+                ctx.state.increment(success=bool(text))
+            await self._persist_results(ctx, node, outputs)
+            ctx.state.update()
+
+    async def _persist_results(
+        self,
+        ctx: GraphExecutionContext,
+        node: Dict,
+        outputs: Dict[str, str]
+    ) -> None:
+        processed_batch = []
+        for sequence_num, img_id in enumerate(ctx.image_ids):
+            caption = outputs.get(img_id, '')
+            if not caption:
+                continue
+            processed_batch.append(
+                create_processed_data(
+                    image_id=img_id,
+                    content=caption,
+                    model_name="prompt",
+                    parameters={},
+                    metadata={'node_id': node['id'], 'node_type': 'prompt'},
+                    sequence_num=sequence_num,
+                    data_type='text'
+                )
+            )
+
+        if processed_batch:
+            await ctx.flow_hub.route_batch(processed_batch)
 
 
 class ConjunctionNodeExecutor(BaseNodeExecutor):
     node_type = 'conjunction'
 
     async def run(self, node: Dict, ctx: GraphExecutionContext) -> None:
-        # Conjunction resolution happens lazily inside PromptResolver.
-        logger.debug("Conjunction node %s evaluated lazily via PromptResolver", node['id'])
+        template = node['data'].get('template', '')
+        connected_items = node['data'].get('connectedItems') or []
+
+        ctx.state.set_current_node(node['id'])
+        ctx.state.current_node_processed = len(ctx.image_ids)
+        ctx.state.update()
+
+        reference_values = self._build_reference_values(node, connected_items, ctx)
+        resolved_outputs = self._resolve_outputs(node, template, reference_values, ctx)
+
+        if not resolved_outputs:
+            logger.warning("Conjunction node %s produced no outputs", node['id'])
+            return
+
+        ctx.buffers.set_output(node['id'], NodePort.DEFAULT_OUTPUT, resolved_outputs)
+
+        is_final_node = node['id'] in ctx.plan.terminal_nodes
+        if is_final_node:
+            for img_id in ctx.image_ids:
+                ctx.state.increment(success=bool(resolved_outputs.get(img_id)))
+            await self._persist_results(ctx, node, resolved_outputs)
+
+        ctx.state.update()
+
+    def _build_reference_values(
+        self,
+        node: Dict,
+        connected_items: List[Dict],
+        ctx: GraphExecutionContext
+    ) -> Dict[str, Dict[str, str]]:
+        values: Dict[str, Dict[str, str]] = {}
+
+        for item in connected_items:
+            ref_key = item.get('refKey')
+            if not ref_key:
+                continue
+            values[ref_key] = self._get_item_values(item, ctx)
+
+        # Ensure standard aliases for upstream nodes (e.g., {AI_Model})
+        for conn in ctx.plan.upstream.get(node['id'], []):
+            source_id = conn.source_id
+            source_node = ctx.nodes_by_id.get(source_id)
+            if not source_node:
+                continue
+
+            node_values = self._get_values_for_source(source_id, source_node, ctx)
+            if not node_values:
+                continue
+
+            for ref_key in self._derive_ref_keys_for_node(source_node):
+                values.setdefault(ref_key, node_values)
+
+        return values
+
+    def _get_item_values(self, item: Dict, ctx: GraphExecutionContext) -> Dict[str, str]:
+        content = item.get('content', '')
+        if content == '[Generated Captions]':
+            return {img_id: ctx.captions.get(img_id, '') for img_id in ctx.image_ids}
+
+        source_id = item.get('sourceId')
+        if source_id:
+            buffered = ctx.buffers.get_output(source_id, NodePort.DEFAULT_OUTPUT)
+            if buffered:
+                return {
+                    img_id: str(buffered.get(img_id, '') or '')
+                    for img_id in ctx.image_ids
+                }
+
+        if content:
+            return {img_id: content for img_id in ctx.image_ids}
+
+        return {img_id: '' for img_id in ctx.image_ids}
+
+    def _get_values_for_source(
+        self,
+        source_id: str,
+        source_node: Dict,
+        ctx: GraphExecutionContext
+    ) -> Optional[Dict[str, str]]:
+        buffered = ctx.buffers.get_output(source_id, NodePort.DEFAULT_OUTPUT)
+        if buffered:
+            return {
+                img_id: str(buffered.get(img_id, '') or '')
+                for img_id in ctx.image_ids
+            }
+
+        if source_node.get('type') == 'aimodel':
+            return {img_id: ctx.captions.get(img_id, '') for img_id in ctx.image_ids}
+
+        return None
+
+    def _derive_ref_keys_for_node(self, node: Dict) -> List[str]:
+        candidates: List[str] = []
+
+        label = node.get('label')
+        if label:
+            sanitized = self._sanitize_label(label)
+            if sanitized:
+                candidates.append(sanitized)
+
+        default_label = DEFAULT_NODE_LABELS.get(node.get('type'))
+        if default_label:
+            sanitized = self._sanitize_label(default_label)
+            if sanitized:
+                candidates.append(sanitized)
+
+        return list(dict.fromkeys(candidates))  # Preserves order, removes duplicates
+
+    @staticmethod
+    def _sanitize_label(label: str) -> str:
+        if not label:
+            return ""
+        sanitized = re.sub(r'\s+', '_', label.strip())
+        sanitized = re.sub(r'[^a-zA-Z0-9_]', '', sanitized)
+        return sanitized[:30]
+
+    def _resolve_outputs(
+        self,
+        node: Dict,
+        template: str,
+        reference_values: Dict[str, Dict[str, str]],
+        ctx: GraphExecutionContext
+    ) -> Dict[str, str]:
+        if not template.strip() and reference_values:
+            # Empty template behaves like a passthrough of the first reference
+            first_key = next(iter(reference_values))
+            return reference_values[first_key]
+
+        placeholder_pattern = re.compile(r'\{([^}]+)\}')
+        missing_keys = set()
+        outputs: Dict[str, str] = {}
+
+        for img_id in ctx.image_ids:
+            def replacer(match):
+                key = match.group(1)
+                value_map = reference_values.get(key)
+                if not value_map:
+                    missing_keys.add(key)
+                    return ''
+                return value_map.get(img_id, '')
+
+            outputs[img_id] = placeholder_pattern.sub(replacer, template or '')
+
+        if missing_keys:
+            logger.debug(
+                "Conjunction node %s missing values for references: %s",
+                node['id'],
+                sorted(missing_keys)
+            )
+
+        return outputs
+
+    async def _persist_results(
+        self,
+        ctx: GraphExecutionContext,
+        node: Dict,
+        outputs: Dict[str, str]
+    ) -> None:
+        processed_batch = []
+
+        for sequence_num, img_id in enumerate(ctx.image_ids):
+            caption = outputs.get(img_id, '')
+            if not caption:
+                continue
+
+            processed_batch.append(
+                create_processed_data(
+                    image_id=img_id,
+                    content=caption,
+                    model_name="conjunction",
+                    parameters={},
+                    metadata={
+                        'node_id': node['id'],
+                        'node_type': 'conjunction',
+                        'template': node['data'].get('template', '')
+                    },
+                    sequence_num=sequence_num,
+                    data_type='text'
+                )
+            )
+
+        if processed_batch:
+            await ctx.flow_hub.route_batch(processed_batch)
 
 
 class CurateNodeExecutor(BaseNodeExecutor):
