@@ -47,6 +47,7 @@ class ProcessedData:
     parameters: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
     sequence_num: int = 0          # For maintaining order in batch operations
+    data_type: str = "text"        # e.g. "text", "tags", "metadata"
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -56,7 +57,8 @@ class ProcessedData:
             'model_name': self.model_name,
             'parameters': self.parameters,
             'metadata': self.metadata,
-            'sequence_num': self.sequence_num
+            'sequence_num': self.sequence_num,
+            'data_type': self.data_type
         }
 
 
@@ -332,7 +334,8 @@ def create_processed_data(
     model_name: str,
     parameters: Optional[Dict] = None,
     metadata: Optional[Dict] = None,
-    sequence_num: int = 0
+    sequence_num: int = 0,
+    data_type: str = "text"
 ) -> ProcessedData:
     """
     Convenience function to create ProcessedData instance.
@@ -354,7 +357,8 @@ def create_processed_data(
         model_name=model_name,
         parameters=parameters or {},
         metadata=metadata or {},
-        sequence_num=sequence_num
+        sequence_num=sequence_num,
+        data_type=data_type
     )
 
 
