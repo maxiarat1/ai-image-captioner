@@ -107,7 +107,7 @@ class BaseModelHandler(ABC):
     
     def get_special_params(self) -> set:
         """Get set of special parameters that shouldn't be passed to model.generate()."""
-        base_params = {'precision', 'use_flash_attention', 'batch_size'}
+        base_params = {'precision', 'use_flash_attention', 'batch_size', 'thinking_mode'}
         special = set(self.config.get('special_params', []))
         return base_params | special
     

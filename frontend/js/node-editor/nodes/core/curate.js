@@ -446,9 +446,11 @@
     NENodes.filterModelsForCurateType = function(availableModels, curateType) {
         if (!availableModels || availableModels.length === 0) return [];
 
-        // For VLM mode: only show models with vlm_capable = true
+        // For VLM mode: only show models with vlm_capable = true AND curate_suitable !== false
         if (curateType === 'vlm') {
-            return availableModels.filter(model => model.vlm_capable === true);
+            return availableModels.filter(model =>
+                model.vlm_capable === true && model.curate_suitable !== false
+            );
         }
 
         // For classification and zero_shot: disabled for now (return empty array)
@@ -456,8 +458,10 @@
             return [];
         }
 
-        // Default fallback: VLM models only
-        return availableModels.filter(model => model.vlm_capable === true);
+        // Default fallback: VLM models only (also filter out non-curate-suitable)
+        return availableModels.filter(model =>
+            model.vlm_capable === true && model.curate_suitable !== false
+        );
     };
 
     try {

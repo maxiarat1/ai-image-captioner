@@ -11,9 +11,17 @@
         const center = NEUtils.wrapperToCanvas(rect.width / 2, rect.height / 2);
 
         // Get default model from available models (first one if available, or let backend decide)
-        const defaultModel = (AppState.availableModels && AppState.availableModels.length > 0)
+        let defaultModel = (AppState.availableModels && AppState.availableModels.length > 0)
             ? AppState.availableModels[0].name
             : AppState.selectedModel || '';
+
+        // For curate nodes, use filtered models to get a suitable default
+        if (type === 'curate' && AppState.availableModels && AppState.availableModels.length > 0) {
+            const filteredModels = NENodes.filterModelsForCurateType
+                ? NENodes.filterModelsForCurateType(AppState.availableModels, 'vlm')
+                : AppState.availableModels;
+            defaultModel = (filteredModels.length > 0) ? filteredModels[0].name : defaultModel;
+        }
 
         const node = {
             id: NodeEditor.nextId++,
