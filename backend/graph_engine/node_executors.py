@@ -484,7 +484,9 @@ Do not include explanations, numbers, or punctuation - just the exact label name
         # Initialize output buffers only for ACTIVE ports
         port_outputs = {port['id']: {} for port in active_ports}
         routing_stats = {port['id']: 0 for port in active_ports}
-        ignored_count = 0  # Track images routed to disconnected ports
+        ignored_count = 0
+        unmatched_count = 0
+        processed_count = 0
 
         for batch_start in range(0, len(ctx.image_ids), batch_size):
             if ctx.should_cancel:
@@ -514,11 +516,18 @@ Do not include explanations, numbers, or punctuation - just the exact label name
                         vlm_response = model_adapter.generate_caption(
                             image, prompt, config['parameters']
                         )
+                        vlm_response = str(vlm_response or '')
+
+                        processed_count += 1
+                        response_preview = (vlm_response or '').strip().replace('\n', ' ')
+                        if len(response_preview) > 200:
+                            response_preview = f"{response_preview[:197]}..."
 
                         logger.debug("Image %s VLM raw response: '%s'", img_id, vlm_response[:100])
 
                         # Route to appropriate port using ALL ports
                         matched_port = self._route_to_port(vlm_response, all_ports, img_id)
+                        routed_label = "none"
 
                         if matched_port:
                             port_id = matched_port['id']
@@ -532,13 +541,25 @@ Do not include explanations, numbers, or punctuation - just the exact label name
                                 # Update context captions
                                 ctx.captions[img_id] = caption
 
+                                routed_label = port_label
                                 logger.debug("Image %s routed to connected port '%s' (%s)",
-                                           img_id, port_label, port_id)
+                                             img_id, port_label, port_id)
                             else:
                                 # Port is not connected - silently ignore
                                 ignored_count += 1
+                                routed_label = f"{port_label} (disconnected)"
                                 logger.debug("Image %s routed to disconnected port '%s' (%s) - ignoring",
-                                           img_id, port_label, port_id)
+                                             img_id, port_label, port_id)
+                        else:
+                            unmatched_count += 1
+
+                        logger.info(
+                            "Curate node %s image %s response='%s' routed_to='%s'",
+                            node['id'],
+                            img_id,
+                            response_preview or '(empty)',
+                            routed_label
+                        )
 
                     except Exception as exc:
                         logger.exception("Error processing image %s in curate node: %s", img_id, exc)
@@ -554,7 +575,14 @@ Do not include explanations, numbers, or punctuation - just the exact label name
                 ctx.state.update()
 
         # Log routing statistics
-        self._log_routing_summary(node['id'], active_ports, routing_stats, ignored_count)
+        could_not_curate = unmatched_count + ignored_count
+        self._log_routing_summary(
+            node['id'],
+            active_ports,
+            routing_stats,
+            processed_count,
+            could_not_curate
+        )
 
         return port_outputs
 
@@ -566,7 +594,6 @@ Do not include explanations, numbers, or punctuation - just the exact label name
         1. Exact label match (case-insensitive)
         2. Partial label match
         3. Keyword match from instruction
-        4. Default to first port as fallback
         """
         response_clean = vlm_response.strip().lower()
 
@@ -609,15 +636,8 @@ Do not include explanations, numbers, or punctuation - just the exact label name
                     logger.debug("Image %s -> Port '%s' (keyword match)", img_id, port.get('label'))
                     return port
 
-        # Fallback: Route to first port
-        if ports:
-            logger.warning(
-                "Image %s: No match for VLM response '%s', routing to default port '%s'",
-                img_id, vlm_response[:50], ports[0].get('label')
-            )
-            return ports[0]
-
-        logger.error("Image %s: No ports available for routing", img_id)
+        if not ports:
+            logger.error("Image %s: No ports available for routing", img_id)
         return None
 
     async def _load_batch_images(
@@ -706,7 +726,7 @@ Do not include explanations, numbers, or punctuation - just the exact label name
                 await ctx.flow_hub.route_batch(processed_batch)
                 for _ in processed_batch:
                     ctx.state.increment(success=True)
-                logger.info("Persisted %d curated results", len(processed_batch))
+                logger.debug("Persisted %d curated results", len(processed_batch))
             except Exception as exc:
                 logger.exception("Error persisting curate results: %s", exc)
 
@@ -722,23 +742,32 @@ Do not include explanations, numbers, or punctuation - just the exact label name
         for idx, port in enumerate(ports):
             port_id = port.get('id', f'port_{idx}')
             port_num = idx + 1  # 1-based port numbers
-            port_label = port.get('label', f'Port {port_num}')
-            port_instruction = port.get('instruction', '')
+            raw_label = port.get('label', f'Port {port_num}')
+            port_label = raw_label.strip() or f'Port {port_num}'
+            port_instruction = (port.get('instruction') or '').strip()
             ref_key = port.get('refKey') or f"port_{port_num}"
 
-            logger.info("Port %d: id=%s, label='%s', instruction='%s'",
-                       port_num, port_id, port_label,
-                       port_instruction[:50] if port_instruction else '(empty)')
+            logger.debug("Port %d: id=%s, label='%s', instruction='%s'",
+                         port_num, port_id, port_label,
+                         port_instruction[:50] if port_instruction else '(empty)')
+
+            # Combined reference text used for {port_refKey}
+            if port_instruction:
+                combined_text = f"{port_label}: {port_instruction}"
+            else:
+                combined_text = port_label
 
             # Add all possible placeholder formats
-            placeholders[ref_key] = port_label
-            placeholders[f"port_{port_num}"] = port_label
+            placeholders[ref_key] = combined_text
+            placeholders[f"port_{port_num}"] = combined_text
+
+            # Legacy placeholders for backward compatibility
             placeholders[f"{ref_key}_label"] = port_label
             placeholders[f"port_{port_num}_label"] = port_label
             placeholders[f"{ref_key}_instruction"] = port_instruction
             placeholders[f"port_{port_num}_instruction"] = port_instruction
 
-        logger.info("Created placeholders: %s", list(placeholders.keys()))
+        logger.debug("Created placeholders: %s", list(placeholders.keys()))
 
         def replacer(match):
             key = match.group(1)
@@ -758,34 +787,29 @@ Do not include explanations, numbers, or punctuation - just the exact label name
 
     def _log_routing_summary(
         self,
-        node_id: str,
+        _node_id: str,
         ports: List[Dict],
         stats: Dict[str, int],
-        ignored_count: int = 0
+        processed_count: int,
+        could_not_curate: int
     ) -> None:
         """Log routing statistics for observability."""
         summary_parts = []
-        total_routed = 0
 
         for port in ports:
             port_id = port['id']
             count = stats.get(port_id, 0)
             label = port.get('label', port_id)
             summary_parts.append(f"{label}: {count}")
-            total_routed += count
 
-        summary = " | ".join(summary_parts) if summary_parts else "no outputs"
+        summary = ", ".join(summary_parts) if summary_parts else "no outputs"
 
-        if ignored_count > 0:
-            logger.info(
-                "Curate node %s routed %d images -> %s (ignored %d to disconnected ports)",
-                node_id, total_routed, summary, ignored_count
-            )
-        else:
-            logger.info(
-                "Curate node %s routed %d images -> %s",
-                node_id, total_routed, summary
-            )
+        logger.info(
+            "%d images curated to %s, couldn't curate:%d",
+            processed_count,
+            summary,
+            could_not_curate
+        )
 
     @staticmethod
     def _resolve_precision_params(model_name: str, parameters: Dict) -> Optional[Dict]:

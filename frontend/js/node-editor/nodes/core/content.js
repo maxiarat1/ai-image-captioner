@@ -249,15 +249,23 @@
                     <div class="curate-port-references" id="curate-refs-${node.id}">
                         <div class="curate-refs-label">Port References (click to insert):</div>
                         <div class="curate-refs-list">
-                            ${ports.map(port => `
-                                <div class="curate-ref-item" data-ref-key="${port.refKey}" data-node-id="${node.id}" title="${port.label}: ${port.instruction || 'No instruction'}">
-                                    <span class="curate-ref-key">{${port.refKey}}</span>
-                                    <span class="curate-ref-label">${port.label}</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                        <div class="curate-refs-help">
-                            Use <code>{port_refKey}</code> for port label, <code>{port_refKey_instruction}</code> for criteria
+                            ${ports.map((port, index) => {
+                                const safeLabel = port.label || `Port ${index + 1}`;
+                                const combinedText = port.instruction
+                                    ? `${safeLabel}: ${port.instruction}`
+                                    : safeLabel;
+                                return `
+                                    <div class="curate-ref-item"
+                                         data-ref-key="${port.refKey}"
+                                         data-node-id="${node.id}"
+                                         title="${combinedText}">
+                                        <div class="curate-ref-top">
+                                            <span class="curate-ref-key">{${port.refKey}}</span>
+                                            <span class="curate-ref-label">${safeLabel}</span>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
                         </div>
                     </div>
                     <div class="curate-template-wrapper">
