@@ -33,7 +33,7 @@
             aimodel: { label: 'AI Model', inputs: ['images', 'prompt'], outputs: ['captions'] },
             curate: {
                 label: 'Curate',
-                inputs: ['images', 'captions'],  // Images and captions from previous nodes
+                inputs: ['images (optional)', 'captions'],  // Images optional, captions from previous nodes
                 outputs: [],  // Dynamic outputs managed at runtime
                 allowDynamicOutputs: true
             },

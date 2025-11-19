@@ -594,7 +594,7 @@
         const ports = node.data.ports || [];
 
         // Build list of valid placeholders
-        const validKeys = [];
+        const validKeys = ['caption'];  // Input caption placeholder
         ports.forEach(port => {
             validKeys.push(port.refKey);
             validKeys.push(`${port.refKey}_label`);

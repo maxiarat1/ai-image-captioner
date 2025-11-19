@@ -511,10 +511,13 @@ Do not include explanations, numbers, or punctuation - just the exact label name
                     image = images[i]
                     caption = input_captions.get(img_id, '')
 
+                    # Replace {caption} placeholder with actual caption for this image
+                    image_prompt = prompt.replace('{caption}', caption)
+
                     # Get VLM categorization
                     try:
                         vlm_response = model_adapter.generate_caption(
-                            image, prompt, config['parameters']
+                            image, image_prompt, config['parameters']
                         )
                         vlm_response = str(vlm_response or '')
 

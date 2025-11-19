@@ -49,38 +49,43 @@
      * Check if two port types are compatible
      */
     function arePortsCompatible(fromPortType, toPortType) {
+        // Strip "(optional)" suffix from port types for comparison
+        const normalizePortType = (type) => type ? type.replace(/\s*\(optional\)\s*$/i, '').trim() : '';
+        const fromType = normalizePortType(fromPortType);
+        const toType = normalizePortType(toPortType);
+
         // Route ports can accept images or text (they're flexible)
-        if (toPortType === 'route') {
+        if (toType === 'route') {
             return true;  // Route ports accept any type
         }
 
         // Route output can connect to images or text inputs
-        if (fromPortType === 'route') {
-            return toPortType === 'images' ||
-                   toPortType === 'text' ||
-                   toPortType === 'prompt' ||
-                   toPortType === 'captions' ||
-                   toPortType === 'data';
+        if (fromType === 'route') {
+            return toType === 'images' ||
+                   toType === 'text' ||
+                   toType === 'prompt' ||
+                   toType === 'captions' ||
+                   toType === 'data';
         }
 
         // Images can only connect to images
-        if (fromPortType === 'images' || toPortType === 'images') {
-            return fromPortType === 'images' && toPortType === 'images';
+        if (fromType === 'images' || toType === 'images') {
+            return fromType === 'images' && toType === 'images';
         }
 
         // Text-based port compatibility rules
         // 'captions' can connect to anything text-based (allows AI chaining)
-        if (fromPortType === 'captions' && ['text', 'prompt', 'captions'].includes(toPortType)) {
+        if (fromType === 'captions' && ['text', 'prompt', 'captions'].includes(toType)) {
             return true;
         }
 
         // 'text' and 'prompt' can connect to each other but NOT to 'captions'
-        if (['text', 'prompt'].includes(fromPortType) && ['text', 'prompt'].includes(toPortType)) {
+        if (['text', 'prompt'].includes(fromType) && ['text', 'prompt'].includes(toType)) {
             return true;
         }
 
         // Data port accepts anything
-        if (toPortType === 'data') {
+        if (toType === 'data') {
             return true;
         }
 

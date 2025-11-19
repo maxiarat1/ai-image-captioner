@@ -247,8 +247,17 @@
                 </button>
                 <div class="curate-template-section ${node.data.showTemplate ? '' : 'hidden'}" id="curate-template-${node.id}">
                     <div class="curate-port-references" id="curate-refs-${node.id}">
-                        <div class="curate-refs-label">Port References (click to insert):</div>
+                        <div class="curate-refs-label">References (click to insert):</div>
                         <div class="curate-refs-list">
+                            <div class="curate-ref-item curate-ref-input"
+                                 data-ref-key="caption"
+                                 data-node-id="${node.id}"
+                                 title="Input caption from upstream node">
+                                <div class="curate-ref-top">
+                                    <span class="curate-ref-key">{caption}</span>
+                                    <span class="curate-ref-label">Input Caption</span>
+                                </div>
+                            </div>
                             ${ports.map((port, index) => {
                                 const safeLabel = port.label || `Port ${index + 1}`;
                                 const combinedText = port.instruction
