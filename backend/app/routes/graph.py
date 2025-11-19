@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 bp = Blueprint('graph', __name__)
 
 
-def init_routes(model_manager, session_manager, async_session_manager, execution_manager, active_executors):
+def init_routes(model_manager, session_manager, flow_control_hub, execution_manager, active_executors):
     """Initialize routes with dependencies."""
 
     @bp.route('/graph/execute', methods=['POST'])
@@ -38,8 +38,8 @@ def init_routes(model_manager, session_manager, async_session_manager, execution
         # Create job
         job_id = execution_manager.create_job(data['graph'], data['image_ids'])
 
-        # Start execution in background thread
-        executor = GraphExecutor(execution_manager, async_session_manager)
+        # Start execution in background thread with Flow Control Hub
+        executor = GraphExecutor(execution_manager, flow_control_hub)
         active_executors[job_id] = executor
 
         def run_executor():

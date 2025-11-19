@@ -13,10 +13,13 @@
         port.dataset.port = portIndex;
 
         // For dynamic output ports (curate node), get the proper port type
+        // Normalize port type by stripping "(optional)" suffix for styling purposes
+        const normalizePortType = (type) => type ? type.replace(/\s*\(optional\)\s*$/i, '').trim() : '';
+
         if (isOutput && typeof NENodes.getOutputPortType === 'function') {
-            port.dataset.portType = NENodes.getOutputPortType(node, portIndex);
+            port.dataset.portType = normalizePortType(NENodes.getOutputPortType(node, portIndex));
         } else {
-            port.dataset.portType = portName;
+            port.dataset.portType = normalizePortType(portName);
         }
 
         const label = document.createElement('span');

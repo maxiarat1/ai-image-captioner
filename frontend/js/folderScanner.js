@@ -46,7 +46,7 @@ async function scanFolder() {
 
     } catch (error) {
         console.error('Error scanning folder:', error);
-        showToast(error.message || 'Failed to scan folder');
+        showToast(error.message || 'Failed to scan folder', false, null, 'error');
     }
 }
 
@@ -156,6 +156,6 @@ async function scanFolderFromFileList(files) {
 
     } catch (error) {
         console.error('Error processing files:', error);
-        showToast(error.message || 'Failed to process files');
+        showToast(error.message || 'Failed to process files', false, null, 'error');
     }
 }

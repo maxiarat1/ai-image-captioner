@@ -105,17 +105,15 @@ class ONNXTaggerHandler(BaseModelHandler):
         if self.session is not None:
             logger.info("Unloading %s model…", self.model_key)
             self.session = None
-    
-    # Helper methods
-    
+
     def _preprocess_image(self, image: Image.Image) -> np.ndarray:
         """WD14-style preprocessing: BGR, pad to square, resize."""
         # Convert to numpy array
         image = np.array(image)
-        
+
         # RGB → BGR
         image = image[:, :, ::-1]
-        
+
         # Pad to square with white background
         size = max(image.shape[0:2])
         pad_x = size - image.shape[1]
@@ -128,42 +126,11 @@ class ONNXTaggerHandler(BaseModelHandler):
             mode="constant",
             constant_values=255,
         )
-        
+
         # Resize to model input size
         interp = cv2.INTER_AREA if size > self.image_size else cv2.INTER_LANCZOS4
         image = cv2.resize(image, (self.image_size, self.image_size), interpolation=interp)
-        
+
         # Convert to float32 and add batch dimension
         image = image.astype(np.float32)
         return np.expand_dims(image, axis=0)
-    
-    def _format_tags(self, probs: np.ndarray, parameters: Optional[Dict]) -> str:
-        """Format prediction probabilities into tag string."""
-        params = parameters or {}
-        threshold = params.get('threshold', 0.35)
-        top_n = params.get('top_n', 50)
-        replace_underscores = params.get('replace_underscores', True)
-        add_confidence = params.get('add_confidence', False)
-        
-        # Get indices of tags above threshold
-        indices = [i for i, p in enumerate(probs) if p >= threshold]
-        
-        # Sort by probability (descending)
-        indices = sorted(indices, key=lambda i: probs[i], reverse=True)
-        
-        # Limit to top_n
-        indices = indices[:top_n]
-        
-        # Format tags
-        tags = []
-        for idx in indices:
-            tag = self.tag_names[idx]
-            if replace_underscores:
-                tag = tag.replace('_', ' ')
-            
-            if add_confidence:
-                tag = f"{tag} ({probs[idx]:.2f})"
-            
-            tags.append(tag)
-        
-        return ', '.join(tags)

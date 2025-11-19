@@ -1,8 +1,6 @@
 import duckdb
 import uuid
-import shutil
 from pathlib import Path
-from datetime import datetime
 from typing import List, Dict, Optional
 from PIL import Image
 import logging
@@ -190,6 +188,34 @@ class SessionManager:
         finally:
             conn.close()
 
+    def get_image_paths_batch(self, image_ids: List[str]) -> Dict[str, Optional[str]]:
+        """
+        Retrieve filesystem paths for multiple images in a single query.
+
+        Args:
+            image_ids: List of IDs to fetch
+
+        Returns:
+            Dict mapping image_id -> file_path (missing IDs omitted)
+        """
+        if not image_ids:
+            return {}
+
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        try:
+            placeholders = ','.join(['?'] * len(image_ids))
+            query = f"""
+                SELECT image_id, file_path
+                FROM images
+                WHERE image_id IN ({placeholders})
+            """
+            cursor.execute(query, image_ids)
+            return {row[0]: row[1] for row in cursor.fetchall()}
+        finally:
+            conn.close()
+
     def list_images(self, page: int = 1, per_page: int = 50, search: str = "") -> Dict:
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -350,14 +376,53 @@ class SessionManager:
                 UPDATE images
                 SET caption = ?
                 WHERE image_id = ?
+                RETURNING image_id
             """, (caption, image_id))
 
+            updated = cursor.fetchone()
             conn.commit()
-            return cursor.rowcount > 0
+            return updated is not None
 
         except Exception as e:
             logger.error("Failed to save caption for %s: %s", image_id, e)
             return False
+        finally:
+            conn.close()
+
+    def save_captions_batch(self, captions_data: List[Dict[str, str]]) -> int:
+        """
+        Save multiple captions in a single transaction.
+
+        Args:
+            captions_data: List containing image_id/caption pairs
+
+        Returns:
+            Number of successfully updated rows
+        """
+        if not captions_data:
+            return 0
+
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        try:
+            success_count = 0
+            for item in captions_data:
+                try:
+                    cursor.execute("""
+                        UPDATE images
+                        SET caption = ?
+                        WHERE image_id = ?
+                        RETURNING image_id
+                    """, (item['caption'], item['image_id']))
+                    updated = cursor.fetchone()
+                    if updated is not None:
+                        success_count += 1
+                except Exception as e:
+                    logger.error("Failed to save caption for %s: %s", item.get('image_id'), e)
+
+            conn.commit()
+            return success_count
         finally:
             conn.close()
 

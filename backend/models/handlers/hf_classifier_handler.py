@@ -4,7 +4,7 @@ Handles classification models (ViT, etc.)
 """
 import torch
 from PIL import Image
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 import logging
 from transformers import AutoProcessor, AutoModelForImageClassification
 from .base_handler import BaseModelHandler
@@ -107,17 +107,15 @@ class HuggingFaceClassifierHandler(BaseModelHandler):
     def is_loaded(self) -> bool:
         """Check if model is loaded."""
         return self.model is not None and self.processor is not None
-    
-    # Helper methods
-    
+
     def _format_predictions(self, logits: torch.Tensor, parameters: Optional[Dict] = None) -> str:
         """
         Format classification predictions into a string.
-        
+
         Args:
             logits: Model output logits for a single image
             parameters: Optional parameters controlling output format
-            
+
         Returns:
             Formatted string with classification results
         """
@@ -125,13 +123,13 @@ class HuggingFaceClassifierHandler(BaseModelHandler):
         top_k = params.get('top_k', 5)
         # Default to False - confidence must be explicitly enabled
         add_confidence = bool(params.get('add_confidence', False))
-        
+
         logger.debug(f"Classifier formatting: top_k={top_k}, add_confidence={add_confidence}")
-        
+
         # Get probabilities
         probs = torch.nn.functional.softmax(logits, dim=0)
         top_probs, top_indices = torch.topk(probs, min(top_k, len(probs)))
-        
+
         # Build results
         results = []
         for prob, idx in zip(top_probs, top_indices):
@@ -140,42 +138,5 @@ class HuggingFaceClassifierHandler(BaseModelHandler):
                 results.append(f"{label} ({prob.item():.2%})")
             else:
                 results.append(label)
-        
+
         return ', '.join(results)
-    
-    def _ensure_rgb(self, image):
-        """Convert image to RGB if needed."""
-        if isinstance(image, list):
-            return [img.convert('RGB') if img.mode != 'RGB' else img for img in image]
-        return image.convert('RGB') if image.mode != 'RGB' else image
-    
-    def _create_quantization_config(self, precision: str):
-        """Create quantization configuration."""
-        if precision not in ["4bit", "8bit"]:
-            return None
-        
-        try:
-            from transformers import BitsAndBytesConfig
-        except ImportError:
-            return None
-        
-        if precision == "4bit":
-            return BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_compute_dtype=torch.float16,
-                bnb_4bit_use_double_quant=True,
-                bnb_4bit_quant_type="nf4"
-            )
-        elif precision == "8bit":
-            return BitsAndBytesConfig(load_in_8bit=True)
-    
-    def _get_dtype(self, precision: str):
-        """Map precision string to torch dtype."""
-        if precision == "auto":
-            return "auto"
-        precision_map = {
-            "float32": torch.float32,
-            "float16": torch.float16,
-            "bfloat16": torch.bfloat16
-        }
-        return precision_map.get(precision, torch.float32)

@@ -1,371 +1,411 @@
-# Guide: Adding a New Model to AI Image Captioner
+# Adding New Models
 
-This guide explains how to add a new AI model to the system. The architecture uses a config-driven approach that makes adding models straightforward - in most cases, you only need to add a single line to a configuration file!
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [Quick Start](#quick-start)
-3. [Step-by-Step Guide](#step-by-step-guide)
-4. [Model Types](#model-types)
-5. [Configuration Options](#configuration-options)
-6. [Advanced: Custom Handlers](#advanced-custom-handlers)
-7. [Complete Example](#complete-example)
-
----
-
-## Overview
-
-The system uses three layers:
-
-```
-┌─────────────────────────────────────┐
-│  models_config.jsonl                │  ← Add your model here (1 line!)
-│  Single-line model definitions      │
-└─────────────────────────────────────┘
-              ↓
-┌─────────────────────────────────────┐
-│  Model Adapter Factory              │  ← Auto-generates adapters
-│  Creates adapters from config       │
-└─────────────────────────────────────┘
-              ↓
-┌─────────────────────────────────────┐
-│  Handlers (by model type)           │  ← Reusable implementations
-│  hf_vlm, hf_tagger, hf_ocr, etc.   │
-└─────────────────────────────────────┘
-```
-
-**Most models** can be added by just editing `models_config.jsonl` - no code changes needed!
-
----
+**99% of models require only a single line of configuration - no coding needed.**
 
 ## Quick Start
 
-### For Standard HuggingFace Models
-
 1. Open `backend/models_config.jsonl`
-2. Add a new line with your model configuration
-3. Restart the backend
-4. Your model is ready to use!
-
-**That's it!** The system will automatically:
-- Create the adapter
-- Load the model
-- Handle inference
-- Add it to the UI
+2. Copy a similar model's configuration line
+3. Edit the model ID and name
+4. Save and restart the backend
 
 ---
 
-## Step-by-Step Guide
+## Table of Contents
 
-### Step 1: Identify Your Model Type
-
-Choose the appropriate type based on what your model does:
-
-| Type | Description | Examples |
-|------|-------------|----------|
-| `hf_vlm` | Vision-Language Models (captioning) | BLIP, BLIP2, LLaVA |
-| `hf_tagger` | Image tagging/classification | WD-ViT, WD-EVA02 |
-| `hf_ocr` | Optical Character Recognition | Nanonets-OCR, Chandra |
-| `hf_classifier` | Standard ImageNet classifiers | ViT, ResNet |
-| `onnx_tagger` | ONNX-based taggers | WD14-ConvNext |
-| `hf_ocr_trocr` | TrOCR-specific models | TrOCR variants |
-| `hf_vlm_custom` | VLMs needing custom logic | Janus, R4B |
-
-### Step 2: Find Required Information
-
-You need these details from HuggingFace:
-
-- **Model ID**: `organization/model-name` (from HuggingFace model card)
-- **Processor Class**: Usually `AutoProcessor` (check model docs)
-- **Model Class**: E.g., `BlipForConditionalGeneration`, `AutoModel`
-
-### Step 3: Add Configuration Line
-
-Open `backend/models_config.jsonl` and add a new line:
-
-```json
-{"model_key": "my-model", "model_id": "org/model-name", "type": "hf_vlm", "processor_class": "AutoProcessor", "model_class": "AutoModelForCausalLM", "category": "general", "description": "My custom model", "vlm_capable": true, "supports_prompts": true, "supports_batch": true, "default_precision": "float32"}
-```
-
-**Important**: Each model must be on a single line (JSONL format).
-
-### Step 4: Restart Backend
-
-```bash
-python backend/app.py
-```
-
-### Step 5: Test Your Model
-
-The model will appear in the UI automatically. Try generating a caption!
+1. [What You Need](#what-you-need)
+2. [Choose Your Model Type](#choose-your-model-type)
+3. [Add the Configuration](#add-the-configuration)
+4. [Common Examples](#common-examples)
+5. [Configuration Reference](#configuration-reference)
+6. [Advanced: Custom Handlers](#advanced-custom-handlers)
+7. [Troubleshooting](#troubleshooting)
 
 ---
 
-## Model Types
+## What You Need
 
-### Vision-Language Models (hf_vlm)
+Before adding a model, get this info from the HuggingFace model page:
 
-**Use for**: Image captioning, visual question answering
+1. **Model ID** - Example: `Salesforce/blip2-opt-2.7b`
+2. **What it does** - Captioning? Tagging? OCR?
+3. **Model type** - Usually in the model card or README
 
-**Example**:
-```json
-{"model_key": "my-vlm", "model_id": "Salesforce/blip2-opt-2.7b", "type": "hf_vlm", "processor_class": "Blip2Processor", "model_class": "Blip2ForConditionalGeneration", "category": "general", "description": "BLIP2 for captioning", "vlm_capable": true, "supports_prompts": true, "supports_batch": true, "default_precision": "bfloat16"}
-```
-
-**Supports**:
-- Text prompts
-- Batch processing
-- Multiple precision modes (float32, float16, bfloat16, 4bit, 8bit)
-- Flash Attention 2
+That's all you need for most models!
 
 ---
 
-### Image Taggers (hf_tagger)
+## Choose Your Model Type
 
-**Use for**: Multi-label classification, anime tagging
+Select the type that matches your model's functionality:
 
-**Example**:
-```json
-{"model_key": "my-tagger", "model_id": "SmilingWolf/wd-vit-large-tagger-v3", "type": "hf_tagger", "processor_class": "AutoImageProcessor", "model_class": "AutoModelForImageClassification", "category": "anime", "description": "Anime tagging model", "vlm_capable": false, "supports_prompts": false, "supports_batch": true, "default_precision": "float32", "requires_tags_csv": true}
-```
+### Image Captioning (VLM)
+- **Type:** `hf_vlm`
+- **Examples:** BLIP, BLIP2, LLaVA, Florence
+- **Use when:** Model generates text descriptions from images
 
-**Note**: Tagger models need a `selected_tags.csv` file in `backend/database/`.
+### Image Tagging
+- **Type:** `hf_tagger`
+- **Examples:** WD-ViT, WD-EVA02
+- **Use when:** Model outputs multiple tags/labels per image
+- **Note:** Requires a `selected_tags.csv` file
+
+### Text Recognition (OCR)
+- **Type:** `hf_ocr`
+- **Examples:** Nanonets-OCR, Chandra
+- **Use when:** Model extracts text from images
+
+### Image Classification
+- **Type:** `hf_classifier`
+- **Examples:** ViT, ResNet
+- **Use when:** Model classifies images into categories
+
+### ONNX Models
+- **Type:** `onnx_tagger`
+- **Examples:** WD14-ConvNext
+- **Use when:** You have an ONNX format model
+
+### Custom Models
+- **Type:** `hf_vlm_custom`
+- **Use when:** Model requires unique handling (rarely needed)
 
 ---
 
-### OCR Models (hf_ocr)
+## Add the Configuration
 
-**Use for**: Text extraction, document understanding
+### Basic Template
 
-**Example**:
+Open `backend/models_config.jsonl` and add ONE line:
+
 ```json
-{"model_key": "my-ocr", "model_id": "nanonets/Nanonets-OCR-s", "type": "hf_ocr", "processor_class": "AutoProcessor", "model_class": "AutoModelForImageTextToText", "category": "ocr", "description": "OCR with table support", "vlm_capable": false, "supports_prompts": false, "supports_batch": true, "default_precision": "bfloat16", "processor_config": {"trust_remote_code": true}, "model_config": {"trust_remote_code": true}}
+{"model_key": "unique-name", "model_id": "huggingface/model-id", "type": "MODEL_TYPE", "processor_class": "AutoProcessor", "model_class": "AutoModel", "category": "general", "description": "Short description", "vlm_capable": true, "supports_prompts": true, "supports_batch": true, "default_precision": "bfloat16"}
+```
+
+**Just change:**
+- `unique-name` → Your choice (lowercase, use hyphens)
+- `huggingface/model-id` → From HuggingFace
+- `MODEL_TYPE` → From table above
+- `description` → What users see in UI
+- Set `vlm_capable`, `supports_prompts` to `true` or `false`
+
+**Then restart:** `python backend/app.py`
+
+---
+
+## Common Examples
+
+### Example 1: Captioning Model (BLIP2)
+
+```json
+{"model_key": "blip2", "model_id": "Salesforce/blip2-opt-2.7b", "type": "hf_vlm", "processor_class": "Blip2Processor", "model_class": "Blip2ForConditionalGeneration", "category": "general", "description": "BLIP2 - Image captioning", "vlm_capable": true, "supports_prompts": true, "supports_batch": true, "default_precision": "bfloat16"}
+```
+
+### Example 2: Anime Tagging Model
+
+```json
+{"model_key": "wd-tagger", "model_id": "SmilingWolf/wd-vit-large-tagger-v3", "type": "hf_tagger", "processor_class": "AutoImageProcessor", "model_class": "AutoModelForImageClassification", "category": "anime", "description": "WD Tagger - Anime tags", "vlm_capable": false, "supports_prompts": false, "supports_batch": true, "default_precision": "float32", "requires_tags_csv": true}
+```
+
+**Don't forget:** Taggers need `selected_tags.csv` in `backend/database/`
+
+### Example 3: OCR Model
+
+```json
+{"model_key": "nanonets-ocr", "model_id": "nanonets/Nanonets-OCR-s", "type": "hf_ocr", "processor_class": "AutoProcessor", "model_class": "AutoModelForImageTextToText", "category": "ocr", "description": "Nanonets OCR", "vlm_capable": false, "supports_prompts": false, "supports_batch": true, "default_precision": "bfloat16", "processor_config": {"trust_remote_code": true}, "model_config": {"trust_remote_code": true}}
+```
+
+### Example 4: ONNX Model (Fast!)
+
+```json
+{"model_key": "wd-onnx", "model_id": "SmilingWolf/wd-v1-4-convnext-tagger-v2", "type": "onnx_tagger", "category": "anime", "description": "Fast WD Tagger (ONNX)", "vlm_capable": false, "supports_prompts": false, "supports_batch": true, "image_size": 448, "requires_tags_csv": true, "input_tensor_name": "input_1:0"}
 ```
 
 ---
 
-### ONNX Models (onnx_tagger)
+## Configuration Reference
 
-**Use for**: Optimized inference with ONNX Runtime
-
-**Example**:
-```json
-{"model_key": "my-onnx", "model_id": "SmilingWolf/wd-v1-4-convnext-tagger-v2", "type": "onnx_tagger", "category": "anime", "description": "Fast ONNX tagging", "vlm_capable": false, "supports_prompts": false, "supports_batch": true, "image_size": 448, "requires_tags_csv": true, "input_tensor_name": "input_1:0"}
-```
-
----
-
-## Configuration Options
-
-### Required Fields
-
-| Field | Description | Example |
-|-------|-------------|---------|
-| `model_key` | Unique identifier (lowercase, use hyphens) | `"blip2"` |
-| `model_id` | HuggingFace model ID | `"Salesforce/blip2-opt-2.7b"` |
-| `type` | Model type (see above) | `"hf_vlm"` |
-| `category` | UI category | `"general"`, `"anime"`, `"ocr"` |
-| `description` | User-facing description | `"Fast image captioning"` |
-
-### HuggingFace Models
-
-| Field | Description | Example |
-|-------|-------------|---------|
-| `processor_class` | Processor class name | `"AutoProcessor"` |
-| `model_class` | Model class name | `"AutoModel"` |
-
-### Capability Flags
-
-| Field | Description | Default |
-|-------|-------------|---------|
-| `vlm_capable` | Can do VLM tasks | `false` |
-| `supports_prompts` | Accepts text prompts | `false` |
-| `supports_batch` | Batch processing | `false` |
-
-### Optional Configuration
-
-| Field | Description | Example |
-|-------|-------------|---------|
-| `default_precision` | Default dtype | `"float32"`, `"bfloat16"` |
-| `supported_precisions` | Limit precision options | `["float32", "4bit", "8bit"]` |
-| `special_params` | Custom parameters | `["thinking_mode"]` |
-| `processor_config` | Processor kwargs | `{"trust_remote_code": true}` |
-| `model_config` | Model kwargs | `{"torch_dtype": "auto"}` |
-| `requires_tags_csv` | Needs tags CSV file | `true` |
-
-### Precision Restrictions
-
-Some models don't support all precision modes. Restrict them using `supported_precisions`:
+### Required Fields (Always Needed)
 
 ```json
-{"model_key": "r4b", ..., "supported_precisions": ["float32", "4bit", "8bit"]}
+{
+  "model_key": "unique-name",           // Your choice, lowercase with hyphens
+  "model_id": "org/model-name",         // From HuggingFace
+  "type": "hf_vlm",                     // See types above
+  "category": "general",                // UI category: general, anime, ocr
+  "description": "What users see"       // Short, clear description
+}
 ```
 
-**Common restrictions**:
-- **BLIP**: `["float32"]` only
-- **BLIP2**: `["float32", "bfloat16"]` only
-- **R4B**: `["float32", "4bit", "8bit"]` (no float16/bfloat16)
+### Common Optional Fields
+
+```json
+{
+  "processor_class": "AutoProcessor",           // Usually AutoProcessor
+  "model_class": "AutoModel",                   // Check HF docs
+  "vlm_capable": true,                          // Can do VLM tasks?
+  "supports_prompts": true,                     // Takes text prompts?
+  "supports_batch": true,                       // Batch processing?
+  "default_precision": "bfloat16"               // float32, float16, bfloat16, 4bit, 8bit
+}
+```
+
+### Advanced Options (Use When Needed)
+
+```json
+{
+  "supported_precisions": ["float32", "4bit"],  // Limit precision choices
+  "processor_config": {"trust_remote_code": true},  // For special models
+  "model_config": {"trust_remote_code": true},      // For special models
+  "requires_tags_csv": true,                        // For taggers only
+  "special_params": ["thinking_mode"]               // Custom parameters
+}
+```
+
+### When to Use `trust_remote_code`
+
+Add this if the model card says "requires trust_remote_code":
+
+```json
+"processor_config": {"trust_remote_code": true},
+"model_config": {"trust_remote_code": true}
+```
+
+### Precision Tips
+
+Most models work with: `"default_precision": "bfloat16"`
+
+If you get errors, try:
+1. `"float32"` - Safest, uses more VRAM
+2. `"4bit"` - For huge models, saves VRAM
+3. Limit with: `"supported_precisions": ["float32", "bfloat16"]`
 
 ---
 
 ## Advanced: Custom Handlers
 
-If your model needs special logic (unique inference, custom preprocessing), create a custom handler.
+**99% of models don't need this!** Only use if your model has truly unique requirements.
 
-### When You Need a Custom Handler
+### When You Actually Need This
 
-- Custom message format (like Janus, R4B)
-- Special preprocessing steps
-- Unique output post-processing
-- Model-specific parameters
+Your model needs custom code if it:
+- Uses a unique conversation format (like Janus)
+- Has special preprocessing not in HuggingFace
+- Needs custom post-processing logic
+- Has model-specific generation methods
+
+**Examples:** Janus, R4B, TrOCR (already included!)
 
 ### Creating a Custom Handler
 
-1. Add handler to `backend/models/handlers/custom_handlers.py`:
+#### Step 1: Create Handler File
+
+Create `backend/models/handlers/my_model_handler.py`:
 
 ```python
-class MyCustomHandler(HuggingFaceVLMHandler):
-    """Custom handler for my model."""
-    
-    def infer_single(self, image: Image.Image, prompt: Optional[str] = None, 
+"""My Custom Model Handler"""
+import logging
+from PIL import Image
+from typing import Dict, Optional
+from .hf_vlm_handler import HuggingFaceVLMHandler
+
+logger = logging.getLogger(__name__)
+
+
+class MyModelHandler(HuggingFaceVLMHandler):
+    """Handler for MyModel with special requirements."""
+
+    def infer_single(self, image: Image.Image, prompt: Optional[str] = None,
                     parameters: Optional[Dict] = None) -> str:
         """Custom inference logic."""
-        # Your custom logic here
-        pass
+        if not self.is_loaded():
+            raise RuntimeError(f"Model {self.model_key} not loaded")
+
+        try:
+            # Your custom logic here
+            # Example: special prompt formatting, unique generation, etc.
+            result = "Your custom inference"
+            return result
+        except Exception as e:
+            logger.exception("Error in custom inference: %s", e)
+            return f"Error: {str(e)}"
 ```
 
-2. Register in `backend/models/adapter_factory.py`:
+#### Step 2: Register Handler
+
+Add to `backend/models/handlers/__init__.py`:
+
+```python
+from .my_model_handler import MyModelHandler
+
+__all__ = [
+    # ... existing handlers ...
+    'MyModelHandler',
+]
+```
+
+#### Step 3: Register in Factory
+
+Add to `CUSTOM_HANDLER_MAP` in `backend/models/adapter_factory.py`:
 
 ```python
 CUSTOM_HANDLER_MAP = {
     'janus': JanusHandler,
     'r4b': R4BHandler,
-    'my_custom': MyCustomHandler,  # Add your handler
+    # ... other handlers ...
+    'my-model': MyModelHandler,  # Add your handler
 }
 ```
 
-3. Use in config with `type: "hf_vlm_custom"`:
+#### Step 4: Use in Config
 
 ```json
-{"model_key": "my-model", "type": "hf_vlm_custom", "custom_handler": "my_custom", ...}
+{"model_key": "my-special-model", "model_id": "org/model", "type": "hf_vlm_custom", "custom_handler": "my-model", "processor_class": "AutoProcessor", "model_class": "AutoModel", "category": "general", "description": "My special model", "vlm_capable": true, "supports_prompts": true, "supports_batch": true, "default_precision": "bfloat16"}
 ```
+
+**Key points:**
+- Handler file name: `my_model_handler.py`
+- Class name: `MyModelHandler` (CamelCase)
+- Registry key: `'my-model'` (lowercase with hyphens)
+- Use `type: "hf_vlm_custom"` in config
 
 ---
 
-## Complete Example
+## Complete Walkthrough: Adding a New Model
 
-Let's add a fictional model called **"SuperVision-7B"** - a new vision-language model.
+Let's add **CogVLM-Chat** step by step!
 
-### Step 1: Gather Information
+### What We Have
 
-From HuggingFace model card:
-- Model ID: `awesome-ai/supervision-7b`
-- Type: Vision-language model (captioning)
-- Processor: `AutoProcessor`
-- Model Class: `AutoModelForVision2Seq`
-- Supports prompts: Yes
-- Works well with: bfloat16
+Looking at HuggingFace page for `THUDM/cogvlm-chat-hf`:
+- It's a captioning model (VLM)
+- Uses standard HuggingFace transformers
+- Supports prompts
+- Works with bfloat16
 
-### Step 2: Create Configuration
+### Step 1: Open Config File
 
+Open `backend/models_config.jsonl` in your editor.
+
+### Step 2: Copy Similar Model
+
+Find a similar model (like BLIP2) and copy its line.
+
+### Step 3: Edit the Line
+
+Change to:
 ```json
-{"model_key": "supervision-7b", "model_id": "awesome-ai/supervision-7b", "type": "hf_vlm", "processor_class": "AutoProcessor", "model_class": "AutoModelForVision2Seq", "category": "general", "description": "SuperVision-7B - Advanced image understanding with 7B parameters", "vlm_capable": true, "supports_prompts": true, "supports_batch": true, "default_precision": "bfloat16", "processor_config": {"trust_remote_code": true}, "model_config": {"trust_remote_code": true}}
+{"model_key": "cogvlm-chat", "model_id": "THUDM/cogvlm-chat-hf", "type": "hf_vlm", "processor_class": "AutoProcessor", "model_class": "AutoModelForCausalLM", "category": "general", "description": "CogVLM - Conversational image understanding", "vlm_capable": true, "supports_prompts": true, "supports_batch": true, "default_precision": "bfloat16"}
 ```
 
-### Step 3: Add to Config File
+### Step 4: Add to End of File
 
-Open `backend/models_config.jsonl` and add the line at the end:
+Paste it as a new line at the bottom of `models_config.jsonl`.
 
-```jsonl
-{"model_key": "blip", ...}
-{"model_key": "blip2", ...}
-...
-{"model_key": "supervision-7b", "model_id": "awesome-ai/supervision-7b", "type": "hf_vlm", "processor_class": "AutoProcessor", "model_class": "AutoModelForVision2Seq", "category": "general", "description": "SuperVision-7B - Advanced image understanding with 7B parameters", "vlm_capable": true, "supports_prompts": true, "supports_batch": true, "default_precision": "bfloat16", "processor_config": {"trust_remote_code": true}, "model_config": {"trust_remote_code": true}}
+### Step 5: Save and Restart
+
+```bash
+# Save the file
+# Then restart backend:
+python backend/app.py
 ```
 
-### Step 4: What Happens Automatically
+### Step 6: Test!
 
-When you restart the backend, the system will:
+The model appears in your UI automatically. Select it and try captioning an image!
 
-1. ✅ Load the configuration from JSONL
-2. ✅ Register the model as `supervision-7b`
-3. ✅ Create a UnifiedModelAdapter using HuggingFaceVLMHandler
-4. ✅ Add these parameters to the UI:
-   - Precision (float32, float16, bfloat16, 4bit, 8bit)
-   - Flash Attention toggle
-   - Max Tokens (10-500)
-   - Do Sample checkbox
-   - Temperature (0.1-2.0, depends on do_sample)
-   - Top P (0.0-1.0, depends on do_sample)
-   - Top K (0-100, depends on do_sample)
-   - Num Beams (1-10)
-5. ✅ Add to "General" category in model selector
-6. ✅ Support batch processing
-7. ✅ Handle model loading with bfloat16 precision
-8. ✅ Support text prompts
+### What Happened Behind the Scenes
 
-### Step 5: Using the Model
+The system automatically:
+- Loaded your configuration
+- Created an adapter with the VLM handler
+- Added UI controls (precision, max tokens, temperature, etc.)
+- Configured batch processing
+- Enabled prompt support
 
-```python
-# In UI or via API
-response = requests.post('/caption', json={
-    'model': 'supervision-7b',
-    'prompt': 'Describe this image in detail.',
-    'parameters': {
-        'max_new_tokens': 200,
-        'do_sample': True,
-        'temperature': 0.7
-    }
-})
-```
+**Result:** Full model integration with a single configuration line.
 
 ---
 
 ## Troubleshooting
 
-### Model not appearing in UI
+### Model Not Showing in UI
 
-1. Check JSONL syntax (use a JSON validator)
+**Checklist:**
+1. Verify each model is on a single line (JSONL format)
 2. Ensure `model_key` is unique
-3. Restart backend completely
+3. Restart the backend completely
 4. Check backend logs for errors
 
-### Model fails to load
+**Quick fix:** Copy a working model's configuration and modify it.
 
-1. Verify `model_id` exists on HuggingFace
-2. Check `processor_class` and `model_class` names
-3. Try adding `"processor_config": {"trust_remote_code": true}`
-4. Check VRAM/RAM requirements
+### Model Won't Load
 
-### Precision errors
+**Try these steps in order:**
+1. Verify model exists on HuggingFace
+2. Set `"default_precision": "float32"` (safest option)
+3. Add `trust_remote_code` if the model card requires it:
+   ```json
+   "processor_config": {"trust_remote_code": true},
+   "model_config": {"trust_remote_code": true}
+   ```
+4. Check VRAM availability - consider 4bit/8bit quantization for large models
 
-Add `supported_precisions` to restrict to working precisions:
+### Precision Errors
+
+Some models only support specific precisions. Restrict them explicitly:
+
 ```json
-"supported_precisions": ["float32", "float16"]
+"supported_precisions": ["float32", "bfloat16"]
 ```
 
-### Model needs special parameters
+**Common configurations:**
+- BLIP: `["float32"]` only
+- Most modern models: `["float32", "bfloat16"]`
 
-Add to `special_params` and handle in handler:
+### Tagger Not Working
+
+**Required steps for tagger models:**
+1. Download `selected_tags.csv` from the model repository
+2. Place it in `backend/database/`
+3. Restart the backend
+
+### Best Practices
+
+1. **Start minimal** - Begin with basic configuration, add options incrementally
+2. **Reference existing models** - Use `models_config.jsonl` as a template source
+3. **Monitor logs** - Backend provides detailed error messages
+4. **Default to float32** - Use this precision when uncertain
+
+---
+
+## Quick Reference
+
+### Minimal VLM Config
 ```json
-"special_params": ["my_custom_param"]
+{"model_key": "name", "model_id": "org/model", "type": "hf_vlm", "processor_class": "AutoProcessor", "model_class": "AutoModel", "category": "general", "description": "Description", "vlm_capable": true, "supports_prompts": true, "supports_batch": true, "default_precision": "bfloat16"}
+```
+
+### Minimal Tagger Config
+```json
+{"model_key": "name", "model_id": "org/model", "type": "hf_tagger", "processor_class": "AutoImageProcessor", "model_class": "AutoModelForImageClassification", "category": "anime", "description": "Description", "vlm_capable": false, "supports_prompts": false, "supports_batch": true, "default_precision": "float32", "requires_tags_csv": true}
+```
+
+### Minimal OCR Config
+```json
+{"model_key": "name", "model_id": "org/model", "type": "hf_ocr", "processor_class": "AutoProcessor", "model_class": "AutoModelForImageTextToText", "category": "ocr", "description": "Description", "vlm_capable": false, "supports_prompts": false, "supports_batch": true, "default_precision": "bfloat16"}
 ```
 
 ---
 
 ## Summary
 
-**For 90% of models**: Just add one line to `models_config.jsonl`!
+**Standard workflow for most models:**
 
-**Key points**:
-- Use correct `type` for your model
-- Set capability flags accurately (`vlm_capable`, `supports_prompts`, etc.)
-- Restrict `supported_precisions` if needed
-- Add `trust_remote_code` if required by model
-- Each config is a single JSON line (JSONL format)
+1. Locate model on HuggingFace
+2. Copy similar configuration from `models_config.jsonl`
+3. Modify `model_key`, `model_id`, and `description`
+4. Save and restart backend
 
-**Need help?**
-- Check existing models in `models_config.jsonl` for examples
-- See handler implementations in `backend/models/handlers/`
+**No coding required** - configuration-driven model integration.
 
+**For reference:** Existing models in `models_config.jsonl` provide working examples.

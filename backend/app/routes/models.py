@@ -30,13 +30,22 @@ def init_routes(model_manager, categories, model_metadata):
     @bp.route('/models', methods=['GET'])
     @handle_route_errors("listing models")
     def list_models():
-        available_models = [
-            {"name": name, "loaded": model_manager.is_loaded(name),
-             "description": model_metadata[name]['description'],
-             "category": model_metadata[name].get('category', 'general'),
-             "vlm_capable": model_metadata[name].get('vlm_capable', False)}
-            for name in model_metadata.keys()
-        ]
+        from app.models import get_factory
+        factory = get_factory()
+
+        available_models = []
+        for name in model_metadata.keys():
+            model_config = factory.get_model_config(name) or {}
+
+            available_models.append({
+                "name": name,
+                "loaded": model_manager.is_loaded(name),
+                "description": model_metadata[name]['description'],
+                "category": model_metadata[name].get('category', 'general'),
+                "vlm_capable": model_metadata[name].get('vlm_capable', False),
+                "curate_suitable": model_config.get('curate_suitable', True)
+            })
+
         return {"models": available_models}
 
     @bp.route('/models/categories', methods=['GET'])

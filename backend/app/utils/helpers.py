@@ -7,7 +7,7 @@ from pathlib import Path
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 
-from config import PRECISION_DEFAULTS
+from app.models import get_factory
 
 
 def extract_precision_params(model_name: str, parameters: Optional[Dict]) -> Optional[Dict[str, any]]:
@@ -21,11 +21,17 @@ def extract_precision_params(model_name: str, parameters: Optional[Dict]) -> Opt
     Returns:
         Dict with precision and use_flash_attention, or None if not applicable
     """
-    # Return None if no parameters provided or model doesn't have precision defaults
-    if not parameters or model_name not in PRECISION_DEFAULTS:
+    # Return None if no parameters provided
+    if not parameters:
         return None
 
-    defaults = PRECISION_DEFAULTS[model_name]
+    # Get defaults from factory
+    factory = get_factory()
+    defaults = factory.get_precision_defaults(model_name)
+
+    # Return None if model doesn't have precision defaults
+    if not defaults:
+        return None
 
     # Extract only precision-related parameters
     return {

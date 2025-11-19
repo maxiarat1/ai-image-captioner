@@ -17,8 +17,6 @@
         }
         if (node.type === 'conjunction') {
             const template = node.data.template || '';
-            const showPreview = node.data.showPreview || false;
-            const preview = NENodes.resolveConjunctionTemplate ? NENodes.resolveConjunctionTemplate(node) : '';
 
             return `
                 <div class="conjunction-template-wrapper">
@@ -29,15 +27,6 @@
                         class="conjunction-template"
                         placeholder="Enter prompt template (use {Prompt}, {AI_Model}, etc.)">${template}</textarea>
                     <div id="node-${node.id}-highlights" class="conjunction-highlights"></div>
-                </div>
-                <button class="btn-preview" data-node-id="${node.id}">
-                    ${showPreview ? '▼ Hide Preview' : '▶ Show Preview'}
-                </button>
-                <div class="conjunction-preview ${showPreview ? '' : 'hidden'}" id="preview-${node.id}">
-                    <div class="conjunction-preview-label">Resolved Text:</div>
-                    <div class="conjunction-preview-content">${preview || '<em style="color: var(--text-secondary);">Empty template</em>'}</div>
-                    <div class="conjunction-preview-label" style="margin-top: 8px;">Recent outputs:</div>
-                    <div class="conjunction-preview-history" id="preview-${node.id}-history"></div>
                 </div>
             `;
         }
@@ -258,17 +247,34 @@
                 </button>
                 <div class="curate-template-section ${node.data.showTemplate ? '' : 'hidden'}" id="curate-template-${node.id}">
                     <div class="curate-port-references" id="curate-refs-${node.id}">
-                        <div class="curate-refs-label">Port References (click to insert):</div>
+                        <div class="curate-refs-label">References (click to insert):</div>
                         <div class="curate-refs-list">
-                            ${ports.map(port => `
-                                <div class="curate-ref-item" data-ref-key="${port.refKey}" data-node-id="${node.id}" title="${port.label}: ${port.instruction || 'No instruction'}">
-                                    <span class="curate-ref-key">{${port.refKey}}</span>
-                                    <span class="curate-ref-label">${port.label}</span>
+                            <div class="curate-ref-item curate-ref-input"
+                                 data-ref-key="caption"
+                                 data-node-id="${node.id}"
+                                 title="Input caption from upstream node">
+                                <div class="curate-ref-top">
+                                    <span class="curate-ref-key">{caption}</span>
+                                    <span class="curate-ref-label">Input Caption</span>
                                 </div>
-                            `).join('')}
-                        </div>
-                        <div class="curate-refs-help">
-                            Use <code>{port_refKey}</code> for port label, <code>{port_refKey_instruction}</code> for criteria
+                            </div>
+                            ${ports.map((port, index) => {
+                                const safeLabel = port.label || `Port ${index + 1}`;
+                                const combinedText = port.instruction
+                                    ? `${safeLabel}: ${port.instruction}`
+                                    : safeLabel;
+                                return `
+                                    <div class="curate-ref-item"
+                                         data-ref-key="${port.refKey}"
+                                         data-node-id="${node.id}"
+                                         title="${combinedText}">
+                                        <div class="curate-ref-top">
+                                            <span class="curate-ref-key">{${port.refKey}}</span>
+                                            <span class="curate-ref-label">${safeLabel}</span>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
                         </div>
                     </div>
                     <div class="curate-template-wrapper">

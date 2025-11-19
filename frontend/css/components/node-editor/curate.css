@@ -397,8 +397,9 @@
 
 /* Reference Chip */
 .curate-ref-item {
-    display: inline-flex;
-    align-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
     gap: 6px;
     padding: 6px 10px;
     background: var(--bg-secondary);
@@ -420,6 +421,13 @@
     transform: translateY(0);
 }
 
+.curate-ref-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+}
+
 .curate-ref-key {
     font-weight: 600;
     color: var(--curate-color);
@@ -428,8 +436,14 @@
 }
 
 .curate-ref-label {
-    color: var(--text-secondary);
+    color: var(--text-primary);
     font-size: 0.85em;
+    font-weight: 600;
+}
+
+.curate-ref-instruction {
+    font-size: 0.75em;
+    color: var(--text-secondary);
 }
 
 .curate-refs-help {
@@ -451,7 +465,8 @@
 /* Template Editor Wrapper */
 .curate-template-wrapper {
     position: relative;
-    padding: 16px;
+    padding-top: 16px;
+    padding-bottom: 16px;
 }
 
 /* Template Textarea */
@@ -459,7 +474,6 @@
     position: relative;
     width: 100%;
     min-height: 120px;
-    padding: var(--spacing-sm);
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
@@ -472,6 +486,12 @@
     white-space: pre-wrap;
     word-wrap: break-word;
     transition: border-color var(--transition-smooth), box-shadow var(--transition-smooth);
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+}
+
+.curate-template::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, and Opera */
 }
 
 .curate-template:focus {

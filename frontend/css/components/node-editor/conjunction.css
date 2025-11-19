@@ -2,45 +2,6 @@
    Node Editor - Conjunction Node Specific Styles
    ============================================================================ */
 
-/* Conjunction Preview */
-.conjunction-preview {
-    margin-top: var(--spacing-sm);
-    padding: var(--spacing-sm);
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    animation: slideDown 0.3s ease;
-    transform-origin: top;
-}
-
-.conjunction-preview.hidden {
-    display: none;
-}
-
-.conjunction-preview-label {
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    margin-bottom: 6px;
-}
-
-.conjunction-preview-content {
-    padding: var(--spacing-sm);
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    color: var(--text-primary);
-    font-family: var(--font-primary);
-    font-size: 0.85rem;
-    line-height: 1.5;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    max-height: 200px;
-    overflow-y: auto;
-}
-
 /* Conjunction Node - References Section (outside node-body) */
 .conjunction-references {
     padding: 16px;

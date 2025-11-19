@@ -8,7 +8,13 @@ from .hf_tagger_handler import HuggingFaceTaggerHandler
 from .hf_ocr_handler import HuggingFaceOCRHandler
 from .hf_classifier_handler import HuggingFaceClassifierHandler
 from .onnx_tagger_handler import ONNXTaggerHandler
-from .custom_handlers import JanusHandler, R4BHandler, TrOCRHandler, LFM2Handler, LlavaPhiHandler, NanonetsOCRHandler, ChandraOCRHandler
+from .janus_handler import JanusHandler
+from .r4b_handler import R4BHandler
+from .trocr_handler import TrOCRHandler
+from .lfm2_handler import LFM2Handler
+from .llava_phi_handler import LlavaPhiHandler
+from .nanonets_ocr_handler import NanonetsOCRHandler
+from .chandra_ocr_handler import ChandraOCRHandler
 
 __all__ = [
     'BaseModelHandler',

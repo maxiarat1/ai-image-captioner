@@ -88,7 +88,7 @@
 
         } catch (error) {
             console.error('Error starting execution:', error);
-            showToast(error.message || 'Failed to start execution');
+            showToast(error.message || 'Failed to start execution', false, null, 'error');
         }
     };
 
@@ -213,7 +213,22 @@
         return chain.map(n => n.id);
     };
 
-    // Highlight the node corresponding to the current stage (1-based)
+    // Highlight node by ID (used for dynamic highlighting during execution)
+    NEExec._highlightProcessingNodeById = function(nodeId) {
+        // Clear previous highlights first
+        document.querySelectorAll('.node.processing').forEach(el => el.classList.remove('processing'));
+
+        // Highlight the current node
+        if (nodeId) {
+            const el = document.getElementById(`node-${nodeId}`);
+            if (el) {
+                el.classList.add('processing');
+            }
+        }
+    };
+
+    // Highlight the node corresponding to the current stage (1-based) - DEPRECATED
+    // Kept for backward compatibility, but no longer used
     NEExec._highlightProcessingNode = function(stageIndex) {
         // Clear previous highlights first (cheap and safe)
         document.querySelectorAll('.node.processing').forEach(el => el.classList.remove('processing'));
@@ -295,8 +310,7 @@
 
         // Update toast with progress
         if (jobStatus === 'running') {
-            const stageText = total_stages > 1 ? `Stage ${current_stage}/${total_stages}: ` : '';
-            const progressText = `${stageText}${processed}/${total}`;
+            const progressText = `${processed}/${total}`;
             const progressPct = processed / total;
 
             showToast(progressText, true, progressPct);
@@ -309,15 +323,18 @@
                     processed,
                     success,
                     failed,
-                    stage: total_stages > 1 ? `${current_stage}/${total_stages}` : '',
+                    stage: '',  // No longer using stage-based tracking
                     speed: progress?.speed || '',
                     eta: progress?.eta || '',
                     resultsReady: 0
                 });
             }
 
-            // Update per-node processing highlight
-            NEExec._highlightProcessingNode(current_stage || 1);
+            // Update per-node processing highlight based on current_node_id
+            const currentNodeId = progress?.current_node_id;
+            if (currentNodeId) {
+                NEExec._highlightProcessingNodeById(currentNodeId);
+            }
         }
 
         // Handle terminal states
@@ -407,7 +424,7 @@
         sessionStorage.removeItem('currentJobId');
         currentJobId = null;
 
-        showToast(`Execution failed: ${error || 'Unknown error'}`);
+        showToast(`Execution failed: ${error || 'Unknown error'}`, false, null, 'error');
     };
 
     // Handle job cancellation

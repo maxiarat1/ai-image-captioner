@@ -11,9 +11,17 @@
         const center = NEUtils.wrapperToCanvas(rect.width / 2, rect.height / 2);
 
         // Get default model from available models (first one if available, or let backend decide)
-        const defaultModel = (AppState.availableModels && AppState.availableModels.length > 0)
+        let defaultModel = (AppState.availableModels && AppState.availableModels.length > 0)
             ? AppState.availableModels[0].name
             : AppState.selectedModel || '';
+
+        // For curate nodes, use filtered models to get a suitable default
+        if (type === 'curate' && AppState.availableModels && AppState.availableModels.length > 0) {
+            const filteredModels = NENodes.filterModelsForCurateType
+                ? NENodes.filterModelsForCurateType(AppState.availableModels, 'vlm')
+                : AppState.availableModels;
+            defaultModel = (filteredModels.length > 0) ? filteredModels[0].name : defaultModel;
+        }
 
         const node = {
             id: NodeEditor.nextId++,
@@ -23,7 +31,7 @@
             label: '',
             data: type === 'prompt' ? { text: '' } :
                   type === 'aimodel' ? { model: defaultModel, parameters: {}, showAdvanced: false } :
-                  type === 'conjunction' ? { connectedItems: [], template: '', showPreview: false } :
+                  type === 'conjunction' ? { connectedItems: [], template: '' } :
                   type === 'curate' ? {
                       modelType: 'vlm',  // 'vlm', 'classification', 'zero_shot'
                       model: defaultModel,
@@ -32,11 +40,11 @@
                           { id: 'port_1', label: 'Port 1', instruction: '', refKey: 'port_1' },
                           { id: 'port_2', label: 'Port 2', instruction: '', refKey: 'port_2' }
                       ],
-                      template: `Analyze this image and determine which category best describes it.
+                      template: `Analyze this content and determine which category best describes it.
 
 Available categories:
-{port_1}: {port_1_instruction}
-{port_2}: {port_2_instruction}
+{port_1}
+{port_2}
 
 Respond with ONLY the exact category name. Do not add explanations.`,
                       forwardImages: false,  // Whether to forward images to routed outputs
@@ -368,7 +376,6 @@ Respond with ONLY the exact category name. Do not add explanations.`,
                 templateTextarea.oninput = () => {
                     node.data.template = templateTextarea.value;
                     NENodes.highlightPlaceholders(node.id);
-                    NENodes.updateConjunctionPreview(node.id);
                 };
                 templateTextarea.onscroll = () => {
                     const highlightsDiv = document.getElementById(`node-${node.id}-highlights`);
@@ -380,34 +387,6 @@ Respond with ONLY the exact category name. Do not add explanations.`,
 
                 // Initial highlight
                 NENodes.highlightPlaceholders(node.id);
-            }
-
-            // Preview toggle handler
-            const previewBtn = el.querySelector('.btn-preview');
-            if (previewBtn) {
-                previewBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    node.data.showPreview = !node.data.showPreview;
-
-                    // Update button text and preview visibility
-                    const previewContainer = document.getElementById(`preview-${node.id}`);
-                    if (previewContainer) {
-                        if (node.data.showPreview) {
-                            previewBtn.textContent = '▼ Hide Preview';
-                            previewContainer.classList.remove('hidden');
-                            // Update preview content
-                            NENodes.updateConjunctionPreview(node.id);
-                        } else {
-                            previewBtn.textContent = '▶ Show Preview';
-                            previewContainer.classList.add('hidden');
-                        }
-
-                        // Update connections after toggle animation completes
-                        setTimeout(() => {
-                            if (typeof NEConnections !== 'undefined') NEConnections.updateConnections();
-                        }, 300);
-                    }
-                };
             }
 
             // Add click handlers to reference items to insert at cursor
@@ -439,7 +418,6 @@ Respond with ONLY the exact category name. Do not add explanations.`,
                     // Focus textarea and update highlights
                     textarea.focus();
                     NENodes.highlightPlaceholders(node.id);
-                    NENodes.updateConjunctionPreview(node.id);
                 };
             });
         }
