@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 from flow_control import create_processed_data
 from utils.image_utils import load_image
@@ -27,10 +27,69 @@ DEFAULT_NODE_LABELS = {
 
 
 class BaseNodeExecutor:
+    """Base class for all node executors with shared functionality."""
     node_type: str
 
     async def run(self, node: Dict, ctx: GraphExecutionContext) -> None:
         raise NotImplementedError
+
+    async def _persist_terminal_output(
+        self,
+        ctx: GraphExecutionContext,
+        node: Dict,
+        outputs: Dict[str, str],
+        model_name: str = "graph_output",
+        parameters: Optional[Dict] = None,
+        extra_metadata: Optional[Dict] = None
+    ) -> None:
+        """
+        Generic method to persist output when this node is a terminal node.
+        
+        Call this immediately after processing to enable live streaming of results
+        to the results tab. Any node connected to Output can use this method.
+        
+        Args:
+            ctx: Execution context
+            node: The current node
+            outputs: Dict mapping image_id to output content
+            model_name: Name to record for the model/source
+            parameters: Optional parameters to record
+            extra_metadata: Optional additional metadata to include
+        """
+        if not outputs:
+            return
+            
+        processed_batch = []
+        metadata_base = {
+            'node_id': node['id'],
+            'node_type': node.get('type', self.node_type)
+        }
+        if extra_metadata:
+            metadata_base.update(extra_metadata)
+        
+        for img_id, content in outputs.items():
+            if not content:
+                continue
+                
+            sequence_num = ctx.image_ids.index(img_id) if img_id in ctx.image_ids else 0
+            
+            processed_batch.append(
+                create_processed_data(
+                    image_id=img_id,
+                    content=str(content),
+                    model_name=model_name,
+                    parameters=parameters or {},
+                    metadata=metadata_base.copy(),
+                    sequence_num=sequence_num,
+                    data_type='text'
+                )
+            )
+            
+            # Update state for live progress tracking
+            ctx.state.increment(success=True)
+        
+        if processed_batch:
+            await ctx.flow_hub.route_batch(processed_batch)
 
 
 class InputNodeExecutor(BaseNodeExecutor):
@@ -56,37 +115,12 @@ class PromptNodeExecutor(BaseNodeExecutor):
         outputs = {img_id: text for img_id in ctx.image_ids}
         ctx.buffers.set_output(node['id'], NodePort.DEFAULT_OUTPUT, outputs)
 
-        if node['id'] in ctx.plan.terminal_nodes:
-            for _ in ctx.image_ids:
-                ctx.state.increment(success=bool(text))
-            await self._persist_results(ctx, node, outputs)
-            ctx.state.update()
-
-    async def _persist_results(
-        self,
-        ctx: GraphExecutionContext,
-        node: Dict,
-        outputs: Dict[str, str]
-    ) -> None:
-        processed_batch = []
-        for sequence_num, img_id in enumerate(ctx.image_ids):
-            caption = outputs.get(img_id, '')
-            if not caption:
-                continue
-            processed_batch.append(
-                create_processed_data(
-                    image_id=img_id,
-                    content=caption,
-                    model_name="prompt",
-                    parameters={},
-                    metadata={'node_id': node['id'], 'node_type': 'prompt'},
-                    sequence_num=sequence_num,
-                    data_type='text'
-                )
+        # Persist immediately for live streaming when connected to Output
+        if node['id'] in ctx.plan.terminal_nodes and text:
+            await self._persist_terminal_output(
+                ctx, node, outputs,
+                model_name="prompt"
             )
-
-        if processed_batch:
-            await ctx.flow_hub.route_batch(processed_batch)
 
 
 class ConjunctionNodeExecutor(BaseNodeExecutor):
@@ -97,7 +131,6 @@ class ConjunctionNodeExecutor(BaseNodeExecutor):
         connected_items = node['data'].get('connectedItems') or []
 
         ctx.state.set_current_node(node['id'])
-        ctx.state.current_node_processed = len(ctx.image_ids)
         ctx.state.update()
 
         reference_values = self._build_reference_values(node, connected_items, ctx)
@@ -109,11 +142,20 @@ class ConjunctionNodeExecutor(BaseNodeExecutor):
 
         ctx.buffers.set_output(node['id'], NodePort.DEFAULT_OUTPUT, resolved_outputs)
 
-        is_final_node = node['id'] in ctx.plan.terminal_nodes
-        if is_final_node:
-            for img_id in ctx.image_ids:
-                ctx.state.increment(success=bool(resolved_outputs.get(img_id)))
-            await self._persist_results(ctx, node, resolved_outputs)
+        is_terminal = node['id'] in ctx.plan.terminal_nodes
+
+        # Process each output for live streaming
+        for img_id in ctx.image_ids:
+            content = resolved_outputs.get(img_id, '')
+            ctx.state.increment_progress()
+            
+            # Persist immediately for live streaming when connected to Output
+            if is_terminal and content:
+                await self._persist_terminal_output(
+                    ctx, node, {img_id: content},
+                    model_name="conjunction",
+                    extra_metadata={'template': template}
+                )
 
         ctx.state.update()
 
@@ -245,38 +287,6 @@ class ConjunctionNodeExecutor(BaseNodeExecutor):
 
         return outputs
 
-    async def _persist_results(
-        self,
-        ctx: GraphExecutionContext,
-        node: Dict,
-        outputs: Dict[str, str]
-    ) -> None:
-        processed_batch = []
-
-        for sequence_num, img_id in enumerate(ctx.image_ids):
-            caption = outputs.get(img_id, '')
-            if not caption:
-                continue
-
-            processed_batch.append(
-                create_processed_data(
-                    image_id=img_id,
-                    content=caption,
-                    model_name="conjunction",
-                    parameters={},
-                    metadata={
-                        'node_id': node['id'],
-                        'node_type': 'conjunction',
-                        'template': node['data'].get('template', '')
-                    },
-                    sequence_num=sequence_num,
-                    data_type='text'
-                )
-            )
-
-        if processed_batch:
-            await ctx.flow_hub.route_batch(processed_batch)
-
 
 class CurateNodeExecutor(BaseNodeExecutor):
     """
@@ -314,13 +324,13 @@ class CurateNodeExecutor(BaseNodeExecutor):
         # 5. Build categorization prompt
         prompt = self._build_prompt(config)
 
-        # 6. Process images and route to ports
+        # 6. Process images and route to ports (includes live streaming persistence)
         port_outputs = await self._process_and_route(
             node, ctx, config, model_adapter, prompt, input_captions
         )
 
-        # 7. Set outputs and persist if needed
-        await self._finalize_outputs(node, ctx, config, port_outputs, model_adapter)
+        # 7. Set outputs for downstream nodes
+        await self._finalize_outputs(node, ctx, config, port_outputs)
 
         ctx.state.update()
 
@@ -477,14 +487,16 @@ Do not include explanations, numbers, or punctuation - just the exact label name
         all_ports = config['all_ports']  # All defined ports
         active_ports = config['active_ports']  # Only connected ports
         batch_size = config['batch_size']
+        is_terminal = node['id'] in ctx.plan.terminal_nodes
 
         # Build set of active port IDs for quick lookup
         active_port_ids = {port['id'] for port in active_ports}
 
         # Initialize output buffers only for ACTIVE ports
         port_outputs = {port['id']: {} for port in active_ports}
-        routing_stats = {port['id']: 0 for port in active_ports}
-        ignored_count = 0
+        
+        # Track routing stats for ALL ports (connected and disconnected)
+        all_port_stats = {port['id']: 0 for port in all_ports}
         unmatched_count = 0
         processed_count = 0
 
@@ -535,11 +547,13 @@ Do not include explanations, numbers, or punctuation - just the exact label name
                         if matched_port:
                             port_id = matched_port['id']
                             port_label = matched_port.get('label', 'Unknown')
+                            
+                            # Track stats for this port
+                            all_port_stats[port_id] += 1
 
                             # Only save output if port is CONNECTED
                             if port_id in active_port_ids:
                                 port_outputs[port_id][img_id] = caption
-                                routing_stats[port_id] += 1
 
                                 # Update context captions
                                 ctx.captions[img_id] = caption
@@ -547,22 +561,30 @@ Do not include explanations, numbers, or punctuation - just the exact label name
                                 routed_label = port_label
                                 logger.debug("Image %s routed to connected port '%s' (%s)",
                                              img_id, port_label, port_id)
+
+                                # Persist immediately for live streaming
+                                if is_terminal and caption:
+                                    await self._persist_terminal_output(
+                                        ctx, node, {img_id: caption},
+                                        model_name=model_adapter.model_name,
+                                        parameters=config['parameters'],
+                                        extra_metadata={'model_type': 'vlm', 'port_id': port_id}
+                                    )
                             else:
-                                # Port is not connected - silently ignore
-                                ignored_count += 1
+                                # Port is not connected
                                 routed_label = f"{port_label} (disconnected)"
-                                logger.debug("Image %s routed to disconnected port '%s' (%s) - ignoring",
+                                logger.debug("Image %s routed to disconnected port '%s' (%s)",
                                              img_id, port_label, port_id)
                         else:
                             unmatched_count += 1
 
-                        logger.info(
-                            "Curate node %s image %s response='%s' routed_to='%s'",
-                            node['id'],
-                            img_id,
-                            response_preview or '(empty)',
-                            routed_label
-                        )
+                        #logger.info(
+                        #    "Curate node %s image %s response='%s' routed_to='%s'",
+                        #    node['id'],
+                        #    img_id,
+                        #    response_preview or '(empty)',
+                        #    routed_label
+                        #)
 
                     except Exception as exc:
                         logger.exception("Error processing image %s in curate node: %s", img_id, exc)
@@ -578,13 +600,13 @@ Do not include explanations, numbers, or punctuation - just the exact label name
                 ctx.state.update()
 
         # Log routing statistics
-        could_not_curate = unmatched_count + ignored_count
         self._log_routing_summary(
             node['id'],
-            active_ports,
-            routing_stats,
+            all_ports,
+            active_port_ids,
+            all_port_stats,
             processed_count,
-            could_not_curate
+            unmatched_count
         )
 
         return port_outputs
@@ -675,63 +697,20 @@ Do not include explanations, numbers, or punctuation - just the exact label name
         node: Dict,
         ctx: GraphExecutionContext,
         config: Dict,
-        port_outputs: Dict[str, Dict[str, str]],
-        model_adapter
+        port_outputs: Dict[str, Dict[str, str]]
     ) -> None:
-        """Set outputs to buffers and persist if terminal node."""
-        # Set outputs for each ACTIVE port
+        """Set outputs to buffers for downstream nodes."""
+        # Set outputs for each ACTIVE port (for downstream nodes to consume)
         for port in config['active_ports']:
             port_id = port['id']
             port_index = config['port_index_map'].get(port_id)
 
             if port_index is not None:
                 ctx.buffers.set_output(node['id'], port_index, port_outputs.get(port_id, {}))
-
-        # Persist if terminal node
-        if node['id'] in ctx.plan.terminal_nodes:
-            await self._persist_results(ctx, node, port_outputs, model_adapter, config['parameters'])
-
-    async def _persist_results(
-        self,
-        ctx: GraphExecutionContext,
-        node: Dict,
-        port_outputs: Dict[str, Dict[str, str]],
-        model_adapter,
-        parameters: Dict
-    ) -> None:
-        """Persist routing results to database."""
-        processed_batch = []
-
-        for port_id, outputs in port_outputs.items():
-            for img_id, caption in outputs.items():
-                if not caption:
-                    continue
-
-                processed_batch.append(
-                    create_processed_data(
-                        image_id=img_id,
-                        content=caption,
-                        model_name=model_adapter.model_name,
-                        parameters=parameters,
-                        metadata={
-                            'node_id': node['id'],
-                            'node_type': 'curate',
-                            'port_id': port_id,
-                            'model_type': 'vlm'
-                        },
-                        sequence_num=ctx.image_ids.index(img_id),
-                        data_type='text'
-                    )
-                )
-
-        if processed_batch:
-            try:
-                await ctx.flow_hub.route_batch(processed_batch)
-                for _ in processed_batch:
-                    ctx.state.increment(success=True)
-                logger.debug("Persisted %d curated results", len(processed_batch))
-            except Exception as exc:
-                logger.exception("Error persisting curate results: %s", exc)
+        
+        # Note: Persistence for live streaming is handled in _process_and_route
+        
+        # Note: Persistence for live streaming is handled in _process_and_route
 
     def _apply_template(self, template: str, ports: List[Dict]) -> str:
         """Apply port placeholder replacements for ALL defined ports."""
@@ -790,29 +769,41 @@ Do not include explanations, numbers, or punctuation - just the exact label name
 
     def _log_routing_summary(
         self,
-        _node_id: str,
-        ports: List[Dict],
-        stats: Dict[str, int],
+        node_id: str,
+        all_ports: List[Dict],
+        active_port_ids: Set[str],
+        all_port_stats: Dict[str, int],
         processed_count: int,
-        could_not_curate: int
+        unmatched_count: int
     ) -> None:
         """Log routing statistics for observability."""
-        summary_parts = []
+        connected_parts = []
+        disconnected_parts = []
 
-        for port in ports:
+        for port in all_ports:
             port_id = port['id']
-            count = stats.get(port_id, 0)
+            count = all_port_stats.get(port_id, 0)
             label = port.get('label', port_id)
-            summary_parts.append(f"{label}: {count}")
+            
+            if count > 0:
+                if port_id in active_port_ids:
+                    connected_parts.append(f"{label}: {count}")
+                else:
+                    disconnected_parts.append(f"{label}: {count}")
 
-        summary = ", ".join(summary_parts) if summary_parts else "no outputs"
+        # Build summary message
+        connected_summary = ", ".join(connected_parts) if connected_parts else "none"
+        
+        log_msg = f"{processed_count} images curated to {connected_summary}"
+        
+        if disconnected_parts:
+            disconnected_summary = ", ".join(disconnected_parts)
+            log_msg += f" | disconnected ports: {disconnected_summary}"
+        
+        if unmatched_count > 0:
+            log_msg += f" | couldn't match: {unmatched_count}"
 
-        logger.info(
-            "%d images curated to %s, couldn't curate:%d",
-            processed_count,
-            summary,
-            could_not_curate
-        )
+        logger.info(log_msg)
 
     @staticmethod
     def _resolve_precision_params(model_name: str, parameters: Dict) -> Optional[Dict]:
@@ -847,7 +838,7 @@ class AimodelNodeExecutor(BaseNodeExecutor):
             raise ValueError(f"Model {model_name} not available")
 
         prev_captions = [ctx.captions.get(img_id, '') for img_id in ctx.image_ids]
-        is_final_node = node['id'] in ctx.plan.terminal_nodes
+        is_terminal = node['id'] in ctx.plan.terminal_nodes
 
         ctx.state.set_current_node(node['id'])
         ctx.state.update()
@@ -863,7 +854,7 @@ class AimodelNodeExecutor(BaseNodeExecutor):
             try:
                 images, valid_indices = await self._load_batch_images(ctx, batch_ids, batch_start)
                 if not images:
-                    self._mark_failed_batch(ctx, len(batch_ids), is_final_node)
+                    self._mark_failed_batch(ctx, len(batch_ids), is_terminal)
                     continue
 
                 prompts = self._build_batch_prompts(
@@ -874,9 +865,7 @@ class AimodelNodeExecutor(BaseNodeExecutor):
                     images, prompts, model_adapter, parameters, batch_size
                 )
 
-                self._update_captions_and_state(
-                    ctx, valid_indices, new_captions, is_final_node
-                )
+                self._update_captions_and_state(ctx, valid_indices, new_captions)
 
                 text_outputs = {
                     ctx.image_ids[idx]: caption
@@ -884,15 +873,20 @@ class AimodelNodeExecutor(BaseNodeExecutor):
                 }
                 ctx.record_text_output(node['id'], text_outputs)
 
-                if is_final_node and text_outputs:
-                    await self._persist_results(ctx, text_outputs, model_adapter, node, parameters)
+                # Persist immediately for live streaming when connected to Output
+                if is_terminal and text_outputs:
+                    await self._persist_terminal_output(
+                        ctx, node, text_outputs,
+                        model_name=model_adapter.model_name,
+                        parameters=parameters
+                    )
 
                 if batch_start % batch_size == 0:
                     ctx.state.update()
 
             except Exception as exc:
                 logger.exception("Batch error in node %s: %s", node['id'], exc)
-                self._mark_failed_batch(ctx, len(batch_ids), is_final_node)
+                self._mark_failed_batch(ctx, len(batch_ids), is_terminal)
 
         ctx.state.update()
 
@@ -941,42 +935,17 @@ class AimodelNodeExecutor(BaseNodeExecutor):
         self,
         ctx: GraphExecutionContext,
         valid_indices: List[int],
-        new_captions: List[str],
-        is_final_node: bool
+        new_captions: List[str]
     ) -> None:
         for idx, caption in zip(valid_indices, new_captions):
             ctx.captions[ctx.image_ids[idx]] = caption
             ctx.state.increment_progress()
-            if is_final_node:
-                ctx.state.increment(success=True)
 
-    def _mark_failed_batch(self, ctx: GraphExecutionContext, batch_size: int, is_final_node: bool) -> None:
+    def _mark_failed_batch(self, ctx: GraphExecutionContext, batch_size: int, is_terminal: bool) -> None:
         for _ in range(batch_size):
             ctx.state.increment_progress()
-            if is_final_node:
+            if is_terminal:
                 ctx.state.increment(success=False)
-
-    async def _persist_results(
-        self,
-        ctx: GraphExecutionContext,
-        outputs: Dict[str, str],
-        model_adapter,
-        node: Dict,
-        parameters: Dict
-    ) -> None:
-        processed_batch = [
-            create_processed_data(
-                image_id=image_id,
-                content=caption,
-                model_name=model_adapter.model_name,
-                parameters=parameters,
-                metadata={'node_id': node['id'], 'node_type': 'aimodel'},
-                sequence_num=ctx.image_ids.index(image_id),
-                data_type='text'
-            )
-            for image_id, caption in outputs.items()
-        ]
-        await ctx.flow_hub.route_batch(processed_batch)
 
     @staticmethod
     def _resolve_precision_params(model_name: str, parameters: Dict) -> Optional[Dict]:
@@ -995,38 +964,56 @@ class AimodelNodeExecutor(BaseNodeExecutor):
 
 
 class OutputNodeExecutor(BaseNodeExecutor):
+    """
+    Terminal node that marks the end of graph execution.
+    
+    When nodes are connected to Output, they become "terminal nodes" and persist
+    their results immediately for live streaming. This Output node serves as:
+    1. A visual endpoint in the graph
+    2. A fallback for persistence if no terminal nodes exist
+    """
     node_type = 'output'
 
     async def run(self, node: Dict, ctx: GraphExecutionContext) -> None:
+        ctx.state.set_current_node(node['id'])
+        
+        # If terminal nodes exist, they already persisted results for live streaming
         if ctx.plan.terminal_nodes:
             logger.info(
-                "Skipping Output node save; %d processing nodes already persisted results",
+                "Output node %s: %d terminal nodes already persisted results",
+                node['id'],
                 len(ctx.plan.terminal_nodes)
             )
+            ctx.state.update()
             return
 
-        logger.info("Output node saving captions as fallback path")
-        processed_batch = []
+        # Fallback: persist from buffers if no terminal nodes (edge case)
+        logger.info("Output node %s: no terminal nodes, using fallback persistence", node['id'])
+        await self._fallback_persist(ctx, node)
+        ctx.state.update()
 
-        for sequence_num, img_id in enumerate(ctx.image_ids):
-            caption = ctx.captions.get(img_id, '')
-            if not caption:
-                continue
-            processed_batch.append(
-                create_processed_data(
-                    image_id=img_id,
-                    content=caption,
-                    model_name="graph_output",
-                    parameters={},
-                    metadata={'output_node_id': node['id']},
-                    sequence_num=sequence_num,
-                    data_type='text'
-                )
+    async def _fallback_persist(self, ctx: GraphExecutionContext, node: Dict) -> None:
+        """Fallback persistence when no terminal nodes exist."""
+        upstream_conns = ctx.plan.upstream.get(node['id'], [])
+        
+        if not upstream_conns:
+            logger.warning("Output node %s has no upstream connections", node['id'])
+            return
+        
+        # Collect from all upstream
+        collected_outputs: Dict[str, str] = {}
+        for conn in upstream_conns:
+            buffered = ctx.buffers.get_output(conn.source_id, conn.from_port)
+            if buffered:
+                for img_id, value in buffered.items():
+                    if value:
+                        collected_outputs[img_id] = str(value)
+        
+        if collected_outputs:
+            await self._persist_terminal_output(
+                ctx, node, collected_outputs,
+                model_name="graph_output"
             )
-
-        if processed_batch:
-            routed = await ctx.flow_hub.route_batch(processed_batch)
-            logger.info("Routed %s/%s captions through Flow Control Hub", routed, len(processed_batch))
 
 
 class NodeExecutorRegistry:

@@ -146,6 +146,7 @@ class GraphValidator:
                     raise GraphValidationError(
                         f"Node {source_node['type']} does not expose output port {from_port}"
                     )
+                continue  # Skip strict type checking for dynamic outputs
 
             if to_port not in target_schema.inputs:
                 if not target_schema.allow_additional_inputs:
