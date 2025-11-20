@@ -75,13 +75,6 @@
             };
         }
 
-        if (deleteBtn) {
-            deleteBtn.onclick = () => {
-                NEWorkflowControls.closeDropdown();
-                NEWorkflowControls.deleteCurrentWorkflow();
-            };
-        }
-
         // Listen for workflow events to update UI
         window.addEventListener('workflowSaved', NEWorkflowControls.updateDisplay);
         window.addEventListener('workflowLoaded', NEWorkflowControls.updateDisplay);
