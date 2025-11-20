@@ -9,6 +9,7 @@ function initNodeEditor() {
 
     // Core UI setup
     NEToolbar.setupToolbar();
+    if (typeof NEWorkflowControls !== 'undefined') NEWorkflowControls.setup();
     NEViewport.initCanvasPanning();
     NEConnections.createConnectionGradient();
     NEMinimap.createMinimap();
@@ -52,6 +53,24 @@ function initNodeEditor() {
                 { label: 'Grid…', onClick: () => GridSettings.openAt(e.pageX + 8, e.pageY + 8) }
             ]);
         });
+    }
+
+    // Try to restore saved workflow from localStorage
+    if (typeof NEPersistence !== 'undefined' && NEPersistence.hasSavedWorkflow()) {
+        try {
+            const saved = NEPersistence.load();
+            if (saved && saved.nodes && saved.nodes.length > 0) {
+                NEPersistence.restore(saved);
+                // Update workflow controls display
+                if (typeof NEWorkflowControls !== 'undefined') {
+                    NEWorkflowControls.updateDisplay();
+                }
+                console.log('Workflow restored from localStorage');
+                return; // Skip default graph scaffolding
+            }
+        } catch (e) {
+            console.warn('Failed to restore workflow, loading default:', e);
+        }
     }
 
     // Scaffold a default graph on first open
