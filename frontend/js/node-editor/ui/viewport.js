@@ -101,7 +101,7 @@
         wrapper.addEventListener('wheel', (e) => {
             e.preventDefault();
             NEViewport.handleZoom(e);
-        });
+        }, { passive: false });
     };
 
     /**

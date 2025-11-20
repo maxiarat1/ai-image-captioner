@@ -211,9 +211,9 @@ Respond with ONLY the exact category name. Do not add explanations.`,
                 };
 
                 // Prevent page scroll when scrolling inside dropdown
-                modelDropdown.onwheel = (e) => {
+                modelDropdown.addEventListener('wheel', (e) => {
                     e.stopPropagation();
-                };
+                }, { passive: false });
 
                 // Handle category click to toggle submenu
                 const categoryHeaders = el.querySelectorAll('.model-category-header');
