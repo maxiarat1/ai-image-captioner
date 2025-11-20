@@ -61,6 +61,9 @@
                     if (typeof loadModelParameters === 'function') {
                         loadModelParameters(node.id, modelName);
                     }
+
+                    // Schedule auto-save
+                    if (typeof NEPersistence !== 'undefined') NEPersistence.scheduleSave();
                 }
             };
         });
@@ -78,6 +81,9 @@
                 // Re-attach all handlers including model dropdown
                 NENodes.attachCurateHandlers(nodeEl, node);
                 NENodes.attachCurateModelDropdownHandlers(nodeEl, node);
+
+                // Schedule auto-save
+                if (typeof NEPersistence !== 'undefined') NEPersistence.scheduleSave();
             };
         }
     };
@@ -106,6 +112,8 @@
             // Update connection port labels only when done editing
             input.onblur = () => {
                 NENodes.updateNodePorts(node.id);
+                // Schedule auto-save
+                if (typeof NEPersistence !== 'undefined') NEPersistence.scheduleSave();
             };
         });
 
@@ -121,6 +129,10 @@
                 if (port) {
                     port.instruction = e.target.value;
                 }
+            };
+            textarea.onblur = () => {
+                // Schedule auto-save when done editing
+                if (typeof NEPersistence !== 'undefined') NEPersistence.scheduleSave();
             };
         });
 
@@ -504,6 +516,9 @@
                         if (typeof NEConnections !== 'undefined') NEConnections.updateConnections();
                     }, 300);
                 }
+
+                // Schedule auto-save
+                if (typeof NEPersistence !== 'undefined') NEPersistence.scheduleSave();
             };
         }
 
@@ -526,6 +541,9 @@
                         templateSection.classList.add('hidden');
                     }
                 }
+
+                // Schedule auto-save
+                if (typeof NEPersistence !== 'undefined') NEPersistence.scheduleSave();
             };
         }
 
@@ -538,6 +556,8 @@
             templateTextarea.oninput = (e) => {
                 node.data.template = e.target.value;
                 NENodes.highlightCuratePlaceholders(node.id);
+                // Schedule auto-save
+                if (typeof NEPersistence !== 'undefined') NEPersistence.scheduleSave();
             };
             templateTextarea.onscroll = (e) => {
                 const highlightsDiv = document.getElementById(`curate-${node.id}-highlights`);

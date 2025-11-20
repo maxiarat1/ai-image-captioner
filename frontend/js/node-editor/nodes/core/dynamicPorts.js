@@ -50,6 +50,9 @@
         if (typeof NEConnections !== 'undefined') NEConnections.updateConnections();
         if (typeof NEMinimap !== 'undefined') NEMinimap.updateMinimap();
 
+        // Schedule auto-save
+        if (typeof NEPersistence !== 'undefined') NEPersistence.scheduleSave();
+
         return portId;
     };
 
@@ -87,6 +90,9 @@
         // Update connections
         if (typeof NEConnections !== 'undefined') NEConnections.updateConnections();
         if (typeof NEMinimap !== 'undefined') NEMinimap.updateMinimap();
+
+        // Schedule auto-save
+        if (typeof NEPersistence !== 'undefined') NEPersistence.scheduleSave();
     };
 
     // Update node's ports section (re-render ports without re-rendering entire node)

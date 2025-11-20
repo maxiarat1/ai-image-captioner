@@ -35,6 +35,9 @@
         } else if (typeof updateMinimap === 'function') {
             updateMinimap();
         }
+
+        // Schedule auto-save
+        if (typeof NEPersistence !== 'undefined') NEPersistence.scheduleSave();
     };
 
     NEGraphOps.clearGraph = function() {
@@ -70,6 +73,9 @@
         } else if (typeof updateMinimap === 'function') {
             updateMinimap();
         }
+
+        // Clear saved workflow (save empty state)
+        if (typeof NEPersistence !== 'undefined') NEPersistence.scheduleSave();
     };
 
     // Expose

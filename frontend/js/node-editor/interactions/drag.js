@@ -99,6 +99,9 @@
             if (typeof NEMinimap !== 'undefined') NEMinimap.updateMinimap();
 
             removeGuides();
+
+            // Schedule auto-save after drag completes
+            if (typeof NEPersistence !== 'undefined') NEPersistence.scheduleSave();
         }
 
         NodeEditor.dragging = null;

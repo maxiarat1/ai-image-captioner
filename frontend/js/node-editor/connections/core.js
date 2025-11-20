@@ -494,6 +494,9 @@
         if (toNodeObj.type === 'conjunction' && typeof updateConjunctionNode === 'function') {
             updateConjunctionNode(toNode);
         }
+
+        // Schedule auto-save
+        if (typeof NEPersistence !== 'undefined') NEPersistence.scheduleSave();
     };
 
     /**
@@ -596,6 +599,9 @@
         if (targetNode && targetNode.type === 'conjunction' && typeof updateConjunctionNode === 'function') {
             updateConjunctionNode(targetNode.id);
         }
+
+        // Schedule auto-save
+        if (typeof NEPersistence !== 'undefined') NEPersistence.scheduleSave();
     };
 
     // Export namespace and selected aliases for compatibility

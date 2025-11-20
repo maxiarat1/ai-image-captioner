@@ -57,6 +57,7 @@ Respond with ONLY the exact category name. Do not add explanations.`,
         NodeEditor.nodes.push(node);
         NENodes.renderNode(node);
         if (typeof NEMinimap !== 'undefined') NEMinimap.updateMinimap();
+        if (typeof NEPersistence !== 'undefined') NEPersistence.scheduleSave();
     };
 
     // Render node
@@ -177,6 +178,9 @@ Respond with ONLY the exact category name. Do not add explanations.`,
                             if (typeof updateConjunctionNode === 'function') updateConjunctionNode(conjNode.id);
                         });
                     }
+
+                    // Schedule auto-save
+                    if (typeof NEPersistence !== 'undefined') NEPersistence.scheduleSave();
                 }
             };
         });
@@ -256,6 +260,9 @@ Respond with ONLY the exact category name. Do not add explanations.`,
                             if (typeof loadModelParameters === 'function') {
                                 loadModelParameters(node.id, modelName);
                             }
+
+                            // Schedule auto-save
+                            if (typeof NEPersistence !== 'undefined') NEPersistence.scheduleSave();
                         }
                     };
                 });
@@ -278,6 +285,9 @@ Respond with ONLY the exact category name. Do not add explanations.`,
                 connectedConjunctions.forEach(conjNode => {
                     if (typeof updateConjunctionNode === 'function') updateConjunctionNode(conjNode.id);
                 });
+
+                // Schedule auto-save
+                if (typeof NEPersistence !== 'undefined') NEPersistence.scheduleSave();
             };
 
             // Prevent propagation on click/focus to avoid triggering node drag
@@ -318,6 +328,9 @@ Respond with ONLY the exact category name. Do not add explanations.`,
                             if (typeof NEConnections !== 'undefined') NEConnections.updateConnections();
                         }, 300);
                     }
+
+                    // Schedule auto-save
+                    if (typeof NEPersistence !== 'undefined') NEPersistence.scheduleSave();
                 };
             }
 
@@ -357,6 +370,9 @@ Respond with ONLY the exact category name. Do not add explanations.`,
                             if (typeof NEConnections !== 'undefined') NEConnections.updateConnections();
                         }, 300);
                     }
+
+                    // Schedule auto-save
+                    if (typeof NEPersistence !== 'undefined') NEPersistence.scheduleSave();
                 };
             }
 
@@ -376,6 +392,7 @@ Respond with ONLY the exact category name. Do not add explanations.`,
                 templateTextarea.oninput = () => {
                     node.data.template = templateTextarea.value;
                     NENodes.highlightPlaceholders(node.id);
+                    if (typeof NEPersistence !== 'undefined') NEPersistence.scheduleSave();
                 };
                 templateTextarea.onscroll = () => {
                     const highlightsDiv = document.getElementById(`node-${node.id}-highlights`);

@@ -27,6 +27,7 @@
     <!-- Node Editor Styles -->
     <link rel="stylesheet" href="css/components/node-editor/base.css">
     <link rel="stylesheet" href="css/components/node-editor/container.css">
+    <link rel="stylesheet" href="css/components/node-editor/workflow-controls.css">
     <link rel="stylesheet" href="css/components/node-editor/node-core.css">
     <link rel="stylesheet" href="css/components/node-editor/node-inputs.css">
     <link rel="stylesheet" href="css/components/node-editor/conjunction.css">
@@ -151,6 +152,36 @@
                             <div class="node-editor-header">
                                 <h3>Build Workflow</h3>
                                 <div class="node-editor-actions">
+                                    <!-- Workflow Controls -->
+                                    <div class="workflow-controls">
+                                        <div class="workflow-select-wrapper">
+                                            <button class="workflow-select-btn btn-secondary" id="workflowSelectBtn">
+                                                <span class="workflow-select-icon">📂</span>
+                                                <span class="workflow-select-name">Untitled</span>
+                                                <span class="workflow-select-arrow">▼</span>
+                                            </button>
+                                            <div class="workflow-dropdown">
+                                                <div class="workflow-list">
+                                                    <!-- Saved workflows populated here -->
+                                                </div>
+                                                <div class="workflow-dropdown-divider"></div>
+                                                <div class="workflow-dropdown-actions">
+                                                    <button class="workflow-action-btn" id="newWorkflowBtn">
+                                                        <span class="icon">✨</span> New Workflow
+                                                    </button>
+                                                    <button class="workflow-action-btn" id="saveWorkflowBtn">
+                                                        <span class="icon">💾</span> Save
+                                                    </button>
+                                                    <button class="workflow-action-btn" id="saveAsWorkflowBtn">
+                                                        <span class="icon">📝</span> Save As...
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button class="btn-secondary btn-icon" id="exportWorkflowBtn" title="Export to file">↓</button>
+                                        <button class="btn-secondary btn-icon" id="importWorkflowBtn" title="Import from file">↑</button>
+                                        <input type="file" id="workflowFileInput" accept=".json">
+                                    </div>
                                     <button class="btn-secondary" id="clearGraphBtn">Clear All</button>
                                     <button class="btn-primary" id="executeGraphBtn">Execute Graph</button>
                                 </div>
@@ -744,6 +775,7 @@ cd backend && python app.py">Copy</button>
     <!-- App-wide context menu utilities -->
     <script src="js/ui/contextMenu.js"></script>
     <script src="js/node-editor/ui/toolbar.js"></script>
+    <script src="js/node-editor/ui/workflow-controls.js"></script>
     <script src="js/node-editor/interactions/drag.js"></script>
     <script src="js/node-editor/connections/core.js"></script>
     <script src="js/node-editor/nodes/core/index.js"></script>
@@ -758,6 +790,7 @@ cd backend && python app.py">Copy</button>
     <script src="js/node-editor/graph/ops.js"></script>
     <script src="js/node-editor/execution/execute.js"></script>
     <!-- node editor is now provided by the modular bundle under js/node-editor -->
+    <script src="js/node-editor/persistence.js"></script>
     <script src="js/node-editor/init.js"></script>
     <script src="js/node-editor/params-api.js"></script>
     <script src="js/node-editor/params-ui.js"></script>
