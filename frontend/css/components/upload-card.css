@@ -38,23 +38,10 @@
     width: 80px;
     height: 80px;
     margin: 0 auto var(--spacing-lg);
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    background: url('../../favicon.ico') no-repeat center center;
+    background-size: contain;
     border-radius: var(--radius-lg);
-    opacity: 0.15;
     position: relative;
-    box-shadow: 0 4px 16px var(--accent-glow);
-}
-
-.upload-icon-large::after {
-    content: '↑';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--accent-primary);
-    opacity: 0.8;
 }
 
 .upload-card h3 {
