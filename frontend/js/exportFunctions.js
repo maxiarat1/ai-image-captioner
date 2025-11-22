@@ -42,60 +42,62 @@ async function exportAsCsv() {
     showToast('Exported as CSV');
 }
 
-async function exportWithExif() {
-    showToast('Preparing images for EXIF embedding...', true);
+async function exportWithMetadata() {
+    showToast('Preparing images with embedded metadata...', true);
 
     try {
         const hasFiles = AppState.uploadQueue.some(item => item.file);
+        const hasValidPaths = AppState.processedResults.some(r => r.path);
+
+        let response;
 
         if (hasFiles) {
+            // Use FormData with actual file objects
             const formData = new FormData();
-
             for (const result of AppState.processedResults) {
                 const queueItem = AppState.uploadQueue.find(item => item.filename === result.filename);
-                if (queueItem && queueItem.file) {
+                if (queueItem?.file) {
                     formData.append('images', queueItem.file);
                     formData.append('captions', result.caption);
                 }
             }
 
-            const response = await fetch(`${AppState.apiBaseUrl}/export/metadata`, {
+            response = await fetch(`${AppState.apiBaseUrl}/export/metadata`, {
                 method: 'POST',
                 body: formData
             });
-
-            if (!response.ok) {
-                throw new Error('Failed to embed metadata');
-            }
-
-            const blob = await response.blob();
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-            downloadBlob(blob, `images_with_metadata_${timestamp}.zip`);
-            showToast('Exported images with EXIF metadata');
-        } else {
-            const image_paths = AppState.processedResults.map(r => r.path);
+        } else if (hasValidPaths) {
+            // Use JSON with server-side paths
+            const imagePaths = AppState.processedResults.map(r => r.path);
             const captions = AppState.processedResults.map(r => r.caption);
 
-            const response = await fetch(`${AppState.apiBaseUrl}/export/metadata`, {
+            response = await fetch(`${AppState.apiBaseUrl}/export/metadata`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image_paths, captions })
+                body: JSON.stringify({ image_paths: imagePaths, captions })
             });
-
-            if (!response.ok) {
-                throw new Error('Failed to embed metadata');
-            }
-
-            const blob = await response.blob();
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-            downloadBlob(blob, `images_with_metadata_${timestamp}.zip`);
-            showToast('Exported images with EXIF metadata');
+        } else {
+            throw new Error('No image files or paths available. Please re-process images from a folder.');
         }
+
+        // Handle response
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Failed to embed metadata');
+        }
+
+        const blob = await response.blob();
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        downloadBlob(blob, `images_with_metadata_${timestamp}.zip`);
+        showToast('Exported images with embedded metadata');
     } catch (error) {
-        console.error('Error exporting with EXIF:', error);
-        showToast('Failed to embed EXIF metadata');
+        console.error('Error exporting with metadata:', error);
+        showToast(error.message || 'Failed to embed metadata in images');
     }
 }
+
+// Legacy alias for backward compatibility
+const exportWithExif = exportWithMetadata;
 
 function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);

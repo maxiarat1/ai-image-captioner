@@ -476,16 +476,7 @@
             // Only update if we have new results
             if (imagesWithCaptions.length === 0) return;
 
-            AppState.allResults = imagesWithCaptions.map(img => ({
-                queueItem: img,
-                data: { caption: img.caption }
-            }));
-
-            AppState.processedResults = imagesWithCaptions.map(img => ({
-                filename: img.filename,
-                caption: img.caption,
-                path: img.filename
-            }));
+            AppState.updateResultsFromImages(imagesWithCaptions);
 
             // Render results
             if (typeof renderCurrentPage === 'function') {
