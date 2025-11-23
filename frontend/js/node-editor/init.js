@@ -13,6 +13,7 @@ function initNodeEditor() {
     NEViewport.initCanvasPanning();
     NEConnections.createConnectionGradient();
     NEMinimap.createMinimap();
+    if (typeof NESelection !== 'undefined') NESelection.initKeyboardShortcuts();
 
     // Button handlers
     const executeBtn = document.getElementById('executeGraphBtn');

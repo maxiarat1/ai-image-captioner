@@ -1,0 +1,96 @@
+/* Selection styles for Node Editor */
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Selection Box (Marquee)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.selection-box {
+    position: absolute;
+    border: 2px dashed var(--accent-primary, #6366f1);
+    background: rgba(99, 102, 241, 0.1);
+    pointer-events: none;
+    z-index: 1000;
+    box-sizing: border-box;
+}
+
+/* Animated dashed border */
+@keyframes selection-dash {
+    from {
+        stroke-dashoffset: 0;
+    }
+    to {
+        stroke-dashoffset: 12;
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Selected Node State
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.node.selected {
+    box-shadow:
+        0 0 0 2px var(--accent-primary, #6366f1),
+        0 4px 20px rgba(99, 102, 241, 0.3);
+    z-index: 50;
+}
+
+/* Slightly elevate selected nodes for visual clarity */
+.node.selected:not(.dragging) {
+    transform: translateY(-1px);
+}
+
+/* Combined selected + dragging state */
+.node.selected.dragging {
+    box-shadow:
+        0 0 0 2px var(--accent-primary, #6366f1),
+        0 12px 32px rgba(99, 102, 241, 0.4);
+    z-index: 101;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Minimap Selected Nodes
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.minimap-node.selected {
+    outline: 1px solid var(--accent-primary, #6366f1);
+    outline-offset: 1px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Cursor styles during selection
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.node-editor-wrapper.selecting {
+    cursor: crosshair !important;
+}
+
+.node-editor-wrapper.selecting * {
+    cursor: crosshair !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Multi-drag visual feedback
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.node-editor-wrapper.multi-dragging {
+    cursor: grabbing !important;
+}
+
+/* Subtle pulse animation for selected nodes to indicate they'll move together */
+@keyframes selection-pulse {
+    0%, 100% {
+        box-shadow:
+            0 0 0 2px var(--accent-primary, #6366f1),
+            0 4px 20px rgba(99, 102, 241, 0.3);
+    }
+    50% {
+        box-shadow:
+            0 0 0 2px var(--accent-primary, #6366f1),
+            0 4px 24px rgba(99, 102, 241, 0.5);
+    }
+}
+
+/* Apply pulse when hovering over a selected node (hints it will drag all) */
+.node.selected:hover:not(.dragging) {
+    animation: selection-pulse 2s ease-in-out infinite;
+}

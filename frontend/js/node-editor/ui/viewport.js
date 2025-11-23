@@ -61,39 +61,81 @@
     NodeEditor.transform.scale = 0.7;
     NEViewport.centerCanvas(wrapper);
 
-        // Mouse down - start panning on canvas background only
+        // Mouse down - start panning or selection box on canvas background
         canvas.addEventListener('mousedown', (e) => {
-            // Only pan on left click on canvas or SVG (not on nodes)
-            if (e.button === 0 && !e.target.closest('.node')) {
+            // Only handle clicks on canvas background (not on nodes)
+            if (!e.target.closest('.node')) {
                 e.preventDefault();
-                const { transform } = NodeEditor;
-                NodeEditor.panning = {
-                    startX: e.clientX - transform.x,
-                    startY: e.clientY - transform.y
-                };
-                wrapper.classList.add('panning');
+
+                // Ctrl/Cmd + left-click = selection box
+                // Left-click or middle mouse = pan
+                if (e.button === 0 && (e.ctrlKey || e.metaKey)) {
+                    // Start selection box
+                    if (typeof NESelection !== 'undefined') {
+                        NESelection.startSelectionBox(e);
+                        wrapper.classList.add('selecting');
+                    }
+                } else if (e.button === 0 || e.button === 1) {
+                    // Clear selection when clicking on empty canvas
+                    if (typeof NESelection !== 'undefined') {
+                        NESelection.clearSelection();
+                    }
+                    // Start panning
+                    const { transform } = NodeEditor;
+                    NodeEditor.panning = {
+                        startX: e.clientX - transform.x,
+                        startY: e.clientY - transform.y
+                    };
+                    wrapper.classList.add('panning');
+                }
             }
         });
 
-        // Mouse move - handle panning
+        // Mouse move - handle panning and selection box
         document.addEventListener('mousemove', (e) => {
-            if (!NodeEditor.panning) return;
-            
-            const { transform } = NodeEditor;
-            transform.x = e.clientX - NodeEditor.panning.startX;
-            transform.y = e.clientY - NodeEditor.panning.startY;
-            // Keep camera within canvas borders
-            NEViewport.clampTransform();
-            NEUtils.applyTransform();
-            if (typeof NEConnections !== 'undefined') NEConnections.updateConnections();
-            if (typeof NEMinimap !== 'undefined') NEMinimap.updateMinimap();
+            // Handle panning
+            if (NodeEditor.panning) {
+                const { transform } = NodeEditor;
+                transform.x = e.clientX - NodeEditor.panning.startX;
+                transform.y = e.clientY - NodeEditor.panning.startY;
+                // Keep camera within canvas borders
+                NEViewport.clampTransform();
+                NEUtils.applyTransform();
+                if (typeof NEConnections !== 'undefined') NEConnections.updateConnections();
+                if (typeof NEMinimap !== 'undefined') NEMinimap.updateMinimap();
+                return;
+            }
+
+            // Handle selection box
+            if (typeof NESelection !== 'undefined' && NESelection.isSelecting()) {
+                NESelection.updateSelectionBox(e);
+                return;
+            }
+
+            // Handle multi-drag
+            if (typeof NESelection !== 'undefined' && NESelection.isMultiDragging()) {
+                NESelection.updateMultiDrag(e);
+            }
         });
 
-        // Mouse up - stop panning
-        document.addEventListener('mouseup', () => {
+        // Mouse up - stop panning, selection box, or multi-drag
+        document.addEventListener('mouseup', (e) => {
+            // End panning
             if (NodeEditor.panning) {
                 wrapper.classList.remove('panning');
                 NodeEditor.panning = null;
+            }
+
+            // End selection box
+            if (typeof NESelection !== 'undefined' && NESelection.isSelecting()) {
+                NESelection.endSelectionBox(e);
+                wrapper.classList.remove('selecting');
+            }
+
+            // End multi-drag
+            if (typeof NESelection !== 'undefined' && NESelection.isMultiDragging()) {
+                NESelection.endMultiDrag();
+                wrapper.classList.remove('multi-dragging');
             }
         });
 

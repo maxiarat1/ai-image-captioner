@@ -10,6 +10,8 @@
             dragging: null,
             connecting: null,
             panning: null,
+            selectedNodes: [],
+            selectionBox: null,
             transform: {
                 x: 0,
                 y: 0,
