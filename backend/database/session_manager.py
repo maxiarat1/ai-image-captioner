@@ -235,7 +235,7 @@ class SessionManager:
             # Get page of results
             offset = (page - 1) * per_page
             query = f"""
-                SELECT image_id, filename, file_size, width, height, is_uploaded, caption
+                SELECT image_id, filename, file_path, file_size, width, height, is_uploaded, caption
                 FROM images
                 {where_clause}
                 ORDER BY created_at DESC
@@ -248,11 +248,12 @@ class SessionManager:
                 images.append({
                     'image_id': row[0],
                     'filename': row[1],
-                    'size': row[2],
-                    'width': row[3],
-                    'height': row[4],
-                    'uploaded': bool(row[5]),
-                    'caption': row[6]
+                    'path': row[2],
+                    'size': row[3],
+                    'width': row[4],
+                    'height': row[5],
+                    'uploaded': bool(row[6]),
+                    'caption': row[7]
                 })
 
             pages = (total + per_page - 1) // per_page

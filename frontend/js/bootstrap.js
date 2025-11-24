@@ -13,16 +13,7 @@ async function autoResumeSession() {
 
             const imagesWithCaptions = data.images.filter(img => img.caption);
             if (imagesWithCaptions.length > 0) {
-                AppState.allResults = imagesWithCaptions.map(img => ({
-                    queueItem: img,
-                    data: { caption: img.caption }
-                }));
-
-                AppState.processedResults = imagesWithCaptions.map(img => ({
-                    filename: img.filename,
-                    caption: img.caption,
-                    path: img.filename
-                }));
+                AppState.updateResultsFromImages(imagesWithCaptions);
 
                 if (typeof renderCurrentPage === 'function') {
                     renderCurrentPage();

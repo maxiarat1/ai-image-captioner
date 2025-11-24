@@ -5,6 +5,21 @@
     NEDrag.startDrag = function(e, node) {
         if (e.target.classList.contains('node-del')) return;
 
+        // Check if this node is part of a multi-selection
+        const isSelected = typeof NESelection !== 'undefined' && NESelection.isSelected(node.id);
+        const hasMultipleSelected = typeof NESelection !== 'undefined' &&
+            NESelection.getSelected().length > 1;
+
+        // If node is selected and there are multiple selected, use multi-drag
+        if (isSelected && hasMultipleSelected) {
+            NESelection.startMultiDrag(e, node);
+            const { wrapper } = NEUtils.getElements();
+            if (wrapper) wrapper.classList.add('multi-dragging');
+            // Multi-drag is handled by NESelection via viewport's mousemove/mouseup
+            return;
+        }
+
+        // Single node drag (original behavior)
         const canvasPos = NEUtils.screenToCanvas(e.clientX, e.clientY);
         const el = document.getElementById('node-' + node.id);
         if (el) el.classList.add('dragging');

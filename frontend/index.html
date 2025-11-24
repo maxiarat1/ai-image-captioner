@@ -37,6 +37,7 @@
     <link rel="stylesheet" href="css/components/node-editor/minimap.css">
     <link rel="stylesheet" href="css/components/node-editor/context-menu.css">
     <link rel="stylesheet" href="css/components/node-editor/output-stats.css">
+    <link rel="stylesheet" href="css/components/node-editor/selection.css">
     <link rel="stylesheet" href="css/components/context-menu.css">
     <link rel="stylesheet" href="css/components/animations.css">
     <link rel="stylesheet" href="css/components/docs.css">
@@ -299,8 +300,8 @@
                         <label class="export-option">
                             <input type="radio" name="exportFormat" value="exif">
                             <div class="export-option-content">
-                                <strong>Images with EXIF</strong>
-                                <p>Embed captions in image metadata</p>
+                                <strong>Image Metadata</strong>
+                                <p>Embed captions directly in image files</p>
                             </div>
                         </label>
                     </div>
@@ -478,8 +479,8 @@ cd backend && python app.py">Copy</button>
                                 <p>Spreadsheet-compatible format for data analysis.</p>
                             </div>
                             <div class="docs-card">
-                                <h3>Images with EXIF</h3>
-                                <p>Captions embedded directly in image metadata.</p>
+                                <h3>Image Metadata</h3>
+                                <p>Embed captions directly in image files.</p>
                             </div>
                         </div>
                     </section>
@@ -777,6 +778,7 @@ cd backend && python app.py">Copy</button>
     <script src="js/node-editor/ui/toolbar.js"></script>
     <script src="js/node-editor/ui/workflow-controls.js"></script>
     <script src="js/node-editor/interactions/drag.js"></script>
+    <script src="js/node-editor/interactions/selection.js"></script>
     <script src="js/node-editor/connections/core.js"></script>
     <script src="js/node-editor/nodes/core/index.js"></script>
     <script src="js/node-editor/nodes/core/render.js"></script>

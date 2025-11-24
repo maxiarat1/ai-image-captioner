@@ -29,7 +29,7 @@
             e.preventDefault();
             NEViewport.handleZoom(e);
         };
-        container.addEventListener('wheel', fullscreenZoomHandler);
+        container.addEventListener('wheel', fullscreenZoomHandler, { passive: false });
         // Store handler for cleanup
         container._zoomHandler = fullscreenZoomHandler;
     };

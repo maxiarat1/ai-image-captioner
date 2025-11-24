@@ -35,7 +35,7 @@ def load_image(source: Union[str, bytes, Path]) -> Image.Image:
     except Exception as e:
         raise ValueError(f"Failed to load image: {str(e)}")
 
-def image_to_base64(image: Image.Image, format: str = "JPEG", quality: int = 85) -> str:
+def image_to_base64(image: Image.Image, format: str = "JPEG", quality: int = 95) -> str:
     buffered = io.BytesIO()
     image.save(buffered, format=format, quality=quality)
     img_str = base64.b64encode(buffered.getvalue()).decode()

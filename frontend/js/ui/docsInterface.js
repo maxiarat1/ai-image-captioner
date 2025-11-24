@@ -41,7 +41,6 @@ function initDocsInterface() {
                     const card = createModelComparisonCard(
                         `${model.display_name} (${variant.name})`,
                         variant.speed_score,
-                        variant.quality_score,
                         `${variant.vram_gb}GB`
                     );
                     perfMatrix.appendChild(card);
@@ -50,7 +49,6 @@ function initDocsInterface() {
                 const card = createModelComparisonCard(
                     model.display_name,
                     model.speed_score,
-                    model.quality_score,
                     model.vram_label
                 );
                 perfMatrix.appendChild(card);
@@ -59,21 +57,12 @@ function initDocsInterface() {
     }
 
     // Create a model comparison card
-    function createModelComparisonCard(name, speedScore, qualityScore, vramLabel) {
+    function createModelComparisonCard(name, speedScore, vramLabel) {
         const card = document.createElement('div');
         card.className = 'perf-model-card';
 
         const speedLabel = speedScore >= 70 ? 'Fast' : speedScore >= 50 ? 'Medium' : 'Slow';
-        const qualityLabel = qualityScore >= 90 ? 'Excellent' : qualityScore >= 75 ? 'Very Good' : 'Good';
 
-        // Build quality metric HTML only if qualityScore is provided
-        const qualityMetricHTML = qualityScore !== undefined && qualityScore !== null ? `
-            <div class="perf-metric">
-                <span class="perf-label">Quality</span>
-                <div class="perf-bar"><div class="perf-fill" style="width: ${qualityScore}%"></div></div>
-                <span class="perf-value">${qualityLabel}</span>
-            </div>
-        ` : '';
 
         card.innerHTML = `
             <div class="perf-model-header">${name}</div>
@@ -82,7 +71,6 @@ function initDocsInterface() {
                 <div class="perf-bar"><div class="perf-fill" style="width: ${speedScore}%"></div></div>
                 <span class="perf-value">${speedLabel}</span>
             </div>
-            ${qualityMetricHTML}
             <div class="perf-metric">
                 <span class="perf-label">VRAM</span>
                 <div class="perf-bar"><div class="perf-fill" style="width: ${Math.min(100, (parseFloat(vramLabel) / 22) * 100)}%"></div></div>

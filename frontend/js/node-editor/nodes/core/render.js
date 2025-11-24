@@ -94,6 +94,19 @@ Respond with ONLY the exact category name. Do not add explanations.`,
             if (e.target.classList.contains('node-label-input')) {
                 return;
             }
+
+            // Handle selection before drag
+            if (typeof NESelection !== 'undefined') {
+                if (e.ctrlKey || e.metaKey) {
+                    // Ctrl/Cmd + click = toggle selection
+                    NESelection.toggle(node.id);
+                } else if (!NESelection.isSelected(node.id)) {
+                    // If not selected, select only this node
+                    NESelection.select(node.id);
+                }
+                // If already selected without modifier, keep selection for potential multi-drag
+            }
+
             NEDrag.startDrag(e, node);
         };
         el.appendChild(header);
@@ -211,9 +224,9 @@ Respond with ONLY the exact category name. Do not add explanations.`,
                 };
 
                 // Prevent page scroll when scrolling inside dropdown
-                modelDropdown.onwheel = (e) => {
+                modelDropdown.addEventListener('wheel', (e) => {
                     e.stopPropagation();
-                };
+                }, { passive: false });
 
                 // Handle category click to toggle submenu
                 const categoryHeaders = el.querySelectorAll('.model-category-header');
