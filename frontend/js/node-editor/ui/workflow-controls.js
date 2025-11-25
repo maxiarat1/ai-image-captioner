@@ -51,7 +51,7 @@
 
         // Setup action buttons in dropdown
         const saveBtn = document.getElementById('saveWorkflowBtn');
-        const saveAsBtn = document.getElementById('saveAsWorkflowBtn');
+        const revertBtn = document.getElementById('revertWorkflowBtn');
         const newBtn = document.getElementById('newWorkflowBtn');
 
         if (saveBtn) {
@@ -61,10 +61,10 @@
             };
         }
 
-        if (saveAsBtn) {
-            saveAsBtn.onclick = () => {
+        if (revertBtn) {
+            revertBtn.onclick = () => {
                 NEWorkflowControls.closeDropdown();
-                NEWorkflowControls.saveWorkflowAs();
+                NEWorkflowControls.revertWorkflow();
             };
         }
 
@@ -223,6 +223,35 @@
         }
 
         NEPersistence.saveAs(name.trim());
+    };
+
+    /**
+     * Revert current workflow to last saved state
+     * Discards all unsaved changes
+     */
+    NEWorkflowControls.revertWorkflow = function() {
+        if (typeof NEPersistence === 'undefined') return;
+
+        // Check if there are unsaved changes
+        if (!NEPersistence.hasUnsavedChanges()) {
+            alert('No unsaved changes to revert.');
+            return;
+        }
+
+        // Confirm with user before reverting
+        if (!confirm('Revert to last saved state? All unsaved changes will be lost.')) {
+            return;
+        }
+
+        const currentName = NEPersistence.getCurrentWorkflowName();
+
+        // Clear any session draft for this workflow
+        NEPersistence.clearDraft(currentName);
+
+        // Reload the workflow from permanent storage
+        NEPersistence.loadByName(currentName);
+
+        console.log(`Workflow "${currentName}" reverted to last saved state`);
     };
 
     /**

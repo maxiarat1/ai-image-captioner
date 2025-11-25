@@ -157,9 +157,13 @@
                                     <div class="workflow-controls">
                                         <div class="workflow-select-wrapper">
                                             <button class="workflow-select-btn btn-secondary" id="workflowSelectBtn">
-                                                <span class="workflow-select-icon">📂</span>
+                                                <svg class="workflow-select-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                                                </svg>
                                                 <span class="workflow-select-name">Untitled</span>
-                                                <span class="workflow-select-arrow">▼</span>
+                                                <svg class="workflow-select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <polyline points="6 9 12 15 18 9"/>
+                                                </svg>
                                             </button>
                                             <div class="workflow-dropdown">
                                                 <div class="workflow-list">
@@ -168,19 +172,43 @@
                                                 <div class="workflow-dropdown-divider"></div>
                                                 <div class="workflow-dropdown-actions">
                                                     <button class="workflow-action-btn" id="newWorkflowBtn">
-                                                        <span class="icon">✨</span> New Workflow
+                                                        <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                            <path d="M12 5v14M5 12h14"/>
+                                                        </svg>
+                                                        <span>New Workflow</span>
                                                     </button>
                                                     <button class="workflow-action-btn" id="saveWorkflowBtn">
-                                                        <span class="icon">💾</span> Save
+                                                        <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                            <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
+                                                            <polyline points="17 21 17 13 7 13 7 21"/>
+                                                            <polyline points="7 3 7 8 15 8"/>
+                                                        </svg>
+                                                        <span>Save</span>
                                                     </button>
-                                                    <button class="workflow-action-btn" id="saveAsWorkflowBtn">
-                                                        <span class="icon">📝</span> Save As...
+                                                    <button class="workflow-action-btn" id="revertWorkflowBtn">
+                                                        <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                            <polyline points="1 4 1 10 7 10"/>
+                                                            <path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
+                                                        </svg>
+                                                        <span>Revert to Last Save</span>
                                                     </button>
                                                 </div>
                                             </div>
                                         </div>
-                                        <button class="btn-secondary btn-icon" id="exportWorkflowBtn" title="Export to file">↓</button>
-                                        <button class="btn-secondary btn-icon" id="importWorkflowBtn" title="Import from file">↑</button>
+                                        <button class="btn-secondary btn-icon" id="exportWorkflowBtn" title="Export workflow to file">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                                <polyline points="17 8 12 3 7 8"/>
+                                                <line x1="12" y1="3" x2="12" y2="15"/>
+                                            </svg>
+                                        </button>
+                                        <button class="btn-secondary btn-icon" id="importWorkflowBtn" title="Import workflow from file">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                                <polyline points="7 10 12 15 17 10"/>
+                                                <line x1="12" y1="15" x2="12" y2="3"/>
+                                            </svg>
+                                        </button>
                                         <input type="file" id="workflowFileInput" accept=".json">
                                     </div>
                                     <button class="btn-secondary" id="clearGraphBtn">Clear All</button>

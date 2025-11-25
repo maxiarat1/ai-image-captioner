@@ -362,8 +362,8 @@
         const processingControls = document.getElementById('processingControls');
         if (processingControls) processingControls.style.display = 'none';
 
-    // Clear any node highlights
-    NEExec._clearProcessingHighlights();
+        // Clear any node highlights
+        NEExec._clearProcessingHighlights();
 
         // Final load of results from database
         await NEExec._loadResultsFromDatabase();
@@ -373,17 +373,21 @@
             const outputNode = NodeEditor.nodes.find(n => n.type === 'output');
             if (outputNode && typeof updateOutputStats === 'function') {
                 const currentStats = outputNode.data.stats || {};
+                const total = currentStats.total || 0;
                 const resultsCount = Array.isArray(AppState.allResults) ? AppState.allResults.length : 0;
+
+                // On completion, ensure processed equals total to avoid off-by-one errors
+                // This handles cases where the final status update may not arrive before completion
                 updateOutputStats(outputNode.id, {
-                    // Preserve existing counters where possible
-                    total: currentStats.total || 0,
-                    processed: currentStats.processed || 0,
-                    success: currentStats.success || 0,
+                    total: total,
+                    processed: total,  // Set to total on completion
+                    success: currentStats.success || resultsCount,  // Use results count if success not available
                     failed: currentStats.failed || 0,
                     // Clear transient fields
                     stage: '',
                     speed: '',
                     eta: '',
+                    totalTime: '',
                     // Signal completion via results count so UI hides idle
                     resultsReady: resultsCount
                 });

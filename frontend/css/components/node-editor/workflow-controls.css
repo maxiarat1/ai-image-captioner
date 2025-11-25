@@ -3,7 +3,7 @@
 .workflow-controls {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     margin-right: 12px;
 }
 
@@ -15,27 +15,36 @@
 .workflow-select-btn {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 12px;
+    gap: 8px;
+    padding: 8px 14px;
     background: var(--bg-tertiary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     color: var(--text-primary);
-    font-size: 0.85rem;
+    font-size: 0.875rem;
     font-weight: 500;
     cursor: pointer;
     transition: all var(--transition-fast);
-    min-width: 140px;
-    max-width: 200px;
+    min-width: 150px;
+    max-width: 220px;
+    position: relative;
 }
 
 .workflow-select-btn:hover {
     background: var(--bg-secondary);
     border-color: var(--accent-primary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.workflow-select-btn:active {
+    transform: translateY(1px);
 }
 
 .workflow-select-icon {
-    font-size: 1rem;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    opacity: 0.7;
 }
 
 .workflow-select-name {
@@ -44,17 +53,22 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    line-height: 1.4;
 }
 
 .workflow-select-name.unsaved::after {
     content: ' •';
     color: var(--accent-primary);
+    font-weight: 700;
+    font-size: 1.2em;
 }
 
 .workflow-select-arrow {
-    font-size: 0.7rem;
-    transition: transform var(--transition-fast);
-    opacity: 0.6;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    transition: transform var(--transition-smooth);
+    opacity: 0.5;
 }
 
 .workflow-select-wrapper.open .workflow-select-arrow {
@@ -64,55 +78,74 @@
 /* Dropdown panel */
 .workflow-dropdown {
     position: absolute;
-    top: calc(100% + 4px);
+    top: calc(100% + 6px);
     left: 0;
     min-width: 100%;
     width: max-content;
-    max-width: 280px;
+    max-width: 300px;
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
-    box-shadow: 0 8px 24px var(--shadow);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 8px 32px rgba(0, 0, 0, 0.08);
     z-index: 2000;
     max-height: 0;
     opacity: 0;
     overflow: hidden;
-    transform: translateY(-8px);
-    transition: all var(--transition-smooth);
+    transform: translateY(-10px) scale(0.98);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     pointer-events: none;
 }
 
 .workflow-select-wrapper.open .workflow-dropdown {
-    max-height: 400px;
+    max-height: 420px;
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
     overflow-y: auto;
     pointer-events: auto;
 }
 
 /* Workflow list */
 .workflow-list {
-    padding: 4px;
-    max-height: 200px;
+    padding: 6px;
+    max-height: 220px;
     overflow-y: auto;
+}
+
+.workflow-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.workflow-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.workflow-list::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+.workflow-list::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
 }
 
 .workflow-list:empty::before {
     content: 'No saved workflows';
     display: block;
-    padding: 12px;
+    padding: 16px 12px;
     color: var(--text-secondary);
-    font-size: 0.85rem;
+    font-size: 0.875rem;
     text-align: center;
+    opacity: 0.7;
 }
 
 .workflow-item {
     display: flex;
     align-items: center;
-    padding: 8px 10px;
+    padding: 10px 12px;
     border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: background var(--transition-fast);
+    transition: all var(--transition-fast);
+    gap: 8px;
 }
 
 .workflow-item:hover {
@@ -120,28 +153,39 @@
 }
 
 .workflow-item.active {
-    background: var(--accent-primary-alpha, rgba(99, 102, 241, 0.15));
+    background: var(--accent-primary-alpha, rgba(99, 102, 241, 0.12));
+    border-left: 2px solid var(--accent-primary);
+    padding-left: 10px;
 }
 
 .workflow-item-name {
     flex: 1;
-    font-size: 0.85rem;
+    font-size: 0.875rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    line-height: 1.4;
 }
 
 .workflow-item-name.unsaved::after {
     content: ' •';
     color: var(--accent-primary);
+    font-weight: 700;
+    font-size: 1.2em;
 }
 
 .workflow-item-delete {
-    padding: 2px 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
     background: transparent;
     border: none;
     color: var(--text-secondary);
-    font-size: 1rem;
+    font-size: 1.2rem;
+    line-height: 1;
     cursor: pointer;
     opacity: 0;
     transition: all var(--transition-fast);
@@ -149,7 +193,7 @@
 }
 
 .workflow-item:hover .workflow-item-delete {
-    opacity: 0.6;
+    opacity: 0.5;
 }
 
 .workflow-item-delete:hover {
@@ -162,11 +206,11 @@
 .workflow-dropdown-divider {
     height: 1px;
     background: var(--border-color);
-    margin: 4px 0;
+    margin: 6px 8px;
 }
 
 .workflow-dropdown-actions {
-    padding: 4px;
+    padding: 6px;
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -175,26 +219,38 @@
 .workflow-action-btn {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 10px;
+    gap: 10px;
+    padding: 10px 12px;
     background: transparent;
     border: none;
     border-radius: var(--radius-sm);
     color: var(--text-primary);
-    font-size: 0.85rem;
+    font-size: 0.875rem;
+    font-weight: 500;
     cursor: pointer;
-    transition: background var(--transition-fast);
+    transition: all var(--transition-fast);
     text-align: left;
+    width: 100%;
 }
 
 .workflow-action-btn:hover {
     background: var(--bg-tertiary);
 }
 
-.workflow-action-btn .icon {
-    font-size: 1rem;
-    width: 1.2em;
-    text-align: center;
+.workflow-action-btn:active {
+    transform: translateY(1px);
+}
+
+.workflow-action-btn .action-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    opacity: 0.7;
+}
+
+.workflow-action-btn span {
+    flex: 1;
+    line-height: 1.4;
 }
 
 .workflow-action-btn.workflow-action-danger {
@@ -202,7 +258,7 @@
 }
 
 .workflow-action-btn.workflow-action-danger:hover {
-    background: rgba(239, 68, 68, 0.15);
+    background: rgba(239, 68, 68, 0.12);
 }
 
 /* Icon buttons (export/import) */
@@ -210,15 +266,36 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 38px;
+    height: 38px;
     padding: 0;
-    font-size: 1.1rem;
+    position: relative;
+}
+
+.btn-icon svg {
+    width: 18px;
+    height: 18px;
+    opacity: 0.7;
+    transition: all var(--transition-fast);
 }
 
 .btn-icon:hover {
     background: var(--bg-secondary);
     border-color: var(--accent-primary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.btn-icon:hover svg {
+    opacity: 1;
+    transform: translateY(-1px);
+}
+
+.btn-icon:active {
+    transform: translateY(1px);
+}
+
+.btn-icon:active svg {
+    transform: translateY(0);
 }
 
 /* Hidden file input */
@@ -229,23 +306,53 @@
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .workflow-controls {
-        gap: 2px;
+        gap: 4px;
         margin-right: 8px;
     }
 
     .workflow-select-btn {
-        min-width: 100px;
-        padding: 6px 8px;
-        font-size: 0.8rem;
+        min-width: 120px;
+        padding: 7px 10px;
+        font-size: 0.813rem;
+        gap: 6px;
     }
 
     .workflow-select-icon {
-        display: none;
+        width: 14px;
+        height: 14px;
+    }
+
+    .workflow-select-arrow {
+        width: 12px;
+        height: 12px;
     }
 
     .btn-icon {
-        width: 32px;
-        height: 32px;
-        font-size: 1rem;
+        width: 34px;
+        height: 34px;
+    }
+
+    .btn-icon svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    .workflow-dropdown {
+        max-width: 260px;
+    }
+
+    .workflow-action-btn {
+        padding: 9px 10px;
+        gap: 8px;
+        font-size: 0.813rem;
+    }
+
+    .workflow-action-btn .action-icon {
+        width: 14px;
+        height: 14px;
+    }
+
+    .workflow-item {
+        padding: 9px 10px;
     }
 }

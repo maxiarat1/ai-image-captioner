@@ -10,6 +10,7 @@
     let saveTimeout = null;
     let currentWorkflowName = 'Untitled';
     let hasUnsavedChanges = false;
+    let isRestoring = false; // Flag to prevent false change detection during workflow restoration
 
     // Generate a unique session ID to detect fresh app launches
     const currentSessionId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
@@ -237,6 +238,9 @@
      * Mark as having unsaved changes
      */
     NEPersistence.markUnsaved = function() {
+        // Skip if we're currently restoring a workflow to prevent false change detection
+        if (isRestoring) return;
+
         hasUnsavedChanges = true;
         window.dispatchEvent(new CustomEvent('workflowChanged'));
     };
@@ -409,6 +413,9 @@
      * This saves to sessionStorage (session draft) not localStorage (permanent save)
      */
     NEPersistence.scheduleSave = function() {
+        // Skip if we're currently restoring a workflow to prevent false change detection
+        if (isRestoring) return;
+
         if (saveTimeout) clearTimeout(saveTimeout);
         hasUnsavedChanges = true;
         window.dispatchEvent(new CustomEvent('workflowChanged'));
@@ -498,6 +505,9 @@
             console.error('Invalid workflow object');
             return false;
         }
+
+        // Set flag to prevent scheduleSave from marking as unsaved during restoration
+        isRestoring = true;
 
         try {
             // Clear existing nodes from DOM
@@ -602,6 +612,9 @@
         } catch (e) {
             console.error('Failed to restore workflow:', e);
             return false;
+        } finally {
+            // Always reset the flag, even if restoration failed
+            isRestoring = false;
         }
     };
 

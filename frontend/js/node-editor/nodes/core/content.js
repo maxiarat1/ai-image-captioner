@@ -388,11 +388,7 @@
                             <span class="output-results-icon">✓</span>
                             <span>Processing completed</span>
                         </div>
-                    ` : `
-                        <div class="output-idle">
-                            <span style="color: var(--text-secondary); font-size: 0.85rem;">Waiting for processing...</span>
-                        </div>
-                    `)}
+                    ` : '')}
                 </div>
             `;
         }
